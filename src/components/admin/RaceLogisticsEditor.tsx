@@ -558,13 +558,13 @@ export function RaceLogisticsEditor({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Mile (Return)</Label>
+                            <Label className="text-xs">Return Mile (if applicable)</Label>
                             <Input
                               type="number"
                               step="0.1"
                               value={location.mile_in || ""}
                               onChange={(e) => updateCrewLocation(location.id, { mile_in: e.target.value ? parseFloat(e.target.value) : undefined })}
-                              placeholder="63.2 (if different)"
+                              placeholder="For out-and-back courses"
                               className="h-9"
                             />
                           </div>

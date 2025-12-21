@@ -206,6 +206,56 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
     setSaving(false);
   };
 
+  // Intensity factors for effort levels
+  const INTENSITY_FACTORS: Record<string, number> = {
+    safe: 0.67,
+    tempo: 0.70,
+    pushing: 0.73,
+  };
+
+  // Calculate time adjustment when changing effort level
+  // Physics: Speed ∝ Power^x where x=1 for climbs, x=1/3 for flats
+  // Time = Distance/Speed, so Time ∝ 1/Power^x
+  const handleEffortChange = async (segment: Segment & { arrivalTime: string; elapsedMinutes: number }, newEffort: string) => {
+    const oldIF = INTENSITY_FACTORS[segment.effort_level] || 0.70;
+    const newIF = INTENSITY_FACTORS[newEffort] || 0.70;
+
+    if (oldIF === newIF) {
+      return handleUpdateSegment(segment.id, { effort_level: newEffort });
+    }
+
+    // Determine terrain type from gradient
+    // Climbs: power directly affects speed (exponent = 1)
+    // Flats: aerodynamic drag dominates (exponent = 1/3)
+    // Descents: gravity helps, less power effect (exponent = 0.2)
+    let exponent = 1/3; // default for flat/rolling
+    if (segment.avg_gradient != null) {
+      if (segment.avg_gradient > 3) {
+        exponent = 1; // climbing - power directly affects speed
+      } else if (segment.avg_gradient < -3) {
+        exponent = 0.2; // descending - less power effect
+      } else {
+        // Mixed terrain - interpolate based on gradient
+        exponent = 1/3 + (segment.avg_gradient / 10) * (2/3);
+      }
+    }
+
+    // Calculate time ratio: Time_new / Time_old = (IF_old / IF_new)^exponent
+    const timeRatio = Math.pow(oldIF / newIF, exponent);
+    const newTime = Math.round(segment.target_time_minutes * timeRatio);
+
+    await handleUpdateSegment(segment.id, {
+      effort_level: newEffort,
+      target_time_minutes: newTime,
+    });
+
+    toast.success(
+      newTime < segment.target_time_minutes
+        ? `Faster pace: ${formatDuration(segment.target_time_minutes)} → ${formatDuration(newTime)}`
+        : `Easier pace: ${formatDuration(segment.target_time_minutes)} → ${formatDuration(newTime)}`
+    );
+  };
+
   // Calculate cumulative times
   let elapsedMinutes = 0;
   const segmentsWithTiming = segments.map((segment) => {
@@ -339,7 +389,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
                 <div className="col-span-2">
                   <select
                     value={segment.effort_level}
-                    onChange={(e) => handleUpdateSegment(segment.id, { effort_level: e.target.value })}
+                    onChange={(e) => handleEffortChange(segment, e.target.value)}
                     className={cn(
                       "w-full text-xs font-medium rounded px-2 py-1 border-0 cursor-pointer",
                       segment.effort_level === "safe" && "bg-emerald-100 text-emerald-700",

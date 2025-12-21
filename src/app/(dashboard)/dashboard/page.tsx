@@ -206,7 +206,7 @@ export default function DashboardPage() {
           </h2>
           <div className="grid gap-4">
             {upcomingRaces.map((plan) => (
-              <RaceCard key={plan.id} plan={plan} />
+              <RaceCard key={plan.id} plan={plan} athleteProfile={athleteProfile} />
             ))}
           </div>
         </div>
@@ -220,7 +220,7 @@ export default function DashboardPage() {
           </h2>
           <div className="grid gap-4 opacity-75">
             {pastRaces.map((plan) => (
-              <RaceCard key={plan.id} plan={plan} isPast />
+              <RaceCard key={plan.id} plan={plan} athleteProfile={athleteProfile} isPast />
             ))}
           </div>
         </div>
@@ -270,10 +270,11 @@ export default function DashboardPage() {
 
 interface RaceCardProps {
   plan: RacePlan;
+  athleteProfile: AthleteProfile | null;
   isPast?: boolean;
 }
 
-function RaceCard({ plan, isPast }: RaceCardProps) {
+function RaceCard({ plan, athleteProfile, isPast }: RaceCardProps) {
   const distance = plan.race_distance;
   const race = distance?.race_edition?.race;
 
@@ -344,7 +345,7 @@ function RaceCard({ plan, isPast }: RaceCardProps) {
               {/* Progress indicators */}
               <div className="mt-4 flex items-center gap-3">
                 <ProgressBadge label="Pacing" complete={!!plan.goal_time_minutes} />
-                <ProgressBadge label="Power" complete={false} />
+                <ProgressBadge label="Power" complete={!!athleteProfile?.ftp_watts} />
                 <ProgressBadge label="Nutrition" complete={false} />
                 <ProgressBadge label="Gear" complete={false} />
               </div>
