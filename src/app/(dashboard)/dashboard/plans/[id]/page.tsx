@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   MapPin,
@@ -72,7 +73,10 @@ interface AthleteProfile {
   sodium_mg_per_hour: number;
 }
 
-export default function PlanDetailPage({ params }: { params: { id: string } }) {
+export default function PlanDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+
   const [plan, setPlan] = useState<RacePlan | null>(null);
   const [athlete, setAthlete] = useState<AthleteProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +86,7 @@ export default function PlanDetailPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     fetchPlan();
     fetchAthleteProfile();
-  }, [params.id]);
+  }, [id]);
 
   async function fetchPlan() {
     setLoading(true);
@@ -120,7 +124,7 @@ export default function PlanDetailPage({ params }: { params: { id: string } }) {
           hydration_notes
         )
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error) {

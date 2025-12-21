@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Plus,
@@ -118,7 +119,10 @@ interface Race {
   additional_info: string | null;
 }
 
-export default function RaceDetailPage({ params }: { params: { id: string } }) {
+export default function RaceDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+
   const [race, setRace] = useState<Race | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddEdition, setShowAddEdition] = useState(false);
@@ -129,7 +133,7 @@ export default function RaceDetailPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     fetchRace();
-  }, [params.id]);
+  }, [id]);
 
   async function fetchRace() {
     setLoading(true);
@@ -172,7 +176,7 @@ export default function RaceDetailPage({ params }: { params: { id: string } }) {
           )
         )
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error) {
