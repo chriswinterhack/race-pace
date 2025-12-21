@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 206 56% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 206 56% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 206 56% 16%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 22% 96%;
+    --secondary-foreground: 206 56% 16%;
+
+    --muted: 210 22% 96%;
+    --muted-foreground: 206 27% 40%;
+
+    --accent: 210 22% 96%;
+    --accent-foreground: 206 56% 16%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 22% 87%;
+    --input: 210 22% 87%;
+    --ring: 199 89% 48%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 207 71% 9%;
+    --foreground: 210 22% 96%;
+
+    --card: 207 56% 14%;
+    --card-foreground: 210 22% 96%;
+
+    --popover: 207 56% 14%;
+    --popover-foreground: 210 22% 96%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 207 71% 9%;
+
+    --secondary: 206 44% 22%;
+    --secondary-foreground: 210 22% 96%;
+
+    --muted: 206 44% 22%;
+    --muted-foreground: 210 22% 70%;
+
+    --accent: 206 44% 22%;
+    --accent-foreground: 210 22% 96%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 206 44% 26%;
+    --input: 206 44% 26%;
+    --ring: 199 89% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Focus visible styles for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Skip link styles */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand-sky-400 focus:text-white focus:rounded-md focus:font-medium;
+  }
+}
+
+@layer utilities {
+  /* Tabular numbers for data display */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Custom scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-brand-navy-200 rounded-full;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-navy-300;
+  }
+}

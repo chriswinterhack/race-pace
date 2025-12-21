@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(./node_modules/.bin/tailwindcss:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(cat:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run dev:*)",
+      "Bash(supabase db execute:*)",
+      "Bash(supabase db dump --help:*)",
+      "Bash(supabase db push:*)",
+      "Bash(supabase migration repair --help:*)",
+      "Bash(supabase migration --help:*)",
+      "Bash(supabase migration:*)"
+    ]
+  }
+}
