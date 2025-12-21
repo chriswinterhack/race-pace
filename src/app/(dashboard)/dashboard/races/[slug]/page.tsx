@@ -118,7 +118,7 @@ interface Participant {
   race_distance_id: string;
   user: {
     id: string;
-    full_name: string | null;
+    name: string | null;
     email: string;
   };
   gear_setup: {
@@ -226,7 +226,7 @@ export default function RaceDetailPage() {
         user_id,
         users (
           id,
-          full_name,
+          name,
           email
         )
       `)
@@ -263,11 +263,11 @@ export default function RaceDetailPage() {
     }
 
     const participantsWithGear = (data || []).map((p) => {
-      const userData = p.users as unknown as { id: string; full_name: string | null; email: string } | null;
+      const userData = p.users as unknown as { id: string; name: string | null; email: string } | null;
       return {
         id: p.id,
         race_distance_id: p.race_distance_id,
-        user: userData || { id: p.user_id, full_name: null, email: "" },
+        user: userData || { id: p.user_id, name: null, email: "" },
         gear_setup: p.user_id ? gearMap[p.user_id] || null : null,
       };
     });
@@ -590,7 +590,7 @@ export default function RaceDetailPage() {
 }
 
 function ParticipantCard({ participant }: { participant: Participant }) {
-  const displayName = participant.user?.full_name || participant.user?.email || "Anonymous";
+  const displayName = participant.user?.name || participant.user?.email || "Anonymous";
   const gear = participant.gear_setup;
 
   return (
