@@ -63,8 +63,11 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const visibleAdminNav = isAdmin ? filterByRole(adminNavItems) : [];
 
   const renderNavItem = (item: NavItem) => {
+    // For Dashboard, only exact match. For others, also match child routes.
     const isActive =
-      pathname === item.href || pathname.startsWith(`${item.href}/`);
+      item.href === "/dashboard"
+        ? pathname === "/dashboard"
+        : pathname === item.href || pathname.startsWith(`${item.href}/`);
     const Icon = item.icon;
 
     return (

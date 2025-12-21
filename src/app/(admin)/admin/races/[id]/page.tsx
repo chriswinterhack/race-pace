@@ -21,6 +21,10 @@ import {
   Flag,
   X,
   GripVertical,
+  Bike,
+  Footprints,
+  Droplet,
+  Milestone,
 } from "lucide-react";
 import {
   DndContext,
@@ -49,7 +53,7 @@ import {
   Label,
   Skeleton,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDateRange } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useGpxUpload } from "@/hooks";
 import { toast } from "sonner";
@@ -61,6 +65,7 @@ interface AidStation {
   mile: number;
   supplies?: string[];
   cutoff_time?: string;
+  type?: "aid_station" | "checkpoint"; // Defaults to "aid_station" for backward compatibility
 }
 
 interface RaceDistance {
@@ -105,6 +110,8 @@ interface Race {
   description: string | null;
   website_url: string | null;
   is_active: boolean;
+  race_type: "bike" | "run";
+  race_subtype: string;
   race_editions: RaceEdition[];
   // Logistics fields
   parking_info: string | null;
@@ -127,6 +134,7 @@ export default function RaceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showAddEdition, setShowAddEdition] = useState(false);
   const [showLogisticsEditor, setShowLogisticsEditor] = useState(false);
+  const [showEditRace, setShowEditRace] = useState(false);
   const [expandedEditions, setExpandedEditions] = useState<Set<string>>(new Set());
 
   const supabase = createClient();
@@ -147,6 +155,8 @@ export default function RaceDetailPage() {
         description,
         website_url,
         is_active,
+        race_type,
+        race_subtype,
         parking_info,
         packet_pickup,
         event_schedule,
@@ -292,7 +302,7 @@ export default function RaceDetailPage() {
             <Calendar className="h-4 w-4 mr-2" />
             Race Day Logistics
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setShowEditRace(true)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit Race
           </Button>
@@ -392,6 +402,18 @@ export default function RaceDetailPage() {
           }}
         />
       )}
+
+      {/* Edit Race Modal */}
+      {showEditRace && race && (
+        <EditRaceModal
+          race={race}
+          onClose={() => setShowEditRace(false)}
+          onSaved={() => {
+            setShowEditRace(false);
+            fetchRace();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -406,16 +428,17 @@ interface EditionCardProps {
 
 function EditionCard({ edition, raceSlug, expanded, onToggle, onRefresh }: EditionCardProps) {
   const [showAddDistance, setShowAddDistance] = useState(false);
+  const [showEditEdition, setShowEditEdition] = useState(false);
 
   return (
     <Card>
       <CardContent className="p-0">
         {/* Edition Header */}
-        <button
-          onClick={onToggle}
-          className="w-full p-4 sm:p-6 flex items-center justify-between text-left hover:bg-brand-navy-50/50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
+        <div className="w-full p-4 sm:p-6 flex items-center justify-between hover:bg-brand-navy-50/50 transition-colors">
+          <button
+            onClick={onToggle}
+            className="flex items-center gap-3 text-left flex-1"
+          >
             {expanded ? (
               <ChevronDown className="h-5 w-5 text-brand-navy-400" />
             ) : (
@@ -439,23 +462,20 @@ function EditionCard({ edition, raceSlug, expanded, onToggle, onRefresh }: Editi
               </div>
               <p className="text-sm text-brand-navy-600 mt-1">
                 {edition.race_distances.length} distance{edition.race_distances.length !== 1 ? "s" : ""}
-                {edition.date && (
-                  <span className="ml-2">
-                    · {new Date(edition.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                )}
+                {(() => {
+                  const distanceDates = edition.race_distances.map(d => d.date);
+                  const dateRange = formatDateRange(distanceDates);
+                  return dateRange ? <span className="ml-2">· {dateRange}</span> : null;
+                })()}
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <Button variant="outline" size="sm">
+          </button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowEditEdition(true)}>
               <Edit className="h-4 w-4" />
             </Button>
           </div>
-        </button>
+        </div>
 
         {/* Distances List */}
         {expanded && (
@@ -498,6 +518,18 @@ function EditionCard({ edition, raceSlug, expanded, onToggle, onRefresh }: Editi
             }}
           />
         )}
+
+        {/* Edit Edition Modal */}
+        {showEditEdition && (
+          <EditEditionModal
+            edition={edition}
+            onClose={() => setShowEditEdition(false)}
+            onSaved={() => {
+              setShowEditEdition(false);
+              onRefresh();
+            }}
+          />
+        )}
       </CardContent>
     </Card>
   );
@@ -512,6 +544,8 @@ interface DistanceRowProps {
 
 function DistanceRow({ distance, raceSlug, editionYear, onRefresh }: DistanceRowProps) {
   const [showAidStations, setShowAidStations] = useState(false);
+  const [showEditDistance, setShowEditDistance] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { upload, isUploading, progress } = useGpxUpload();
 
   const handleGpxUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -526,6 +560,28 @@ function DistanceRow({ distance, raceSlug, editionYear, onRefresh }: DistanceRow
     } else {
       toast.error("Failed to upload GPX");
     }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete ${distance.name || distance.distance_miles + " mi"} distance? This cannot be undone.`)) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/distances?id=${distance.id}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        toast.error(result.error || "Failed to delete distance");
+      } else {
+        toast.success("Distance deleted");
+        onRefresh();
+      }
+    } catch (error) {
+      toast.error("Failed to delete distance");
+    }
+    setDeleting(false);
   };
 
   const displayName = distance.name
@@ -621,15 +677,17 @@ function DistanceRow({ distance, raceSlug, editionYear, onRefresh }: DistanceRow
           </div>
         </div>
 
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={() => setShowEditDistance(true)}>
           <Edit className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
           className="text-red-500 hover:text-red-600 hover:bg-red-50"
+          onClick={handleDelete}
+          disabled={deleting}
         >
-          <Trash2 className="h-4 w-4" />
+          {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
         </Button>
       </div>
 
@@ -642,6 +700,18 @@ function DistanceRow({ distance, raceSlug, editionYear, onRefresh }: DistanceRow
           onClose={() => setShowAidStations(false)}
           onSaved={() => {
             setShowAidStations(false);
+            onRefresh();
+          }}
+        />
+      )}
+
+      {/* Edit Distance Modal */}
+      {showEditDistance && (
+        <EditDistanceModal
+          distance={distance}
+          onClose={() => setShowEditDistance(false)}
+          onSaved={() => {
+            setShowEditDistance(false);
             onRefresh();
           }}
         />
@@ -710,6 +780,9 @@ function AddEditionModal({
                 required
               />
             </div>
+            <p className="text-xs text-brand-navy-500">
+              After creating the edition, add distances with their specific race dates.
+            </p>
 
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={onClose}>
@@ -718,6 +791,497 @@ function AddEditionModal({
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Create Edition
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditEditionModal({
+  edition,
+  onClose,
+  onSaved,
+}: {
+  edition: RaceEdition;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [year, setYear] = useState(edition.year);
+  const [isActive, setIsActive] = useState(edition.is_active);
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/admin/editions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          editionId: edition.id,
+          year,
+          isActive,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        toast.error(result.error || "Failed to update edition");
+        setSaving(false);
+        return;
+      }
+
+      toast.success("Edition updated!");
+      onSaved();
+    } catch (error) {
+      toast.error("Failed to update edition");
+      setSaving(false);
+    }
+  };
+
+  // Compute date range from distances
+  const distanceDates = edition.race_distances
+    .map(d => d.date)
+    .filter((d): d is string => d !== null);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+        <div className="p-6">
+          <h2 className="text-xl font-heading font-semibold text-brand-navy-900">
+            Edit Edition
+          </h2>
+          <p className="mt-1 text-sm text-brand-navy-600">
+            Update the {edition.year} edition details
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-year">Year *</Label>
+              <Input
+                id="edit-year"
+                type="number"
+                value={year}
+                onChange={(e) => setYear(parseInt(e.target.value))}
+                min={2020}
+                max={2030}
+                required
+              />
+            </div>
+
+            {distanceDates.length > 0 && (
+              <div className="p-3 bg-brand-navy-50 rounded-lg">
+                <p className="text-sm text-brand-navy-600">
+                  <span className="font-medium">Race dates:</span> Set on each distance option
+                </p>
+                <p className="text-xs text-brand-navy-500 mt-1">
+                  Edit individual distances to change their dates
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit-is-active"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="h-4 w-4 rounded border-brand-navy-300 text-brand-sky-600 focus:ring-brand-sky-500"
+              />
+              <Label htmlFor="edit-is-active" className="text-sm font-normal">
+                Active edition (visible to athletes)
+              </Label>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditDistanceModal({
+  distance,
+  onClose,
+  onSaved,
+}: {
+  distance: RaceDistance;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: distance.name || "",
+    distance_miles: distance.distance_miles.toString(),
+    date: distance.date || "",
+    start_time: distance.start_time || "",
+    elevation_gain: distance.elevation_gain?.toString() || "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/admin/distances", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          distanceId: distance.id,
+          name: formData.name || null,
+          distance_miles: parseFloat(formData.distance_miles),
+          date: formData.date || null,
+          start_time: formData.start_time || null,
+          elevation_gain: formData.elevation_gain ? parseInt(formData.elevation_gain) : null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        toast.error(result.error || "Failed to update distance");
+        setSaving(false);
+        return;
+      }
+
+      toast.success("Distance updated!");
+      onSaved();
+    } catch (error) {
+      toast.error("Failed to update distance");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <h2 className="text-xl font-heading font-semibold text-brand-navy-900">
+            Edit Distance
+          </h2>
+          <p className="mt-1 text-sm text-brand-navy-600">
+            Update distance details
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-dist-miles">Distance (miles) *</Label>
+                <Input
+                  id="edit-dist-miles"
+                  type="number"
+                  step="0.1"
+                  value={formData.distance_miles}
+                  onChange={(e) => setFormData({ ...formData, distance_miles: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-dist-name">Name (optional)</Label>
+                <Input
+                  id="edit-dist-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., XL, Black, Sprint"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-dist-date">Race Date</Label>
+                <Input
+                  id="edit-dist-date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-dist-time">Start Time</Label>
+                <Input
+                  id="edit-dist-time"
+                  type="time"
+                  value={formData.start_time}
+                  onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-dist-elevation">Elevation Gain (ft)</Label>
+              <Input
+                id="edit-dist-elevation"
+                type="number"
+                value={formData.elevation_gain}
+                onChange={(e) => setFormData({ ...formData, elevation_gain: e.target.value })}
+                placeholder="4500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditRaceModal({
+  race,
+  onClose,
+  onSaved,
+}: {
+  race: Race;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: race.name,
+    slug: race.slug,
+    location: race.location || "",
+    description: race.description || "",
+    website_url: race.website_url || "",
+    is_active: race.is_active,
+    race_type: race.race_type as "bike" | "run",
+    race_subtype: race.race_subtype || "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/admin/races", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          raceId: race.id,
+          ...formData,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        toast.error(result.error || "Failed to update race");
+        setSaving(false);
+        return;
+      }
+
+      toast.success("Race updated!");
+      onSaved();
+    } catch (error) {
+      toast.error("Failed to update race");
+      setSaving(false);
+    }
+  };
+
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <h2 className="text-xl font-heading font-semibold text-brand-navy-900">
+            Edit Race
+          </h2>
+          <p className="mt-1 text-sm text-brand-navy-600">
+            Update race details
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-race-name">Race Name *</Label>
+              <Input
+                id="edit-race-name"
+                value={formData.name}
+                onChange={(e) => {
+                  setFormData({
+                    ...formData,
+                    name: e.target.value,
+                    slug: generateSlug(e.target.value),
+                  });
+                }}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-race-slug">URL Slug *</Label>
+              <Input
+                id="edit-race-slug"
+                value={formData.slug}
+                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                required
+              />
+              <p className="text-xs text-brand-navy-500">
+                Used in URLs: /races/{formData.slug || "slug"}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-race-location">Location</Label>
+              <Input
+                id="edit-race-location"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                placeholder="e.g., Stillwater, OK"
+              />
+            </div>
+
+            {/* Race Type Selection */}
+            <div className="space-y-2">
+              <Label>Race Type *</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, race_type: "bike", race_subtype: "" })}
+                  className={cn(
+                    "flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-colors",
+                    formData.race_type === "bike"
+                      ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
+                      : "border-brand-navy-200 hover:border-brand-navy-300"
+                  )}
+                >
+                  <Bike className="h-5 w-5" />
+                  <span className="font-medium">Cycling</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, race_type: "run", race_subtype: "" })}
+                  className={cn(
+                    "flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-colors",
+                    formData.race_type === "run"
+                      ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
+                      : "border-brand-navy-200 hover:border-brand-navy-300"
+                  )}
+                >
+                  <Footprints className="h-5 w-5" />
+                  <span className="font-medium">Running</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Race Subtype Selection */}
+            {formData.race_type && (
+              <div className="space-y-2">
+                <Label>{formData.race_type === "bike" ? "Discipline" : "Race Type"} *</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {formData.race_type === "bike" ? (
+                    <>
+                      {["gravel", "mtb", "road"].map((subtype) => (
+                        <button
+                          key={subtype}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, race_subtype: subtype })}
+                          className={cn(
+                            "p-3 rounded-lg border-2 text-sm font-medium transition-colors capitalize",
+                            formData.race_subtype === subtype
+                              ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
+                              : "border-brand-navy-200 hover:border-brand-navy-300"
+                          )}
+                        >
+                          {subtype === "mtb" ? "MTB" : subtype}
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      {["trail", "ultra", "road"].map((subtype) => (
+                        <button
+                          key={subtype}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, race_subtype: subtype })}
+                          className={cn(
+                            "p-3 rounded-lg border-2 text-sm font-medium transition-colors capitalize",
+                            formData.race_subtype === subtype
+                              ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
+                              : "border-brand-navy-200 hover:border-brand-navy-300"
+                          )}
+                        >
+                          {subtype}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-race-website">Website URL</Label>
+              <Input
+                id="edit-race-website"
+                type="url"
+                value={formData.website_url}
+                onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+                placeholder="https://example.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-race-description">Description</Label>
+              <textarea
+                id="edit-race-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                className="flex w-full rounded-md border border-brand-navy-200 bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-brand-navy-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky-400 focus-visible:ring-offset-2"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit-race-active"
+                checked={formData.is_active}
+                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                className="h-4 w-4 rounded border-brand-navy-300 text-brand-sky-600 focus:ring-brand-sky-500"
+              />
+              <Label htmlFor="edit-race-active" className="text-sm font-normal">
+                Active (visible to athletes)
+              </Label>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving || !formData.race_type || !formData.race_subtype}>
+                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Changes
               </Button>
             </div>
           </form>
@@ -750,7 +1314,6 @@ function AddDistanceModal({
   const [gpxFile, setGpxFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const { upload, isUploading, progress } = useGpxUpload();
-  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -768,23 +1331,34 @@ function AddDistanceModal({
       }
     }
 
-    const { error } = await supabase.from("race_distances").insert({
-      race_edition_id: editionId,
-      name: formData.name || null,
-      distance_miles: parseFloat(formData.distance_miles),
-      date: formData.date || null,
-      start_time: formData.start_time || null,
-      elevation_gain: formData.elevation_gain ? parseInt(formData.elevation_gain) : null,
-      gpx_file_url: gpxUrl,
-      is_active: true,
-    });
+    try {
+      const response = await fetch("/api/admin/distances", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          race_edition_id: editionId,
+          name: formData.name || null,
+          distance_miles: parseFloat(formData.distance_miles),
+          date: formData.date || null,
+          start_time: formData.start_time || null,
+          elevation_gain: formData.elevation_gain ? parseInt(formData.elevation_gain) : null,
+          gpx_file_url: gpxUrl,
+        }),
+      });
 
-    if (error) {
-      toast.error(error.message || "Failed to create distance");
-      setSaving(false);
-    } else {
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        toast.error(result.error || "Failed to create distance");
+        setSaving(false);
+        return;
+      }
+
       toast.success("Distance added!");
       onCreated();
+    } catch (error) {
+      toast.error("Failed to create distance");
+      setSaving(false);
     }
   };
 
@@ -925,12 +1499,19 @@ function SortableAidStationItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Default to aid_station for backward compatibility
+  const stationType = station.type || "aid_station";
+  const isAidStation = stationType === "aid_station";
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "p-4 bg-brand-navy-50 rounded-lg border border-brand-navy-100",
+        "p-4 rounded-lg border",
+        isAidStation
+          ? "bg-emerald-50 border-emerald-200"
+          : "bg-brand-navy-50 border-brand-navy-200",
         isDragging && "shadow-lg"
       )}
     >
@@ -942,40 +1523,77 @@ function SortableAidStationItem({
         >
           <GripVertical className="h-5 w-5" />
         </button>
-        <div className="flex-shrink-0 w-8 h-8 bg-brand-sky-100 text-brand-sky-700 rounded-full flex items-center justify-center font-semibold text-sm">
+        <div className={cn(
+          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm",
+          isAidStation
+            ? "bg-emerald-200 text-emerald-700"
+            : "bg-brand-sky-100 text-brand-sky-700"
+        )}>
           {index + 1}
         </div>
-        <div className="flex-1 grid gap-4 sm:grid-cols-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Name *</Label>
-            <Input
-              value={station.name}
-              onChange={(e) => onUpdate({ name: e.target.value })}
-              placeholder="e.g., Pipeline Aid Station"
-              className="h-9"
-            />
+        <div className="flex-1 space-y-3">
+          {/* Type Selector */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onUpdate({ type: "aid_station" })}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                isAidStation
+                  ? "bg-emerald-600 text-white"
+                  : "bg-white border border-brand-navy-200 text-brand-navy-600 hover:border-brand-navy-300"
+              )}
+            >
+              <Droplet className="h-3.5 w-3.5" />
+              Aid Station
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdate({ type: "checkpoint" })}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                !isAidStation
+                  ? "bg-brand-sky-600 text-white"
+                  : "bg-white border border-brand-navy-200 text-brand-navy-600 hover:border-brand-navy-300"
+              )}
+            >
+              <Milestone className="h-3.5 w-3.5" />
+              Checkpoint
+            </button>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Mile Marker *</Label>
-            <Input
-              type="number"
-              step="0.1"
-              value={station.mile || ""}
-              onChange={(e) =>
-                onUpdate({ mile: parseFloat(e.target.value) || 0 })
-              }
-              placeholder="24.5"
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Cutoff Time</Label>
-            <Input
-              type="time"
-              value={station.cutoff_time || ""}
-              onChange={(e) => onUpdate({ cutoff_time: e.target.value })}
-              className="h-9"
-            />
+          {/* Fields */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Name *</Label>
+              <Input
+                value={station.name}
+                onChange={(e) => onUpdate({ name: e.target.value })}
+                placeholder={isAidStation ? "e.g., Pipeline Aid Station" : "e.g., Start of Climb 1"}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Mile Marker *</Label>
+              <Input
+                type="number"
+                step="0.1"
+                value={station.mile || ""}
+                onChange={(e) =>
+                  onUpdate({ mile: parseFloat(e.target.value) || 0 })
+                }
+                placeholder="24.5"
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Cutoff Time</Label>
+              <Input
+                type="time"
+                value={station.cutoff_time || ""}
+                onChange={(e) => onUpdate({ cutoff_time: e.target.value })}
+                className="h-9"
+              />
+            </div>
           </div>
         </div>
         <button
@@ -1015,10 +1633,10 @@ function AidStationsModal({
     })
   );
 
-  const addStation = () => {
+  const addStation = (type: "aid_station" | "checkpoint" = "aid_station") => {
     setStations([
       ...stations,
-      { id: `station-new-${Date.now()}`, name: "", mile: 0, cutoff_time: "" },
+      { id: `station-new-${Date.now()}`, name: "", mile: 0, cutoff_time: "", type },
     ]);
   };
 
@@ -1050,11 +1668,12 @@ function AidStationsModal({
     // Clean stations for saving (remove empty ones, strip internal IDs)
     const cleanedStations = stations
       .filter((s) => s.name && s.mile >= 0)
-      .map(({ name, mile, supplies, cutoff_time }) => ({
+      .map(({ name, mile, supplies, cutoff_time, type }) => ({
         name,
         mile,
         supplies: supplies || [],
         cutoff_time: cutoff_time || null,
+        type: type || "aid_station", // Default to aid_station for backward compatibility
       }));
 
     try {
@@ -1114,9 +1733,9 @@ function AidStationsModal({
             {stations.length === 0 ? (
               <div className="text-center py-8 bg-brand-navy-50 rounded-lg">
                 <Flag className="h-10 w-10 mx-auto text-brand-navy-300 mb-3" />
-                <p className="text-brand-navy-600">No aid stations added yet</p>
+                <p className="text-brand-navy-600">No aid stations or checkpoints added yet</p>
                 <p className="text-sm text-brand-navy-500 mt-1">
-                  Add checkpoints to help athletes plan their race
+                  Add aid stations (resupply points) and checkpoints (climb starts, landmarks) to help athletes plan their race
                 </p>
               </div>
             ) : (
@@ -1144,15 +1763,26 @@ function AidStationsModal({
               </DndContext>
             )}
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addStation}
-              className="w-full border-dashed"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Aid Station
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => addStation("aid_station")}
+                className="flex-1 border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400"
+              >
+                <Droplet className="h-4 w-4 mr-2" />
+                Add Aid Station
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => addStation("checkpoint")}
+                className="flex-1 border-dashed"
+              >
+                <Milestone className="h-4 w-4 mr-2" />
+                Add Checkpoint
+              </Button>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-brand-navy-100">
@@ -1161,7 +1791,7 @@ function AidStationsModal({
             </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Save Aid Stations
+              Save Changes
             </Button>
           </div>
         </div>

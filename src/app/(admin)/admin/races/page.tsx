@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Plus,
   Search,
-  MoreVertical,
+  Trash2,
   Calendar,
   MapPin,
   Edit,
@@ -20,15 +20,25 @@ import {
   Button,
   Input,
   Skeleton,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDateRange } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+
+interface RaceDistance {
+  id: string;
+  date: string | null;
+}
 
 interface RaceEdition {
   id: string;
   year: number;
-  date: string | null;
+  race_distances: RaceDistance[];
 }
 
 interface Race {
@@ -49,8 +59,34 @@ export default function AdminRacesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [raceToDelete, setRaceToDelete] = useState<Race | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const supabase = createClient();
+
+  async function handleDeleteRace() {
+    if (!raceToDelete) return;
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/races?id=${raceToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to delete race");
+      }
+
+      toast.success(`${raceToDelete.name} deleted`);
+      setRaceToDelete(null);
+      fetchRaces();
+    } catch (error) {
+      console.error("Error deleting race:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to delete race");
+    }
+    setDeleting(false);
+  }
 
   useEffect(() => {
     fetchRaces();
@@ -73,7 +109,10 @@ export default function AdminRacesPage() {
         race_editions (
           id,
           year,
-          date
+          race_distances (
+            id,
+            date
+          )
         )
       `)
       .order("name");
@@ -196,9 +235,10 @@ export default function AdminRacesPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-brand-navy-500"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => setRaceToDelete(race)}
                     >
-                      <MoreVertical className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -214,7 +254,12 @@ export default function AdminRacesPage() {
                       </span>
                       {race.race_editions.length > 0 && (
                         <span className="text-brand-navy-500">
-                          · Latest: {race.race_editions[0]?.year}
+                          · {(() => {
+                            const latestEdition = race.race_editions[0];
+                            const distanceDates = latestEdition?.race_distances?.map(d => d.date) || [];
+                            const dateRange = formatDateRange(distanceDates);
+                            return dateRange || latestEdition?.year;
+                          })()}
                         </span>
                       )}
                     </div>
@@ -253,6 +298,39 @@ export default function AdminRacesPage() {
           }}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!raceToDelete} onOpenChange={(open) => !open && setRaceToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Race?</DialogTitle>
+          </DialogHeader>
+          <p className="text-brand-navy-600">
+            Are you sure you want to delete <strong>{raceToDelete?.name}</strong>? This will also delete all editions, distances, and related data. This action cannot be undone.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setRaceToDelete(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteRace}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete Race
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

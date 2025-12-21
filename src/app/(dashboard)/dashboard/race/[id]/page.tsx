@@ -53,6 +53,7 @@ interface RacePlan {
   id: string;
   user_id: string;
   goal_time_minutes: number | null;
+  start_time: string | null;
   status: string;
   created_at: string;
   race_distance: {
@@ -159,6 +160,7 @@ export default function RaceDashboardPage() {
         id,
         user_id,
         goal_time_minutes,
+        start_time,
         status,
         created_at,
         race_distance:race_distances (
@@ -299,7 +301,12 @@ export default function RaceDashboardPage() {
     : `${distance?.distance_miles} mi`;
 
   const daysUntil = distance?.date
-    ? Math.ceil((new Date(distance.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? (() => {
+        // Parse as local time to avoid timezone issues
+        const [year, month, day] = distance.date.split("-").map(Number);
+        const raceDate = new Date(year!, month! - 1, day!);
+        return Math.ceil((raceDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      })()
     : null;
 
   return (
@@ -354,12 +361,17 @@ export default function RaceDashboardPage() {
           {distance?.date && (
             <span className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              {new Date(distance.date).toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
+              {(() => {
+                // Parse as local time to avoid timezone issues
+                const [year, month, day] = distance.date.split("-").map(Number);
+                const date = new Date(year!, month! - 1, day!);
+                return date.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                });
+              })()}
             </span>
           )}
           {distance?.elevation_gain && (
@@ -404,7 +416,7 @@ export default function RaceDashboardPage() {
       <Card>
         <CardContent className="p-6">
           {activeSection === "overview" && (
-            <OverviewSection plan={plan as any} />
+            <OverviewSection plan={plan as any} onUpdate={fetchPlan} />
           )}
           {activeSection === "course" && (
             <CourseSection plan={plan as any} />

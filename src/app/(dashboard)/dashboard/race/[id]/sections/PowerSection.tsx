@@ -28,9 +28,7 @@ interface PowerSectionProps {
   plan: RacePlan;
 }
 
-export function PowerSection({ plan: _plan }: PowerSectionProps) {
-  // plan is available for future use (elevation_high for altitude adjustment)
-  void _plan;
+export function PowerSection({ plan }: PowerSectionProps) {
   const [profile, setProfile] = useState<AthleteProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
@@ -80,8 +78,22 @@ export function PowerSection({ plan: _plan }: PowerSectionProps) {
     );
   }
 
-  const altitudeFactor = profile.altitude_adjustment_factor ?? 0.2;
+  // Only apply altitude adjustment if race elevation is significant (above 4000 ft)
+  // Scale adjustment based on actual race elevation
+  const raceElevation = plan.race_distance.elevation_high ?? 0;
+  const ALTITUDE_THRESHOLD = 4000; // ft - below this, no adjustment needed
+  const FULL_ALTITUDE_THRESHOLD = 8000; // ft - at this elevation, apply full adjustment
+
+  let altitudeFactor = 0;
+  if (raceElevation >= ALTITUDE_THRESHOLD) {
+    const userFactor = profile.altitude_adjustment_factor ?? 0.2;
+    // Scale linearly from 0 at threshold to full at FULL_ALTITUDE_THRESHOLD
+    const scale = Math.min(1, (raceElevation - ALTITUDE_THRESHOLD) / (FULL_ALTITUDE_THRESHOLD - ALTITUDE_THRESHOLD));
+    altitudeFactor = userFactor * scale;
+  }
+
   const adjustedFTP = calculateAltitudeAdjustedFTP(profile.ftp_watts, altitudeFactor);
+  const needsAltitudeAdjustment = altitudeFactor > 0;
 
   const effortLevels = [
     { key: "safe" as const, label: "Safe", color: "emerald" },
@@ -99,7 +111,9 @@ export function PowerSection({ plan: _plan }: PowerSectionProps) {
       <div>
         <h3 className="text-lg font-semibold text-brand-navy-900">Power Targets</h3>
         <p className="mt-1 text-sm text-brand-navy-600">
-          Power zones adjusted for altitude and terrain
+          {needsAltitudeAdjustment
+            ? "Power zones adjusted for altitude and terrain"
+            : "Power zones adjusted for terrain"}
         </p>
       </div>
 
@@ -111,14 +125,25 @@ export function PowerSection({ plan: _plan }: PowerSectionProps) {
             {profile.ftp_watts}w
           </p>
         </div>
-        <div className="p-4 rounded-lg bg-brand-sky-50">
-          <p className="text-sm text-brand-navy-600">Altitude Adjusted</p>
+        <div className={cn(
+          "p-4 rounded-lg",
+          needsAltitudeAdjustment ? "bg-brand-sky-50" : "bg-emerald-50"
+        )}>
+          <p className="text-sm text-brand-navy-600">
+            {needsAltitudeAdjustment ? "Altitude Adjusted" : "Race Target"}
+          </p>
           <p className="text-2xl font-bold text-brand-navy-900 font-mono">
             {Math.round(adjustedFTP)}w
           </p>
-          <p className="text-xs text-brand-navy-500">
-            -{Math.round(altitudeFactor * 100)}% for altitude
-          </p>
+          {needsAltitudeAdjustment ? (
+            <p className="text-xs text-brand-navy-500">
+              -{Math.round(altitudeFactor * 100)}% for altitude ({raceElevation.toLocaleString()} ft)
+            </p>
+          ) : (
+            <p className="text-xs text-emerald-600">
+              No altitude adjustment needed
+            </p>
+          )}
         </div>
         {profile.weight_kg && (
           <div className="p-4 rounded-lg bg-brand-navy-50">

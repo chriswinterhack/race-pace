@@ -12,6 +12,7 @@ interface AidStation {
   mile: number;
   supplies?: string[];
   cutoff_time?: string;
+  type?: "aid_station" | "checkpoint";
 }
 
 export async function PUT(request: NextRequest) {
@@ -37,6 +38,7 @@ export async function PUT(request: NextRequest) {
         mile: s.mile,
         supplies: s.supplies || [],
         cutoff_time: s.cutoff_time || null,
+        type: s.type || "aid_station", // Default to aid_station for backward compatibility
       }))
       .sort((a, b) => a.mile - b.mile);
 

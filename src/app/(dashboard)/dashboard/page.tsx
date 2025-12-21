@@ -23,6 +23,12 @@ import { createClient } from "@/lib/supabase/client";
 import { formatDuration } from "@/lib/calculations";
 import { AddRaceModal } from "@/components/race/AddRaceModal";
 
+// Parse date string as local time to avoid timezone issues
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year!, month! - 1, day!);
+}
+
 interface RacePlan {
   id: string;
   goal_time_minutes: number | null;
@@ -115,16 +121,33 @@ export default function DashboardPage() {
     fetchData();
   };
 
-  // Separate upcoming and past races
+  // Separate upcoming and past races, sorted by date
   const today = new Date();
-  const upcomingRaces = racePlans.filter((plan) => {
-    const raceDate = plan.race_distance?.date ? new Date(plan.race_distance.date) : null;
-    return !raceDate || raceDate >= today;
-  });
-  const pastRaces = racePlans.filter((plan) => {
-    const raceDate = plan.race_distance?.date ? new Date(plan.race_distance.date) : null;
-    return raceDate && raceDate < today;
-  });
+  today.setHours(0, 0, 0, 0); // Compare dates only, not times
+
+  const upcomingRaces = racePlans
+    .filter((plan) => {
+      const raceDate = plan.race_distance?.date ? parseLocalDate(plan.race_distance.date) : null;
+      return !raceDate || raceDate >= today;
+    })
+    .sort((a, b) => {
+      // Sort by date ascending (soonest first), races without dates go last
+      const dateA = a.race_distance?.date ? parseLocalDate(a.race_distance.date).getTime() : Infinity;
+      const dateB = b.race_distance?.date ? parseLocalDate(b.race_distance.date).getTime() : Infinity;
+      return dateA - dateB;
+    });
+
+  const pastRaces = racePlans
+    .filter((plan) => {
+      const raceDate = plan.race_distance?.date ? parseLocalDate(plan.race_distance.date) : null;
+      return raceDate && raceDate < today;
+    })
+    .sort((a, b) => {
+      // Sort by date descending (most recent first)
+      const dateA = a.race_distance?.date ? parseLocalDate(a.race_distance.date).getTime() : 0;
+      const dateB = b.race_distance?.date ? parseLocalDate(b.race_distance.date).getTime() : 0;
+      return dateB - dateA;
+    });
 
   return (
     <div className="space-y-8">
@@ -285,7 +308,7 @@ function RaceCard({ plan, athleteProfile, isPast }: RaceCardProps) {
     : `${distance.distance_miles} mi`;
 
   const daysUntil = distance.date
-    ? Math.ceil((new Date(distance.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((parseLocalDate(distance.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
   return (
@@ -327,7 +350,7 @@ function RaceCard({ plan, athleteProfile, isPast }: RaceCardProps) {
                 {distance.date && (
                   <span className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
-                    {new Date(distance.date).toLocaleDateString("en-US", {
+                    {parseLocalDate(distance.date).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",

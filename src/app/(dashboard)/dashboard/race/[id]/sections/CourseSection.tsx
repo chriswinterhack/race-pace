@@ -35,7 +35,7 @@ interface RaceDistance {
   elevation_high: number | null;
   elevation_low: number | null;
   gpx_file_url: string | null;
-  aid_stations: Array<{ name: string; mile: number; cutoff?: string }> | null;
+  aid_stations: Array<{ name: string; mile: number; cutoff?: string; type?: "aid_station" | "checkpoint" }> | null;
 }
 
 interface RacePlan {
@@ -302,7 +302,9 @@ export function CourseSection({ plan }: CourseSectionProps) {
         {!loading && !error && elevationData.length > 0 && (
           <CourseMap
             points={elevationData}
-            aidStations={distance?.aid_stations ?? []}
+            aidStations={(distance?.aid_stations ?? []).filter(
+              (s) => !s.type || s.type === "aid_station"
+            )}
           />
         )}
 
@@ -420,24 +422,30 @@ export function CourseSection({ plan }: CourseSectionProps) {
       </div>
 
       {/* Aid Station Markers */}
-      {distance?.aid_stations && distance.aid_stations.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium text-brand-navy-700 mb-4">
-            Aid Stations on Course
-          </h4>
-          <div className="flex gap-3 flex-wrap">
-            {distance.aid_stations.map((station, index) => (
-              <div
-                key={index}
-                className="px-3 py-2 rounded-lg bg-brand-sky-50 border border-brand-sky-200 text-sm"
-              >
-                <span className="font-medium text-brand-sky-700">{station.name}</span>
-                <span className="text-brand-sky-500 ml-2">Mile {station.mile}</span>
-              </div>
-            ))}
+      {(() => {
+        // Filter to only show actual aid stations (not checkpoints)
+        const aidStations = (distance?.aid_stations ?? []).filter(
+          (s) => !s.type || s.type === "aid_station"
+        );
+        return aidStations.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium text-brand-navy-700 mb-4">
+              Aid Stations on Course
+            </h4>
+            <div className="flex gap-3 flex-wrap">
+              {aidStations.map((station, index) => (
+                <div
+                  key={index}
+                  className="px-3 py-2 rounded-lg bg-brand-sky-50 border border-brand-sky-200 text-sm"
+                >
+                  <span className="font-medium text-brand-sky-700">{station.name}</span>
+                  <span className="text-brand-sky-500 ml-2">Mile {station.mile}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

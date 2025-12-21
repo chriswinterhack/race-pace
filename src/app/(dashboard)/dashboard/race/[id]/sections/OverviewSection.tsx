@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Calendar,
   Clock,
@@ -17,9 +18,14 @@ import {
   AlertTriangle,
   Cloud,
   Info,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 interface RaceDistance {
   id: string;
@@ -36,7 +42,7 @@ interface RaceDistance {
   elevation_low: number | null;
   gpx_file_url: string | null;
   surface_composition: Record<string, number> | null;
-  aid_stations: Array<{ name: string; mile: number; cutoff?: string }> | null;
+  aid_stations: Array<{ name: string; mile: number; cutoff?: string; type?: "aid_station" | "checkpoint" }> | null;
   time_limit_minutes: number | null;
   participant_limit: number | null;
   registration_url: string | null;
@@ -65,11 +71,13 @@ interface RaceDistance {
 
 interface RacePlan {
   id: string;
+  start_time: string | null;
   race_distance: RaceDistance;
 }
 
 interface OverviewSectionProps {
   plan: RacePlan;
+  onUpdate?: () => void;
 }
 
 function formatMinutes(minutes: number): string {
@@ -80,12 +88,50 @@ function formatMinutes(minutes: number): string {
   return `${hours}h ${mins}min`;
 }
 
-export function OverviewSection({ plan }: OverviewSectionProps) {
+export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
   const distance = plan.race_distance;
   const race = distance?.race_edition?.race;
+  const supabase = createClient();
 
   const surfaceComposition = distance?.surface_composition;
-  const aidStations = distance?.aid_stations || [];
+  // Filter to only show actual aid stations (not checkpoints)
+  const aidStations = (distance?.aid_stations || []).filter(
+    (s) => !s.type || s.type === "aid_station"
+  );
+
+  // State for editing start time
+  const [editingStartTime, setEditingStartTime] = useState(false);
+  const [startTimeValue, setStartTimeValue] = useState(
+    plan.start_time?.slice(0, 5) || distance?.start_time?.slice(0, 5) || ""
+  );
+  const [savingStartTime, setSavingStartTime] = useState(false);
+
+  // Get the effective start time (plan's custom time or race default)
+  const effectiveStartTime = plan.start_time || distance?.start_time;
+  const hasCustomStartTime = plan.start_time !== null;
+
+  async function handleSaveStartTime() {
+    setSavingStartTime(true);
+    const { error } = await supabase
+      .from("race_plans")
+      .update({ start_time: startTimeValue || null })
+      .eq("id", plan.id);
+
+    if (error) {
+      toast.error("Failed to save start time");
+      console.error(error);
+    } else {
+      toast.success("Start time updated");
+      setEditingStartTime(false);
+      onUpdate?.();
+    }
+    setSavingStartTime(false);
+  }
+
+  function handleCancelEdit() {
+    setStartTimeValue(plan.start_time?.slice(0, 5) || distance?.start_time?.slice(0, 5) || "");
+    setEditingStartTime(false);
+  }
 
   return (
     <div className="space-y-8">
@@ -107,28 +153,85 @@ export function OverviewSection({ plan }: OverviewSectionProps) {
               <span className="text-sm font-medium">Date</span>
             </div>
             <p className="text-brand-navy-900 font-semibold">
-              {new Date(distance.date).toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
+              {(() => {
+                // Parse as local time to avoid timezone issues
+                const [year, month, day] = distance.date.split("-").map(Number);
+                const date = new Date(year!, month! - 1, day!);
+                return date.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                });
+              })()}
             </p>
           </div>
         )}
 
-        {distance?.start_time && (
-          <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-            <div className="flex items-center gap-2 text-brand-navy-500 mb-2">
+        {/* Start Time - Editable */}
+        <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-brand-navy-500">
               <Clock className="h-4 w-4" />
-              <span className="text-sm font-medium">Start Time</span>
+              <span className="text-sm font-medium">Your Start Time</span>
             </div>
-            <p className="text-brand-navy-900 font-semibold">{distance.start_time}</p>
-            {distance.wave_info && (
-              <p className="text-sm text-brand-navy-500 mt-1">{distance.wave_info}</p>
+            {!editingStartTime && (
+              <button
+                onClick={() => setEditingStartTime(true)}
+                className="p-1 rounded hover:bg-brand-navy-200 text-brand-navy-500 hover:text-brand-navy-700 transition-colors"
+                aria-label="Edit start time"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
-        )}
+
+          {editingStartTime ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={startTimeValue}
+                onChange={(e) => setStartTimeValue(e.target.value)}
+                className="w-32 h-8 text-sm"
+              />
+              <button
+                onClick={handleSaveStartTime}
+                disabled={savingStartTime}
+                className="p-1.5 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+                aria-label="Save"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                disabled={savingStartTime}
+                className="p-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+                aria-label="Cancel"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-brand-navy-900 font-semibold">
+                {effectiveStartTime?.slice(0, 5) || "Not set"}
+              </p>
+              {hasCustomStartTime && distance?.start_time && plan.start_time !== distance.start_time && (
+                <p className="text-xs text-brand-navy-500 mt-1">
+                  Official race start: {distance.start_time.slice(0, 5)}
+                </p>
+              )}
+              {!hasCustomStartTime && distance?.start_time && (
+                <p className="text-xs text-brand-navy-500 mt-1">
+                  Set your corral/wave start time
+                </p>
+              )}
+              {distance?.wave_info && (
+                <p className="text-sm text-brand-navy-500 mt-1">{distance.wave_info}</p>
+              )}
+            </>
+          )}
+        </div>
 
         {race?.location && (
           <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
@@ -313,11 +416,16 @@ export function OverviewSection({ plan }: OverviewSectionProps) {
                 {race.packet_pickup.map((pickup, index) => (
                   <div key={index} className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
                     <p className="font-medium text-brand-navy-900">
-                      {new Date(pickup.date).toLocaleDateString("en-US", {
-                        weekday: "long",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {(() => {
+                        // Parse as local time to avoid timezone issues
+                        const [year, month, day] = pickup.date.split("-").map(Number);
+                        const date = new Date(year!, month! - 1, day!);
+                        return date.toLocaleDateString("en-US", {
+                          weekday: "long",
+                          month: "short",
+                          day: "numeric",
+                        });
+                      })()}
                     </p>
                     <p className="text-brand-navy-700">
                       {pickup.start_time.slice(0, 5)} - {pickup.end_time.slice(0, 5)}

@@ -30,13 +30,14 @@ interface Segment {
 interface RacePlan {
   id: string;
   goal_time_minutes: number | null;
+  start_time: string | null;
   race_distance: {
     id: string;
     distance_miles: number;
     gpx_distance_miles: number | null;
     gpx_file_url: string | null;
     start_time: string | null;
-    aid_stations: Array<{ name: string; mile: number }> | null;
+    aid_stations: Array<{ name: string; mile: number; type?: "aid_station" | "checkpoint" }> | null;
   };
   segments: Segment[];
 }
@@ -115,11 +116,17 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
   // Use GPX distance if available, otherwise fall back to nominal distance
   const effectiveDistance = plan.race_distance.gpx_distance_miles ?? plan.race_distance.distance_miles;
 
+  // Filter to only use actual aid stations (not checkpoints) for pacing
+  const aidStations = (plan.race_distance.aid_stations ?? []).filter(
+    (s) => !s.type || s.type === "aid_station"
+  );
+
   const segments = [...plan.segments].sort((a, b) => a.segment_order - b.segment_order);
-  const startTime = plan.race_distance.start_time?.slice(0, 5) || "06:00";
+  // Use plan's custom start time if set, otherwise fall back to race distance start time
+  const startTime = plan.start_time?.slice(0, 5) || plan.race_distance.start_time?.slice(0, 5) || "06:00";
 
   const handleGenerateFromAidStations = async () => {
-    if (!plan.race_distance.aid_stations || plan.race_distance.aid_stations.length === 0) {
+    if (aidStations.length === 0) {
       toast.error("No aid stations found for this race");
       return;
     }
@@ -154,7 +161,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
 
       // Generate new segments with terrain-adjusted times
       const newSegments = generateSegmentsFromAidStations(
-        plan.race_distance.aid_stations,
+        aidStations,
         effectiveDistance,
         plan.goal_time_minutes,
         elevationPoints
@@ -241,7 +248,9 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
     }
 
     // Calculate time ratio: Time_new / Time_old = (IF_old / IF_new)^exponent
-    const timeRatio = Math.pow(oldIF / newIF, exponent);
+    // Use a minimum exponent to ensure meaningful time changes
+    const effectiveExponent = Math.max(exponent, 0.5);
+    const timeRatio = Math.pow(oldIF / newIF, effectiveExponent);
     const newTime = Math.round(segment.target_time_minutes * timeRatio);
 
     await handleUpdateSegment(segment.id, {
@@ -249,11 +258,16 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
       target_time_minutes: newTime,
     });
 
-    toast.success(
-      newTime < segment.target_time_minutes
-        ? `Faster pace: ${formatDuration(segment.target_time_minutes)} → ${formatDuration(newTime)}`
-        : `Easier pace: ${formatDuration(segment.target_time_minutes)} → ${formatDuration(newTime)}`
-    );
+    // Determine if going to harder or easier effort
+    const goingHarder = newIF > oldIF;
+
+    if (newTime === segment.target_time_minutes) {
+      toast.success(`Effort updated to ${newEffort}`);
+    } else if (goingHarder) {
+      toast.success(`Harder effort: ${formatDuration(segment.target_time_minutes)} → ${formatDuration(newTime)}`);
+    } else {
+      toast.success(`Easier effort: ${formatDuration(segment.target_time_minutes)} → ${formatDuration(newTime)}`);
+    }
   };
 
   // Calculate cumulative times
@@ -279,7 +293,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
             Set target times for each segment of the race
           </p>
         </div>
-        {plan.race_distance.aid_stations && plan.race_distance.aid_stations.length > 0 && (
+        {aidStations.length > 0 && (
           <Button
             variant="outline"
             onClick={handleGenerateFromAidStations}
@@ -299,7 +313,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
         <div className="text-center py-12 bg-brand-navy-50 rounded-lg">
           <Clock className="h-8 w-8 text-brand-navy-300 mx-auto mb-3" />
           <p className="text-brand-navy-600 mb-4">No segments yet</p>
-          {plan.race_distance.aid_stations && plan.race_distance.aid_stations.length > 0 ? (
+          {aidStations.length > 0 ? (
             <Button onClick={handleGenerateFromAidStations} disabled={generating}>
               {generating ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
