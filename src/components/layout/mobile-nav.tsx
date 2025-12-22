@@ -8,7 +8,6 @@ import {
   Map,
   Bike,
   Settings,
-  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +20,6 @@ interface NavItem {
 const mobileNavItems: NavItem[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
   { label: "Races", href: "/dashboard/races", icon: Map },
-  { label: "Search", href: "/dashboard/search", icon: Search },
   { label: "Gear", href: "/dashboard/gear", icon: Bike },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
