@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Mountain,
   Zap,
@@ -15,6 +16,7 @@ import {
   Calendar,
   Route,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 
 // Enhanced SEO metadata for landing page
 export const metadata: Metadata = {
@@ -153,69 +155,79 @@ const features = [
   },
 ];
 
-// Featured races with real data
-const featuredRaces = [
-  {
-    name: "Unbound Gravel",
-    slug: "unbound-gravel",
-    location: "Emporia, KS",
-    subtype: "Gravel",
-    distances: "25-350 mi",
-    elevation: "Up to 18,000 ft",
-    date: "June 2026",
-    gradient: "from-amber-700 via-orange-600 to-red-800",
-  },
-  {
-    name: "Mid South",
-    slug: "mid-south",
-    location: "Stillwater, OK",
-    subtype: "Gravel",
-    distances: "50-100 mi",
-    elevation: "Up to 5,500 ft",
-    date: "March 2026",
-    gradient: "from-emerald-800 via-teal-700 to-brand-navy-900",
-  },
-  {
-    name: "SBT GRVL",
-    slug: "sbt-grvl",
-    location: "Steamboat Springs, CO",
-    subtype: "Gravel",
-    distances: "37-142 mi",
-    elevation: "Up to 9,000 ft",
-    date: "August 2026",
-    gradient: "from-brand-sky-700 via-cyan-600 to-teal-700",
-  },
-  {
-    name: "Leadville Trail 100 MTB",
-    slug: "leadville-100-mtb",
-    location: "Leadville, CO",
-    subtype: "MTB",
-    distances: "100 mi",
-    elevation: "12,600 ft",
-    date: "August 2026",
-    gradient: "from-slate-800 via-zinc-700 to-stone-800",
-  },
-  {
-    name: "Belgian Waffle Ride",
-    slug: "belgian-waffle-ride",
-    location: "San Marcos, CA",
-    subtype: "Gravel",
-    distances: "34-131 mi",
-    elevation: "Up to 10,000 ft",
-    date: "May 2026",
-    gradient: "from-rose-700 via-pink-600 to-purple-800",
-  },
-  {
-    name: "Big Sugar Gravel",
-    slug: "big-sugar",
-    location: "Bentonville, AR",
-    subtype: "Gravel",
-    distances: "51-104 mi",
-    elevation: "Up to 8,000 ft",
-    date: "October 2026",
-    gradient: "from-purple-800 via-violet-700 to-brand-navy-900",
-  },
-];
+// Helper to parse date as local time
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year!, month! - 1, day!);
+}
+
+// Generate a beautiful gradient based on race name for cards without images
+function generateGradient(name: string): string {
+  const gradients = [
+    "from-brand-navy-800 via-brand-navy-700 to-brand-sky-900",
+    "from-emerald-800 via-teal-700 to-brand-navy-900",
+    "from-amber-700 via-orange-600 to-red-800",
+    "from-purple-800 via-violet-700 to-brand-navy-900",
+    "from-rose-700 via-pink-600 to-purple-800",
+    "from-brand-sky-700 via-cyan-600 to-teal-700",
+    "from-slate-800 via-zinc-700 to-stone-800",
+    "from-indigo-800 via-blue-700 to-brand-navy-900",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return gradients[Math.abs(hash) % gradients.length]!;
+}
+
+// Format date range from array of dates
+function formatDateRange(dates: (string | null)[]): string | null {
+  const validDates = dates
+    .filter((d): d is string => d !== null)
+    .map((d) => parseLocalDate(d))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (validDates.length === 0) return null;
+
+  const firstDate = validDates[0]!;
+  const lastDate = validDates[validDates.length - 1]!;
+
+  if (validDates.length === 1 || firstDate.getTime() === lastDate.getTime()) {
+    return firstDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  const sameMonth = firstDate.getMonth() === lastDate.getMonth() && firstDate.getFullYear() === lastDate.getFullYear();
+  if (sameMonth) {
+    const month = firstDate.toLocaleDateString("en-US", { month: "short" });
+    return `${month} ${firstDate.getDate()}-${lastDate.getDate()}, ${firstDate.getFullYear()}`;
+  }
+
+  const firstFormatted = firstDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const lastFormatted = lastDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${firstFormatted} - ${lastFormatted}`;
+}
+
+// Format distances display
+function formatDistances(distances: { distance_miles: number; elevation_gain: number | null }[]): {
+  distanceText: string;
+  elevationText: string | null;
+} {
+  if (distances.length === 0) return { distanceText: "", elevationText: null };
+
+  const uniqueMiles = [...new Set(distances.map(d => d.distance_miles))].sort((a, b) => b - a);
+  const distanceText = uniqueMiles.length > 1
+    ? `${uniqueMiles[uniqueMiles.length - 1]}-${uniqueMiles[0]} mi`
+    : `${uniqueMiles[0]} mi`;
+
+  const maxElevation = Math.max(...distances.map(d => d.elevation_gain || 0));
+  const elevationText = maxElevation > 0 ? `${maxElevation.toLocaleString()} ft` : null;
+
+  return { distanceText, elevationText };
+}
 
 const disciplines = [
   { name: "Gravel Racing", description: "Long-distance mixed-surface events" },
@@ -224,7 +236,101 @@ const disciplines = [
   { name: "Cyclocross", description: "CX race pacing and strategy" },
 ];
 
-export default function HomePage() {
+interface RaceDistance {
+  id: string;
+  distance_miles: number;
+  date: string | null;
+  elevation_gain: number | null;
+}
+
+interface RaceEdition {
+  id: string;
+  year: number;
+  race_distances: RaceDistance[];
+}
+
+interface Race {
+  id: string;
+  name: string;
+  slug: string;
+  location: string | null;
+  hero_image_url: string | null;
+  race_subtype: string;
+  race_editions: RaceEdition[];
+}
+
+export default async function HomePage() {
+  // Fetch races from database
+  const supabase = await createClient();
+  const { data: racesData } = await supabase
+    .from("races")
+    .select(`
+      id,
+      name,
+      slug,
+      location,
+      hero_image_url,
+      race_subtype,
+      race_editions (
+        id,
+        year,
+        race_distances (
+          id,
+          distance_miles,
+          date,
+          elevation_gain
+        )
+      )
+    `)
+    .eq("is_active", true);
+
+  // Process and sort races chronologically
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const races = (racesData || []).map((race: Race) => {
+    // Get all dates from all editions
+    const allDates: { date: Date; edition: RaceEdition }[] = [];
+    for (const edition of race.race_editions || []) {
+      for (const distance of edition.race_distances || []) {
+        if (distance.date) {
+          allDates.push({ date: parseLocalDate(distance.date), edition });
+        }
+      }
+    }
+
+    // Find the next upcoming date
+    const upcomingDates = allDates.filter(d => d.date >= today);
+    const nextDate = upcomingDates.length > 0
+      ? upcomingDates.sort((a, b) => a.date.getTime() - b.date.getTime())[0]
+      : allDates.sort((a, b) => a.date.getTime() - b.date.getTime())[0];
+
+    // Get the edition with the next upcoming date
+    const relevantEdition = nextDate?.edition || race.race_editions[0];
+    const distances = relevantEdition?.race_distances || [];
+    const dateStrings = distances.map(d => d.date);
+    const { distanceText, elevationText } = formatDistances(distances);
+    const dateRange = formatDateRange(dateStrings);
+
+    return {
+      ...race,
+      nextDate: nextDate?.date || null,
+      distanceText,
+      elevationText,
+      dateRange,
+    };
+  });
+
+  // Sort by next upcoming date
+  const sortedRaces = races
+    .sort((a, b) => {
+      if (!a.nextDate && !b.nextDate) return 0;
+      if (!a.nextDate) return 1;
+      if (!b.nextDate) return -1;
+      return a.nextDate.getTime() - b.nextDate.getTime();
+    })
+    .slice(0, 6); // Limit to 6 races
+
   return (
     <>
       {/* Structured Data */}
@@ -501,63 +607,88 @@ export default function HomePage() {
 
             {/* Race Cards Grid */}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredRaces.map((race) => (
-                <article
-                  key={race.slug}
-                  className="group relative overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 border border-brand-navy-100 hover:border-brand-sky-300 transform hover:-translate-y-1 h-80"
-                >
-                  {/* Hero Gradient */}
-                  <div className="relative w-full h-48 overflow-hidden">
-                    <div className={`absolute inset-0 bg-gradient-to-br ${race.gradient}`}>
-                      {/* Subtle pattern overlay */}
-                      <div
-                        className="absolute inset-0 opacity-10"
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                        }}
-                      />
+              {sortedRaces.map((race) => {
+                const gradient = generateGradient(race.name);
+                return (
+                  <article
+                    key={race.slug}
+                    className="group relative overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 border border-brand-navy-100 hover:border-brand-sky-300 transform hover:-translate-y-1 h-80"
+                  >
+                    {/* Hero Image or Gradient */}
+                    <div className="relative w-full h-48 overflow-hidden">
+                      {race.hero_image_url ? (
+                        <Image
+                          src={race.hero_image_url}
+                          alt={race.name}
+                          fill
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        />
+                      ) : (
+                        <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`}>
+                          {/* Subtle pattern overlay */}
+                          <div
+                            className="absolute inset-0 opacity-10"
+                            style={{
+                              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+                      {/* Stats Badge */}
+                      {(race.distanceText || race.elevationText) && (
+                        <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-navy-900/90 backdrop-blur-sm text-white text-sm font-medium shadow-lg">
+                            <Route className="h-3.5 w-3.5 text-brand-sky-400" />
+                            {race.distanceText}
+                            {race.elevationText && (
+                              <>
+                                <span className="text-brand-navy-400 mx-0.5">•</span>
+                                <Mountain className="h-3.5 w-3.5 text-brand-sky-400" />
+                                {race.elevationText}
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Race Type Badge */}
+                      {race.race_subtype && (
+                        <div className="absolute top-3 right-3">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-sm text-brand-navy-700 text-xs font-semibold uppercase tracking-wide shadow-md">
+                            {race.race_subtype === "cx" ? "Cyclocross" : race.race_subtype}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-
-                    {/* Stats Badge */}
-                    <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-navy-900/90 backdrop-blur-sm text-white text-sm font-medium shadow-lg">
-                        <Route className="h-3.5 w-3.5 text-brand-sky-400" />
-                        {race.distances}
-                        <span className="text-brand-navy-400 mx-0.5">•</span>
-                        <Mountain className="h-3.5 w-3.5 text-brand-sky-400" />
-                        {race.elevation}
-                      </span>
+                    {/* Content */}
+                    <div className="p-4 space-y-3">
+                      <h3 className="font-heading font-bold text-brand-navy-900 text-lg group-hover:text-brand-sky-600 transition-colors line-clamp-2">
+                        {race.name}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-brand-navy-600">
+                        {race.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5 text-brand-sky-500" />
+                            <span className="truncate max-w-[150px]">{race.location}</span>
+                          </span>
+                        )}
+                        {race.dateRange && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5 text-brand-sky-500" />
+                            {race.dateRange}
+                          </span>
+                        )}
+                      </div>
                     </div>
-
-                    {/* Race Type Badge */}
-                    <div className="absolute top-3 right-3">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-sm text-brand-navy-700 text-xs font-semibold uppercase tracking-wide shadow-md">
-                        {race.subtype}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-4 space-y-3">
-                    <h3 className="font-heading font-bold text-brand-navy-900 text-lg group-hover:text-brand-sky-600 transition-colors">
-                      {race.name}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-brand-navy-600">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5 text-brand-sky-500" />
-                        {race.location}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5 text-brand-sky-500" />
-                        {race.date}
-                      </span>
-                    </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
 
             {/* View All Link */}
