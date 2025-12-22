@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { User, Zap, Droplets, Settings2, Shield, Loader2, Check, Camera, Upload, Lock, Mountain, Minus } from "lucide-react";
+import { User, Zap, Droplets, Settings2, Shield, Loader2, Check, Camera, Upload, Lock, Mountain, Minus, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { calculateAllPowerTargets } from "@/lib/calculations/power";
 
 interface AthleteProfile {
@@ -105,6 +106,7 @@ export default function SettingsPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
+  const router = useRouter();
 
   // Check if power settings are locked
   const isLocked = profile?.power_settings_locked ?? false;
@@ -330,6 +332,11 @@ export default function SettingsPage() {
       toast.success("Preferences saved");
     }
     setSaving(null);
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
   }
 
   if (loading) {
@@ -680,6 +687,33 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Account Actions */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-brand-navy-100">
+              <LogOut className="h-5 w-5 text-brand-navy-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Account</CardTitle>
+              <CardDescription>Sign out of your account</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-brand-navy-900">Log Out</p>
+              <p className="text-sm text-brand-navy-600">Sign out of FinalClimb on this device</p>
+            </div>
+            <Button variant="outline" onClick={handleLogout} className="gap-2">
+              <LogOut className="h-4 w-4" />
+              Log Out
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Danger Zone */}
       <Card className="border-red-200">
