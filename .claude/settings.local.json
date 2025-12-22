@@ -16,7 +16,9 @@
       "Bash(supabase db push:*)",
       "Bash(supabase migration repair --help:*)",
       "Bash(supabase migration --help:*)",
-      "Bash(supabase migration:*)"
+      "Bash(supabase migration:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx knip:*)"
     ]
   }
 }

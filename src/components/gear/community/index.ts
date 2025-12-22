@@ -1,1 +1,0 @@
-export { CommunityGearStats } from "./CommunityGearStats";
