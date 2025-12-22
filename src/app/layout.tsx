@@ -24,11 +24,11 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "RacePace - Race Planning for Endurance Athletes",
-    template: "%s | RacePace",
+    default: "FinalClimb - Race Planning for Cyclists",
+    template: "%s | FinalClimb",
   },
   description:
-    "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies for gravel cycling, mountain biking, and ultrarunning.",
+    "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies for gravel, road, MTB, and cyclocross racing.",
   keywords: [
     "gravel racing",
     "cycling",
@@ -37,23 +37,24 @@ export const metadata: Metadata = {
     "nutrition",
     "endurance",
     "MTB",
-    "ultrarunning",
+    "road cycling",
+    "cyclocross",
   ],
-  authors: [{ name: "RacePace" }],
-  creator: "RacePace",
+  authors: [{ name: "FinalClimb" }],
+  creator: "FinalClimb",
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "RacePace",
-    title: "RacePace - Race Planning for Endurance Athletes",
+    siteName: "FinalClimb",
+    title: "FinalClimb - Race Planning for Cyclists",
     description:
-      "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies.",
+      "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies for gravel, road, MTB, and cyclocross racing.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "RacePace - Race Planning for Endurance Athletes",
+    title: "FinalClimb - Race Planning for Cyclists",
     description:
-      "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies.",
+      "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies for gravel, road, MTB, and cyclocross racing.",
   },
   robots: {
     index: true,

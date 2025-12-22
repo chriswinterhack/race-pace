@@ -1,8 +1,8 @@
-# RacePace
+# FinalClimb
 
 ## Project Overview
 
-RacePace is a race planning platform for endurance athletes (gravel cycling, mountain biking, ultrarunning, trail running). Athletes and coaches use it to build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies.
+FinalClimb is a race planning platform for cyclists (gravel, road, MTB, cyclocross). Athletes and coaches use it to build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies.
 
 **Target Launch:** Mid South Gravel (March 14-15, 2025)
 

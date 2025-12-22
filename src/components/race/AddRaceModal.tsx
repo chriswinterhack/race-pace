@@ -19,7 +19,7 @@ import {
   Input,
   Skeleton,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDateWithYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
@@ -268,11 +268,7 @@ export function AddRaceModal({ open, onClose, onRaceAdded }: AddRaceModalProps) 
                             {distance.date && (
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3.5 w-3.5" />
-                                {new Date(distance.date).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
+                                {formatDateWithYear(distance.date)}
                               </span>
                             )}
                             {distance.elevation_gain && (

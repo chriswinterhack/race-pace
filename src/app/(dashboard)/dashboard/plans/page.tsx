@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button, Card, CardContent, Skeleton } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDateWithYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { formatDuration } from "@/lib/calculations";
@@ -178,11 +178,7 @@ export default function PlansPage() {
                         {plan.race_distance?.date && (
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
-                            {new Date(plan.race_distance.date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
+                            {formatDateWithYear(plan.race_distance.date)}
                           </span>
                         )}
                         <span className="flex items-center gap-1">

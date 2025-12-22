@@ -14,6 +14,23 @@ export const athleteProfileSchema = z.object({
     .min(0, "Altitude adjustment must be positive")
     .max(0.5, "Altitude adjustment must be at most 50%")
     .default(0.20),
+  // Intensity factors for power zones
+  if_safe: z
+    .number()
+    .min(0.50, "Safe IF must be at least 50%")
+    .max(0.80, "Safe IF must be at most 80%")
+    .default(0.67),
+  if_tempo: z
+    .number()
+    .min(0.55, "Tempo IF must be at least 55%")
+    .max(0.85, "Tempo IF must be at most 85%")
+    .default(0.70),
+  if_pushing: z
+    .number()
+    .min(0.60, "Pushing IF must be at least 60%")
+    .max(0.90, "Pushing IF must be at most 90%")
+    .default(0.73),
+  // Nutrition defaults
   nutrition_cho_per_hour: z
     .number()
     .min(30, "Carbs per hour must be at least 30g")
@@ -33,3 +50,12 @@ export const athleteProfileSchema = z.object({
 });
 
 export type AthleteProfileInput = z.infer<typeof athleteProfileSchema>;
+
+// Intensity factors schema for power settings
+export const intensityFactorsSchema = z.object({
+  safe: z.number().min(0.50).max(0.80).default(0.67),
+  tempo: z.number().min(0.55).max(0.85).default(0.70),
+  pushing: z.number().min(0.60).max(0.90).default(0.73),
+});
+
+export type IntensityFactorsInput = z.infer<typeof intensityFactorsSchema>;

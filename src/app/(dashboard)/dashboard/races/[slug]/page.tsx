@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft,
   MapPin,
@@ -13,21 +14,30 @@ import {
   Bike,
   Footprints,
   Clock,
-  DollarSign,
   Flag,
   Plus,
-  ChevronDown,
-  ChevronUp,
+  ChevronRight,
+  Route,
+  Thermometer,
+  Car,
+  TrendingUp,
+  Circle,
+  Timer,
 } from "lucide-react";
 import {
   Card,
   CardContent,
   Button,
   Skeleton,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { AddToMyRacesModal } from "@/components/race/AddToMyRacesModal";
+import { DiscussionsSection } from "@/components/discussions";
 
 // Parse date string as local time to avoid timezone issues
 function parseLocalDate(dateStr: string): Date {
@@ -48,7 +58,6 @@ function formatShortDate(dateStr: string): string {
   return parseLocalDate(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
   });
 }
 
@@ -63,18 +72,28 @@ function formatTime(timeStr: string): string {
   });
 }
 
+function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins}m`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+}
+
 interface AidStation {
   name: string;
   mile: number;
   supplies?: string[];
   cutoff_time?: string;
+  type?: "aid_station" | "checkpoint";
 }
 
 interface SurfaceComposition {
-  gravel_pct?: number;
-  pavement_pct?: number;
-  singletrack_pct?: number;
-  dirt_pct?: number;
+  gravel?: number;
+  pavement?: number;
+  singletrack?: number;
+  doubletrack?: number;
+  dirt?: number;
 }
 
 interface RaceDistance {
@@ -106,48 +125,60 @@ interface Race {
   location: string | null;
   description: string | null;
   website_url: string | null;
+  hero_image_url: string | null;
   race_type: "bike" | "run";
   race_subtype: string;
   parking_info: string | null;
   weather_notes: string | null;
+  course_rules: string | null;
+  course_marking: string | null;
+  crew_info: string | null;
+  drop_bag_info: string | null;
   race_editions: RaceEdition[];
 }
 
-interface Participant {
-  id: string;
-  race_distance_id: string;
-  user: {
-    id: string;
-    name: string | null;
-    email: string;
-  };
-  gear_setup: {
-    bike_brand: string | null;
-    bike_model: string | null;
-    tire_brand: string | null;
-    tire_model: string | null;
-    tire_width: number | null;
-  } | null;
+interface GearAggregation {
+  brand: string;
+  model: string;
+  width?: string; // For tires: "2.4"" or "40mm"
+  count: number;
+  percentage: number;
 }
+
+interface RaceGearStats {
+  total_participants: number;
+  bikes: GearAggregation[];
+  front_tires: GearAggregation[];
+  rear_tires: GearAggregation[];
+}
+
+type TabId = "overview" | "course" | "community" | "discussions";
 
 export default function RaceDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
 
   const [race, setRace] = useState<Race | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [gearStats, setGearStats] = useState<RaceGearStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [expandedDistances, setExpandedDistances] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [selectedDistance, setSelectedDistance] = useState<RaceDistance | null>(null);
+  const [showGearModal, setShowGearModal] = useState(false);
 
   const supabase = createClient();
 
   useEffect(() => {
     if (slug) {
       fetchRace();
-      fetchParticipants();
     }
   }, [slug]);
+
+  useEffect(() => {
+    if (race?.id) {
+      fetchGearStats();
+    }
+  }, [race?.id]);
 
   async function fetchRace() {
     setLoading(true);
@@ -160,10 +191,15 @@ export default function RaceDetailPage() {
         location,
         description,
         website_url,
+        hero_image_url,
         race_type,
         race_subtype,
         parking_info,
         weather_notes,
+        course_rules,
+        course_marking,
+        crew_info,
+        drop_bag_info,
         race_editions (
           id,
           year,
@@ -190,7 +226,6 @@ export default function RaceDetailPage() {
     if (error) {
       console.error("Error fetching race:", error);
     } else if (data) {
-      // Sort editions by year descending, distances by distance descending
       const sortedRace = {
         ...data,
         race_editions: (data.race_editions || [])
@@ -207,108 +242,39 @@ export default function RaceDetailPage() {
     setLoading(false);
   }
 
-  async function fetchParticipants() {
-    // First get race ID from slug
-    const { data: raceData } = await supabase
-      .from("races")
-      .select("id")
-      .eq("slug", slug)
-      .single();
-
-    if (!raceData) return;
-
-    // Fetch participants with their gear
-    const { data, error } = await supabase
-      .from("race_plans")
-      .select(`
-        id,
-        race_distance_id,
-        user_id,
-        users (
-          id,
-          name,
-          email
-        )
-      `)
-      .eq("race_id", raceData.id);
-
-    if (error) {
-      console.error("Error fetching participants:", error);
-      return;
-    }
-
-    // Fetch gear setups for these users
-    const userIds = [...new Set((data || []).map(p => p.user_id).filter(Boolean))];
-    let gearMap: Record<string, Participant["gear_setup"]> = {};
-
-    if (userIds.length > 0) {
-      const { data: gearData } = await supabase
-        .from("gear_setups")
-        .select("user_id, bike_brand, bike_model, tire_brand, tire_model, tire_width")
-        .eq("race_id", raceData.id)
-        .eq("is_public", true)
-        .in("user_id", userIds);
-
-      if (gearData) {
-        gearData.forEach((g) => {
-          gearMap[g.user_id] = {
-            bike_brand: g.bike_brand,
-            bike_model: g.bike_model,
-            tire_brand: g.tire_brand,
-            tire_model: g.tire_model,
-            tire_width: g.tire_width,
-          };
-        });
+  async function fetchGearStats() {
+    if (!race?.id) return;
+    try {
+      const response = await fetch(`/api/gear/community/${race.id}`);
+      const result = await response.json();
+      if (result.data) {
+        setGearStats(result.data);
       }
+    } catch (error) {
+      console.error("Failed to fetch gear stats:", error);
     }
-
-    const participantsWithGear = (data || []).map((p) => {
-      const userData = p.users as unknown as { id: string; name: string | null; email: string } | null;
-      return {
-        id: p.id,
-        race_distance_id: p.race_distance_id,
-        user: userData || { id: p.user_id, name: null, email: "" },
-        gear_setup: p.user_id ? gearMap[p.user_id] || null : null,
-      };
-    });
-
-    setParticipants(participantsWithGear);
-  }
-
-  function toggleDistanceExpanded(distanceId: string) {
-    setExpandedDistances((prev) => {
-      const next = new Set(prev);
-      if (next.has(distanceId)) {
-        next.delete(distanceId);
-      } else {
-        next.add(distanceId);
-      }
-      return next;
-    });
-  }
-
-  function getParticipantsForDistance(distanceId: string): Participant[] {
-    return participants.filter((p) => p.race_distance_id === distanceId);
   }
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-48" />
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-48 w-full" />
+      <div className="min-h-screen">
+        <Skeleton className="h-[400px] w-full" />
+        <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+          <Skeleton className="h-12 w-64" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
       </div>
     );
   }
 
   if (!race) {
     return (
-      <div className="text-center py-12">
-        <h1 className="text-xl font-semibold text-brand-navy-900">Race not found</h1>
-        <p className="mt-2 text-brand-navy-600">The race you're looking for doesn't exist.</p>
+      <div className="text-center py-24">
+        <h1 className="text-2xl font-heading font-bold text-brand-navy-900">Race not found</h1>
+        <p className="mt-2 text-brand-navy-600">The race you&apos;re looking for doesn&apos;t exist.</p>
         <Link href="/dashboard/races">
-          <Button className="mt-4">Back to Races</Button>
+          <Button className="mt-6">Back to Races</Button>
         </Link>
       </div>
     );
@@ -317,264 +283,225 @@ export default function RaceDetailPage() {
   const latestEdition = race.race_editions[0];
   const allDates = latestEdition?.race_distances?.map((d) => d.date).filter(Boolean) || [];
   const firstDate = allDates.length > 0 ? allDates.sort()[0] : null;
+  const totalParticipants = gearStats?.total_participants || 0;
+
+  // Calculate aggregate stats
+  const maxElevation = Math.max(
+    ...latestEdition?.race_distances.map((d) => d.elevation_gain || 0) || [0]
+  );
+  const distanceRange = latestEdition?.race_distances.length
+    ? `${Math.min(...latestEdition.race_distances.map((d) => d.distance_miles))}-${Math.max(...latestEdition.race_distances.map((d) => d.distance_miles))}`
+    : null;
 
   return (
-    <div className="space-y-8">
-      {/* Back Button */}
-      <Link
-        href="/dashboard/races"
-        className="inline-flex items-center gap-2 text-sm text-brand-navy-600 hover:text-brand-navy-900 transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Races
-      </Link>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          {/* Race Type Badge */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium",
-              race.race_type === "bike"
-                ? "bg-brand-sky-100 text-brand-sky-700"
-                : "bg-emerald-100 text-emerald-700"
-            )}>
-              {race.race_type === "bike" ? (
-                <Bike className="h-4 w-4" />
-              ) : (
-                <Footprints className="h-4 w-4" />
-              )}
-              {race.race_subtype
-                ? race.race_subtype.charAt(0).toUpperCase() + race.race_subtype.slice(1)
-                : race.race_type === "bike" ? "Cycling" : "Running"}
-            </span>
+    <div className="min-h-screen -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
+      {/* Hero Section */}
+      <div className="relative h-[420px] sm:h-[480px] overflow-hidden">
+        {/* Background Image */}
+        {race.hero_image_url ? (
+          <Image
+            src={race.hero_image_url}
+            alt={race.name}
+            fill
+            className="object-cover"
+            priority
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-navy-800 via-brand-navy-900 to-brand-navy-950">
+            {/* Pattern overlay for non-image heroes */}
+            <div
+              className="absolute inset-0 opacity-10"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }}
+            />
           </div>
+        )}
 
-          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-brand-navy-900">
-            {race.name}
-          </h1>
+        {/* Gradient Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent" />
 
-          <div className="mt-3 flex flex-wrap items-center gap-4 text-brand-navy-600">
-            {race.location && (
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-4 w-4" />
-                {race.location}
-              </span>
-            )}
-            {firstDate && (
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-4 w-4" />
-                {formatDate(firstDate)}
-              </span>
-            )}
-          </div>
+        {/* Back Button */}
+        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20">
+          <Link
+            href="/dashboard/races"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            All Races
+          </Link>
         </div>
 
-        <Button onClick={() => setShowAddModal(true)} size="lg" className="gap-2">
-          <Plus className="h-5 w-5" />
-          Add to My Races
-        </Button>
-      </div>
+        {/* Hero Content */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 lg:p-12">
+          <div className="max-w-6xl mx-auto">
+            {/* Race Type Badge */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold backdrop-blur-sm",
+                race.race_type === "bike"
+                  ? "bg-brand-sky-500/20 text-brand-sky-200 border border-brand-sky-400/30"
+                  : "bg-emerald-500/20 text-emerald-200 border border-emerald-400/30"
+              )}>
+                {race.race_type === "bike" ? (
+                  <Bike className="h-4 w-4" />
+                ) : (
+                  <Footprints className="h-4 w-4" />
+                )}
+                {race.race_subtype
+                  ? race.race_subtype.charAt(0).toUpperCase() + race.race_subtype.slice(1)
+                  : race.race_type === "bike" ? "Cycling" : "Running"}
+              </span>
+              {latestEdition && (
+                <span className="text-white/60 text-sm font-medium">
+                  {latestEdition.year} Edition
+                </span>
+              )}
+            </div>
 
-      {/* Race Info Section */}
-      <Card>
-        <CardContent className="p-6 space-y-6">
-          <h2 className="text-lg font-semibold text-brand-navy-900">About the Race</h2>
+            {/* Race Name */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-white tracking-tight">
+              {race.name}
+            </h1>
 
-          {race.description && (
-            <p className="text-brand-navy-700 leading-relaxed">{race.description}</p>
-          )}
+            {/* Location & Date */}
+            <div className="mt-4 flex flex-wrap items-center gap-4 sm:gap-6 text-white/80">
+              {race.location && (
+                <span className="flex items-center gap-2 text-lg">
+                  <MapPin className="h-5 w-5 text-white/60" />
+                  {race.location}
+                </span>
+              )}
+              {firstDate && (
+                <span className="flex items-center gap-2 text-lg">
+                  <Calendar className="h-5 w-5 text-white/60" />
+                  {formatDate(firstDate)}
+                </span>
+              )}
+            </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Registration Info */}
-            {latestEdition?.registration_opens && (
-              <div className="p-4 rounded-lg bg-brand-navy-50">
-                <p className="text-sm font-medium text-brand-navy-500">Registration Opens</p>
-                <p className="mt-1 font-semibold text-brand-navy-900">
-                  {formatShortDate(latestEdition.registration_opens)}
-                </p>
-              </div>
-            )}
-            {latestEdition?.registration_closes && (
-              <div className="p-4 rounded-lg bg-brand-navy-50">
-                <p className="text-sm font-medium text-brand-navy-500">Registration Closes</p>
-                <p className="mt-1 font-semibold text-brand-navy-900">
-                  {formatShortDate(latestEdition.registration_closes)}
-                </p>
-              </div>
-            )}
-
-            {/* Website */}
-            {race.website_url && (
-              <div className="p-4 rounded-lg bg-brand-navy-50">
-                <p className="text-sm font-medium text-brand-navy-500">Official Website</p>
+            {/* CTA */}
+            <div className="mt-6 flex flex-wrap items-center gap-4">
+              <Button
+                onClick={() => setShowAddModal(true)}
+                size="lg"
+                className="gap-2 bg-white text-brand-navy-900 hover:bg-white/90 font-semibold px-6"
+              >
+                <Plus className="h-5 w-5" />
+                Add to My Races
+              </Button>
+              {race.website_url && (
                 <a
                   href={race.website_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 font-semibold text-brand-sky-600 hover:text-brand-sky-700"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white font-medium hover:bg-white/20 transition-colors"
                 >
-                  Visit Site
                   <ExternalLink className="h-4 w-4" />
+                  Official Website
                 </a>
-              </div>
-            )}
-
-            {/* Weather Notes */}
-            {race.weather_notes && (
-              <div className="p-4 rounded-lg bg-brand-navy-50 sm:col-span-2 lg:col-span-3">
-                <p className="text-sm font-medium text-brand-navy-500">Weather & Conditions</p>
-                <p className="mt-1 text-brand-navy-700">{race.weather_notes}</p>
-              </div>
-            )}
-
-            {/* Parking */}
-            {race.parking_info && (
-              <div className="p-4 rounded-lg bg-brand-navy-50 sm:col-span-2 lg:col-span-3">
-                <p className="text-sm font-medium text-brand-navy-500">Parking Information</p>
-                <p className="mt-1 text-brand-navy-700">{race.parking_info}</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Distances Section */}
-      {latestEdition && latestEdition.race_distances.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-brand-navy-900">
-            {latestEdition.year} Distances
-          </h2>
-
-          <div className="grid gap-4">
-            {latestEdition.race_distances.map((distance) => {
-              const distanceParticipants = getParticipantsForDistance(distance.id);
-              const isExpanded = expandedDistances.has(distance.id);
-              const displayName = distance.name
-                ? `${distance.name} (${distance.distance_miles} mi)`
-                : `${distance.distance_miles} mi`;
-
-              return (
-                <Card key={distance.id}>
-                  <CardContent className="p-0">
-                    {/* Distance Header */}
-                    <div className="p-5">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold text-brand-navy-900">
-                            {displayName}
-                          </h3>
-                          <div className="mt-2 flex flex-wrap gap-3 text-sm text-brand-navy-600">
-                            {distance.date && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                {formatShortDate(distance.date)}
-                              </span>
-                            )}
-                            {distance.start_time && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-4 w-4" />
-                                {formatTime(distance.start_time)}
-                              </span>
-                            )}
-                            {distance.elevation_gain && (
-                              <span className="flex items-center gap-1">
-                                <Mountain className="h-4 w-4" />
-                                {distance.elevation_gain.toLocaleString()} ft gain
-                              </span>
-                            )}
-                            {distance.aid_stations && distance.aid_stations.length > 0 && (
-                              <span className="flex items-center gap-1">
-                                <Flag className="h-4 w-4" />
-                                {distance.aid_stations.length} aid stations
-                              </span>
-                            )}
-                            {distance.registration_fee_cents && (
-                              <span className="flex items-center gap-1">
-                                <DollarSign className="h-4 w-4" />
-                                ${(distance.registration_fee_cents / 100).toFixed(0)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          {distanceParticipants.length > 0 && (
-                            <span className="flex items-center gap-1 text-sm text-brand-sky-600">
-                              <Users className="h-4 w-4" />
-                              {distanceParticipants.length}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Surface Composition */}
-                      {distance.surface_composition && (
-                        <div className="mt-4">
-                          <p className="text-sm font-medium text-brand-navy-500 mb-2">Surface</p>
-                          <div className="flex gap-2 flex-wrap">
-                            {distance.surface_composition.gravel_pct && distance.surface_composition.gravel_pct > 0 && (
-                              <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-md">
-                                {distance.surface_composition.gravel_pct}% Gravel
-                              </span>
-                            )}
-                            {distance.surface_composition.pavement_pct && distance.surface_composition.pavement_pct > 0 && (
-                              <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md">
-                                {distance.surface_composition.pavement_pct}% Paved
-                              </span>
-                            )}
-                            {distance.surface_composition.dirt_pct && distance.surface_composition.dirt_pct > 0 && (
-                              <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-md">
-                                {distance.surface_composition.dirt_pct}% Dirt
-                              </span>
-                            )}
-                            {distance.surface_composition.singletrack_pct && distance.surface_composition.singletrack_pct > 0 && (
-                              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md">
-                                {distance.surface_composition.singletrack_pct}% Singletrack
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Participants Toggle */}
-                    {distanceParticipants.length > 0 && (
-                      <>
-                        <button
-                          onClick={() => toggleDistanceExpanded(distance.id)}
-                          className="w-full px-5 py-3 flex items-center justify-between border-t border-brand-navy-100 hover:bg-brand-navy-50 transition-colors"
-                        >
-                          <span className="text-sm font-medium text-brand-navy-700">
-                            View {distanceParticipants.length} {distanceParticipants.length === 1 ? "Participant" : "Participants"}
-                          </span>
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-brand-navy-500" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-brand-navy-500" />
-                          )}
-                        </button>
-
-                        {/* Participants List */}
-                        {isExpanded && (
-                          <div className="border-t border-brand-navy-100 bg-brand-navy-50/50 p-5">
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {distanceParticipants.map((participant) => (
-                                <ParticipantCard key={participant.id} participant={participant} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Quick Stats Bar */}
+      <div className="bg-brand-navy-900 border-b border-brand-navy-700">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-brand-navy-700">
+            <QuickStat
+              icon={<Route className="h-5 w-5" />}
+              label="Distances"
+              value={distanceRange ? `${distanceRange} mi` : `${latestEdition?.race_distances.length || 0} options`}
+            />
+            <QuickStat
+              icon={<Mountain className="h-5 w-5" />}
+              label="Max Elevation"
+              value={maxElevation ? `${maxElevation.toLocaleString()} ft` : "—"}
+            />
+            <QuickStat
+              icon={<Flag className="h-5 w-5" />}
+              label="Aid Stations"
+              value={`${Math.max(...latestEdition?.race_distances.map((d) => d.aid_stations?.length || 0) || [0])}`}
+            />
+            <QuickStat
+              icon={<Users className="h-5 w-5" />}
+              label="Community"
+              value={totalParticipants > 0 ? `${totalParticipants} riders` : "Be first!"}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="sticky top-0 z-30 bg-white border-b border-brand-navy-200 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex gap-1">
+            {[
+              { id: "overview" as TabId, label: "Overview" },
+              { id: "course" as TabId, label: "Course & Distances" },
+              { id: "community" as TabId, label: "Community Gear" },
+              { id: "discussions" as TabId, label: "Discussions" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "relative px-5 py-4 text-sm font-medium transition-colors",
+                  activeTab === tab.id
+                    ? "text-brand-navy-900"
+                    : "text-brand-navy-500 hover:text-brand-navy-700"
+                )}
+              >
+                {tab.label}
+                {activeTab === tab.id && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-sky-500" />
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {activeTab === "overview" && (
+          <OverviewTab race={race} latestEdition={latestEdition} />
+        )}
+        {activeTab === "course" && (
+          <CourseTab
+            latestEdition={latestEdition}
+            onDistanceSelect={(d) => setSelectedDistance(d)}
+          />
+        )}
+        {activeTab === "community" && (
+          <CommunityTab gearStats={gearStats} raceId={race.id} />
+        )}
+        {activeTab === "discussions" && (
+          <DiscussionsSection raceId={race.id} raceName={race.name} />
+        )}
+      </div>
+
+      {/* Distance Detail Modal */}
+      <Dialog open={!!selectedDistance} onOpenChange={() => setSelectedDistance(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {selectedDistance && (
+            <DistanceDetailModal distance={selectedDistance} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Community Gear Modal (for race plan page link) */}
+      <Dialog open={showGearModal} onOpenChange={setShowGearModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Community Gear Choices</DialogTitle>
+          </DialogHeader>
+          <CommunityTab gearStats={gearStats} raceId={race.id} compact />
+        </DialogContent>
+      </Dialog>
 
       {/* Add to My Races Modal */}
       {latestEdition && (
@@ -589,30 +516,633 @@ export default function RaceDetailPage() {
   );
 }
 
-function ParticipantCard({ participant }: { participant: Participant }) {
-  const displayName = participant.user?.name || participant.user?.email || "Anonymous";
-  const gear = participant.gear_setup;
-
+// Quick Stat Component
+function QuickStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="p-3 bg-white rounded-lg border border-brand-navy-200">
-      <p className="font-medium text-brand-navy-900 truncate">{displayName}</p>
-      {gear ? (
-        <div className="mt-1 text-xs text-brand-navy-600 space-y-0.5">
-          {(gear.bike_brand || gear.bike_model) && (
-            <p className="flex items-center gap-1">
-              <Bike className="h-3 w-3" />
-              {[gear.bike_brand, gear.bike_model].filter(Boolean).join(" ")}
-            </p>
-          )}
-          {(gear.tire_brand || gear.tire_model) && (
-            <p>
-              Tires: {[gear.tire_brand, gear.tire_model, gear.tire_width ? `${gear.tire_width}mm` : null].filter(Boolean).join(" ")}
-            </p>
-          )}
-        </div>
-      ) : (
-        <p className="mt-1 text-xs text-brand-navy-400 italic">No public gear info</p>
+    <div className="py-4 px-4 sm:px-6 text-center">
+      <div className="flex items-center justify-center gap-2 text-brand-sky-400 mb-1">
+        {icon}
+        <span className="text-xs font-medium uppercase tracking-wider text-brand-navy-400">
+          {label}
+        </span>
+      </div>
+      <p className="text-lg font-bold text-white">{value}</p>
+    </div>
+  );
+}
+
+// Overview Tab
+function OverviewTab({
+  race,
+  latestEdition,
+}: {
+  race: Race;
+  latestEdition: RaceEdition | undefined;
+}) {
+  return (
+    <div className="space-y-8">
+      {/* About Section */}
+      {race.description && (
+        <section>
+          <h2 className="text-xl font-heading font-bold text-brand-navy-900 mb-4">
+            About the Race
+          </h2>
+          <p className="text-brand-navy-700 leading-relaxed text-lg">
+            {race.description}
+          </p>
+        </section>
+      )}
+
+      {/* Info Grid */}
+      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {race.weather_notes && (
+          <InfoCard
+            icon={<Thermometer className="h-5 w-5" />}
+            title="Weather & Conditions"
+            content={race.weather_notes}
+          />
+        )}
+        {race.parking_info && (
+          <InfoCard
+            icon={<Car className="h-5 w-5" />}
+            title="Parking"
+            content={race.parking_info}
+          />
+        )}
+        {race.course_marking && (
+          <InfoCard
+            icon={<Flag className="h-5 w-5" />}
+            title="Course Marking"
+            content={race.course_marking}
+          />
+        )}
+        {race.crew_info && (
+          <InfoCard
+            icon={<Users className="h-5 w-5" />}
+            title="Crew Access"
+            content={race.crew_info}
+          />
+        )}
+        {race.drop_bag_info && (
+          <InfoCard
+            icon={<Route className="h-5 w-5" />}
+            title="Drop Bags"
+            content={race.drop_bag_info}
+          />
+        )}
+        {race.course_rules && (
+          <InfoCard
+            icon={<Flag className="h-5 w-5" />}
+            title="Course Rules"
+            content={race.course_rules}
+          />
+        )}
+      </section>
+
+      {/* Distance Preview */}
+      {latestEdition && latestEdition.race_distances.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-heading font-bold text-brand-navy-900">
+              {latestEdition.year} Distance Options
+            </h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {latestEdition.race_distances.slice(0, 3).map((distance) => (
+              <DistancePreviewCard key={distance.id} distance={distance} />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );
+}
+
+// Info Card Component
+function InfoCard({
+  icon,
+  title,
+  content,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  content: string;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-5">
+        <div className="flex items-center gap-2 text-brand-sky-600 mb-3">
+          {icon}
+          <h3 className="font-semibold text-brand-navy-900">{title}</h3>
+        </div>
+        <p className="text-sm text-brand-navy-600 leading-relaxed">{content}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Distance Preview Card
+function DistancePreviewCard({ distance }: { distance: RaceDistance }) {
+  return (
+    <Card className="group hover:shadow-lg transition-shadow cursor-pointer overflow-hidden">
+      <CardContent className="p-0">
+        {/* Header */}
+        <div className="p-5 bg-gradient-to-br from-brand-navy-50 to-brand-sky-50">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-3xl font-bold text-brand-navy-900">
+                {distance.distance_miles}
+                <span className="text-lg font-normal text-brand-navy-500 ml-1">mi</span>
+              </p>
+              {distance.name && (
+                <p className="text-sm font-medium text-brand-navy-600 mt-1">
+                  {distance.name}
+                </p>
+              )}
+            </div>
+            <ChevronRight className="h-5 w-5 text-brand-navy-400 group-hover:text-brand-sky-500 transition-colors" />
+          </div>
+        </div>
+        {/* Stats */}
+        <div className="p-5 space-y-2">
+          {distance.elevation_gain && (
+            <div className="flex items-center gap-2 text-sm text-brand-navy-600">
+              <Mountain className="h-4 w-4 text-brand-navy-400" />
+              {distance.elevation_gain.toLocaleString()} ft gain
+            </div>
+          )}
+          {distance.date && distance.start_time && (
+            <div className="flex items-center gap-2 text-sm text-brand-navy-600">
+              <Clock className="h-4 w-4 text-brand-navy-400" />
+              {formatShortDate(distance.date)} at {formatTime(distance.start_time)}
+            </div>
+          )}
+          {distance.aid_stations && distance.aid_stations.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-brand-navy-600">
+              <Flag className="h-4 w-4 text-brand-navy-400" />
+              {distance.aid_stations.length} checkpoints
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Course Tab
+function CourseTab({
+  latestEdition,
+  onDistanceSelect,
+}: {
+  latestEdition: RaceEdition | undefined;
+  onDistanceSelect: (d: RaceDistance) => void;
+}) {
+  if (!latestEdition || latestEdition.race_distances.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Route className="h-12 w-12 mx-auto text-brand-navy-300 mb-4" />
+        <p className="text-brand-navy-600">No distance information available yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {latestEdition.race_distances.map((distance) => (
+        <DistanceCard
+          key={distance.id}
+          distance={distance}
+          onClick={() => onDistanceSelect(distance)}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Full Distance Card
+function DistanceCard({
+  distance,
+  onClick,
+}: {
+  distance: RaceDistance;
+  onClick: () => void;
+}) {
+  const surface = distance.surface_composition;
+  const hasSurface = surface && Object.values(surface).some((v) => v && v > 0);
+
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <CardContent className="p-0">
+        <div className="flex flex-col lg:flex-row">
+          {/* Left: Main Info */}
+          <div className="flex-1 p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-2xl font-bold text-brand-navy-900">
+                  {distance.distance_miles}
+                  <span className="text-base font-normal text-brand-navy-500 ml-1">miles</span>
+                </h3>
+                {distance.name && (
+                  <p className="text-lg font-medium text-brand-sky-600 mt-1">
+                    {distance.name}
+                  </p>
+                )}
+              </div>
+              <Button variant="outline" size="sm" onClick={onClick}>
+                View Details
+              </Button>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="mt-4 flex flex-wrap gap-4">
+              {distance.date && (
+                <div className="flex items-center gap-2 text-sm text-brand-navy-600">
+                  <Calendar className="h-4 w-4 text-brand-navy-400" />
+                  {formatShortDate(distance.date)}
+                </div>
+              )}
+              {distance.start_time && (
+                <div className="flex items-center gap-2 text-sm text-brand-navy-600">
+                  <Clock className="h-4 w-4 text-brand-navy-400" />
+                  {formatTime(distance.start_time)}
+                </div>
+              )}
+              {distance.elevation_gain && (
+                <div className="flex items-center gap-2 text-sm text-brand-navy-600">
+                  <Mountain className="h-4 w-4 text-brand-navy-400" />
+                  {distance.elevation_gain.toLocaleString()} ft gain
+                </div>
+              )}
+              {distance.time_limit_minutes && (
+                <div className="flex items-center gap-2 text-sm text-brand-navy-600">
+                  <Timer className="h-4 w-4 text-brand-navy-400" />
+                  {formatDuration(distance.time_limit_minutes)} limit
+                </div>
+              )}
+              {distance.aid_stations && distance.aid_stations.length > 0 && (
+                <div className="flex items-center gap-2 text-sm text-brand-navy-600">
+                  <Flag className="h-4 w-4 text-brand-navy-400" />
+                  {distance.aid_stations.length} checkpoints
+                </div>
+              )}
+            </div>
+
+            {/* Surface Composition */}
+            {hasSurface && (
+              <div className="mt-4">
+                <div className="flex h-3 rounded-full overflow-hidden bg-brand-navy-100">
+                  {surface?.gravel && surface.gravel > 0 && (
+                    <div
+                      className="bg-amber-500"
+                      style={{ width: `${surface.gravel}%` }}
+                      title={`${surface.gravel}% Gravel`}
+                    />
+                  )}
+                  {surface?.dirt && surface.dirt > 0 && (
+                    <div
+                      className="bg-orange-600"
+                      style={{ width: `${surface.dirt}%` }}
+                      title={`${surface.dirt}% Dirt`}
+                    />
+                  )}
+                  {surface?.singletrack && surface.singletrack > 0 && (
+                    <div
+                      className="bg-emerald-500"
+                      style={{ width: `${surface.singletrack}%` }}
+                      title={`${surface.singletrack}% Singletrack`}
+                    />
+                  )}
+                  {surface?.doubletrack && surface.doubletrack > 0 && (
+                    <div
+                      className="bg-lime-500"
+                      style={{ width: `${surface.doubletrack}%` }}
+                      title={`${surface.doubletrack}% Doubletrack`}
+                    />
+                  )}
+                  {surface?.pavement && surface.pavement > 0 && (
+                    <div
+                      className="bg-slate-400"
+                      style={{ width: `${surface.pavement}%` }}
+                      title={`${surface.pavement}% Pavement`}
+                    />
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                  {surface?.gravel && surface.gravel > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      {surface.gravel}% Gravel
+                    </span>
+                  )}
+                  {surface?.dirt && surface.dirt > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-orange-600" />
+                      {surface.dirt}% Dirt
+                    </span>
+                  )}
+                  {surface?.singletrack && surface.singletrack > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      {surface.singletrack}% Singletrack
+                    </span>
+                  )}
+                  {surface?.doubletrack && surface.doubletrack > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-lime-500" />
+                      {surface.doubletrack}% Doubletrack
+                    </span>
+                  )}
+                  {surface?.pavement && surface.pavement > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      {surface.pavement}% Pavement
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Aid Stations Preview */}
+          {distance.aid_stations && distance.aid_stations.length > 0 && (
+            <div className="lg:w-80 p-6 bg-brand-navy-50 border-t lg:border-t-0 lg:border-l border-brand-navy-100">
+              <h4 className="text-sm font-semibold text-brand-navy-700 mb-3">
+                Checkpoints
+              </h4>
+              <div className="space-y-2">
+                {distance.aid_stations.slice(0, 4).map((station, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="text-brand-navy-700 truncate pr-2">
+                      {station.name}
+                    </span>
+                    <span className="text-brand-navy-500 font-mono text-xs">
+                      Mi {station.mile}
+                    </span>
+                  </div>
+                ))}
+                {distance.aid_stations.length > 4 && (
+                  <p className="text-xs text-brand-navy-500">
+                    +{distance.aid_stations.length - 4} more
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Distance Detail Modal
+function DistanceDetailModal({ distance }: { distance: RaceDistance }) {
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="text-2xl">
+          {distance.name || `${distance.distance_miles} miles`}
+        </DialogTitle>
+      </DialogHeader>
+
+      <div className="space-y-6 mt-4">
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <StatBox label="Distance" value={`${distance.distance_miles} mi`} />
+          {distance.elevation_gain && (
+            <StatBox label="Elevation Gain" value={`${distance.elevation_gain.toLocaleString()} ft`} />
+          )}
+          {distance.elevation_loss && (
+            <StatBox label="Elevation Loss" value={`${distance.elevation_loss.toLocaleString()} ft`} />
+          )}
+          {distance.time_limit_minutes && (
+            <StatBox label="Time Limit" value={formatDuration(distance.time_limit_minutes)} />
+          )}
+          {distance.date && (
+            <StatBox label="Date" value={formatShortDate(distance.date)} />
+          )}
+          {distance.start_time && (
+            <StatBox label="Start Time" value={formatTime(distance.start_time)} />
+          )}
+        </div>
+
+        {/* Aid Stations */}
+        {distance.aid_stations && distance.aid_stations.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-brand-navy-900 mb-3">
+              Aid Stations & Checkpoints
+            </h3>
+            <div className="space-y-2">
+              {distance.aid_stations.map((station, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-center justify-between p-3 rounded-lg",
+                    station.type === "checkpoint"
+                      ? "bg-brand-sky-50 border border-brand-sky-200"
+                      : "bg-emerald-50 border border-emerald-200"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+                      station.type === "checkpoint"
+                        ? "bg-brand-sky-200 text-brand-sky-700"
+                        : "bg-emerald-200 text-emerald-700"
+                    )}>
+                      {i + 1}
+                    </span>
+                    <div>
+                      <p className="font-medium text-brand-navy-900">{station.name}</p>
+                      <p className="text-sm text-brand-navy-500">
+                        Mile {station.mile}
+                        {station.cutoff_time && ` · Cutoff: ${station.cutoff_time}`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={cn(
+                    "text-xs font-medium px-2 py-1 rounded",
+                    station.type === "checkpoint"
+                      ? "bg-brand-sky-100 text-brand-sky-700"
+                      : "bg-emerald-100 text-emerald-700"
+                  )}>
+                    {station.type === "checkpoint" ? "Checkpoint" : "Aid Station"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function StatBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="p-4 rounded-lg bg-brand-navy-50">
+      <p className="text-xs font-medium text-brand-navy-500 uppercase tracking-wider">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-bold text-brand-navy-900">{value}</p>
+    </div>
+  );
+}
+
+// Community Tab
+function CommunityTab({
+  gearStats,
+  compact = false,
+}: {
+  gearStats: RaceGearStats | null;
+  raceId?: string;
+  compact?: boolean;
+}) {
+  if (!gearStats || gearStats.total_participants === 0) {
+    return (
+      <div className="text-center py-12">
+        <TrendingUp className="h-12 w-12 mx-auto text-brand-navy-300 mb-4" />
+        <h3 className="text-lg font-semibold text-brand-navy-900">
+          No gear data yet
+        </h3>
+        <p className="mt-2 text-brand-navy-600">
+          Be the first to share your setup for this race!
+        </p>
+      </div>
+    );
+  }
+
+  const combinedTires = combineTires(gearStats.front_tires, gearStats.rear_tires);
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      {!compact && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-heading font-bold text-brand-navy-900">
+              Community Gear Choices
+            </h2>
+            <p className="mt-1 text-brand-navy-600">
+              See what {gearStats.total_participants} {gearStats.total_participants === 1 ? "rider is" : "riders are"} running for this race
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Bikes */}
+      {gearStats.bikes.length > 0 && (
+        <GearSection
+          title="Popular Bikes"
+          icon={<Bike className="h-5 w-5" />}
+          items={gearStats.bikes}
+          color="sky"
+        />
+      )}
+
+      {/* Tires */}
+      {combinedTires.length > 0 && (
+        <GearSection
+          title="Popular Tires"
+          icon={<Circle className="h-5 w-5" />}
+          items={combinedTires}
+          color="amber"
+        />
+      )}
+    </div>
+  );
+}
+
+function GearSection({
+  title,
+  icon,
+  items,
+  color,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: GearAggregation[];
+  color: "sky" | "amber";
+}) {
+  const topItems = items.slice(0, 5);
+  const maxCount = Math.max(...topItems.map((item) => item.count), 1);
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-4">
+        <span className={cn(
+          "p-2 rounded-lg",
+          color === "sky" ? "bg-brand-sky-100 text-brand-sky-600" : "bg-amber-100 text-amber-600"
+        )}>
+          {icon}
+        </span>
+        <h3 className="font-semibold text-brand-navy-900">{title}</h3>
+      </div>
+      <div className="space-y-3">
+        {topItems.map((item, index) => (
+          <div key={`${item.brand}-${item.model}-${item.width || ''}-${index}`} className="group">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-medium text-brand-navy-900">
+                {item.brand} {item.model}
+                {item.width && (
+                  <span className="ml-1.5 text-sm font-normal text-brand-navy-500">
+                    ({item.width})
+                  </span>
+                )}
+              </span>
+              <span className="text-sm text-brand-navy-500">
+                {item.count} {item.count === 1 ? "rider" : "riders"} · {item.percentage}%
+              </span>
+            </div>
+            <div className="h-2 bg-brand-navy-100 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  color === "sky" ? "bg-brand-sky-500" : "bg-amber-500"
+                )}
+                style={{
+                  width: `${(item.count / maxCount) * 100}%`,
+                  opacity: 1 - index * 0.1,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Helper function to combine front and rear tire data
+function combineTires(
+  frontTires: GearAggregation[],
+  rearTires: GearAggregation[]
+): GearAggregation[] {
+  const combined = new Map<string, GearAggregation>();
+
+  [...frontTires, ...rearTires].forEach((tire) => {
+    // Include width in key so different sizes are shown separately
+    const key = `${tire.brand}|${tire.model}|${tire.width || ''}`;
+    const existing = combined.get(key);
+    if (existing) {
+      existing.count = Math.max(existing.count, tire.count);
+      existing.percentage = Math.max(existing.percentage, tire.percentage);
+    } else {
+      combined.set(key, { ...tire });
+    }
+  });
+
+  return Array.from(combined.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
 }

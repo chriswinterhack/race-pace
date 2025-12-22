@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { distanceId, name, distance_miles, date, start_time, elevation_gain } = body;
+    const { distanceId, name, distance_miles, date, start_time, elevation_gain, surface_composition } = body;
 
     if (!distanceId) {
       return NextResponse.json({ error: "Distance ID is required" }, { status: 400 });
@@ -59,6 +59,7 @@ export async function PUT(request: NextRequest) {
         date: date || null,
         start_time: start_time || null,
         elevation_gain: elevation_gain || null,
+        surface_composition: surface_composition || null,
       })
       .eq("id", distanceId);
 

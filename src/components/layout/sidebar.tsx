@@ -14,6 +14,7 @@ import {
   Shield,
   FlagTriangleRight,
   UserCog,
+  Mountain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -100,8 +101,9 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       <div className="flex items-center justify-between h-16 px-4 border-b border-brand-navy-700">
         {!collapsed && (
           <Link href="/dashboard" className="flex items-center gap-2">
+            <Mountain className="h-6 w-6 text-brand-sky-400" />
             <span className="text-xl font-heading font-bold">
-              Race<span className="text-brand-sky-400">Pace</span>
+              Final<span className="text-brand-sky-400">Climb</span>
             </span>
           </Link>
         )}

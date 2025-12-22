@@ -1,27 +1,17 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import {
   Search,
-  MapPin,
-  Calendar,
-  ChevronRight,
   Route,
-  Users,
-  Bike,
-  Footprints,
   ArrowUpDown,
-  Filter,
+  Grid3X3,
+  List,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  Input,
-  Skeleton,
-} from "@/components/ui";
+import { Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { RaceCard, RaceCardSkeleton } from "@/components/race/RaceCard";
 
 // Parse date string as local time to avoid timezone issues
 function parseLocalDate(dateStr: string): Date {
@@ -85,26 +75,25 @@ interface Race {
   slug: string;
   location: string | null;
   description: string | null;
-  race_type: "bike" | "run";
+  hero_image_url: string | null;
+  race_type: "bike";
   race_subtype: string;
   race_editions: RaceEdition[];
   participant_count?: number;
 }
 
 type SortOption = "alphabetical" | "date";
-type TypeFilter = "all" | "bike" | "run";
-type DisciplineFilter = "all" | "gravel" | "mtb" | "road";
+type DisciplineFilter = "all" | "gravel" | "mtb" | "road" | "cx";
+type ViewMode = "grid" | "list";
 
 export default function RacesPage() {
   const [races, setRaces] = useState<Race[]>([]);
   const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Filters and sorting
   const [sortBy, setSortBy] = useState<SortOption>("date");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [disciplineFilter, setDisciplineFilter] = useState<DisciplineFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const supabase = createClient();
 
@@ -123,6 +112,7 @@ export default function RacesPage() {
         slug,
         location,
         description,
+        hero_image_url,
         race_type,
         race_subtype,
         race_editions (
@@ -143,7 +133,6 @@ export default function RacesPage() {
     if (error) {
       console.error("Error fetching races:", error);
     } else {
-      // Sort editions by year descending, distances by distance descending
       const sortedRaces = (data || []).map((race) => ({
         ...race,
         race_editions: (race.race_editions || [])
@@ -170,7 +159,6 @@ export default function RacesPage() {
       return;
     }
 
-    // Count participants per race
     const counts: Record<string, number> = {};
     (data || []).forEach((plan) => {
       if (plan.race_id) {
@@ -180,25 +168,31 @@ export default function RacesPage() {
     setParticipantCounts(counts);
   }
 
-  // Get earliest date for a race (for sorting)
-  function getEarliestDate(race: Race): Date | null {
-    const latestEdition = race.race_editions[0];
-    if (!latestEdition) return null;
+  function getEarliestUpcomingDate(race: Race): Date | null {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const dates = latestEdition.race_distances
-      .map(d => d.date)
-      .filter((d): d is string => d !== null)
-      .map(d => parseLocalDate(d));
+    // Look at ALL editions to find the next upcoming date
+    const allDates: Date[] = [];
+    for (const edition of race.race_editions) {
+      for (const distance of edition.race_distances) {
+        if (distance.date) {
+          allDates.push(parseLocalDate(distance.date));
+        }
+      }
+    }
 
-    if (dates.length === 0) return null;
-    return dates.sort((a, b) => a.getTime() - b.getTime())[0] || null;
+    // Filter to only upcoming dates, or if none, use all dates
+    const upcomingDates = allDates.filter(d => d >= today);
+    const datesToSort = upcomingDates.length > 0 ? upcomingDates : allDates;
+
+    if (datesToSort.length === 0) return null;
+    return datesToSort.sort((a, b) => a.getTime() - b.getTime())[0] || null;
   }
 
-  // Filter and sort races
   const filteredAndSortedRaces = useMemo(() => {
     let result = races;
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -208,24 +202,16 @@ export default function RacesPage() {
       );
     }
 
-    // Type filter
-    if (typeFilter !== "all") {
-      result = result.filter((race) => race.race_type === typeFilter);
-    }
-
-    // Discipline filter (only applies to bike races)
-    if (typeFilter === "bike" && disciplineFilter !== "all") {
+    if (disciplineFilter !== "all") {
       result = result.filter((race) => race.race_subtype === disciplineFilter);
     }
 
-    // Sort
     if (sortBy === "alphabetical") {
       result = [...result].sort((a, b) => a.name.localeCompare(b.name));
     } else {
-      // Sort by date (soonest first, races without dates at end)
       result = [...result].sort((a, b) => {
-        const dateA = getEarliestDate(a);
-        const dateB = getEarliestDate(b);
+        const dateA = getEarliestUpcomingDate(a);
+        const dateB = getEarliestUpcomingDate(b);
         if (!dateA && !dateB) return 0;
         if (!dateA) return 1;
         if (!dateB) return -1;
@@ -234,17 +220,17 @@ export default function RacesPage() {
     }
 
     return result;
-  }, [races, searchQuery, typeFilter, disciplineFilter, sortBy]);
+  }, [races, searchQuery, disciplineFilter, sortBy]);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-heading font-bold text-brand-navy-900">
-          Browse Races
+        <h1 className="text-2xl font-heading font-bold text-brand-navy-900 sm:text-3xl">
+          Discover Races
         </h1>
-        <p className="mt-1 text-brand-navy-600">
-          Discover races and see what other athletes are planning
+        <p className="mt-2 text-brand-navy-600">
+          Find your next adventure and see what other athletes are planning
         </p>
       </div>
 
@@ -254,7 +240,7 @@ export default function RacesPage() {
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-navy-400" />
           <Input
-            placeholder="Search races..."
+            placeholder="Search races by name or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -262,180 +248,127 @@ export default function RacesPage() {
         </div>
 
         {/* Filters Row */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Sort */}
-          <div className="flex items-center gap-2">
-            <ArrowUpDown className="h-4 w-4 text-brand-navy-500" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="text-sm border border-brand-navy-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-sky-400"
-            >
-              <option value="date">Sort by Date</option>
-              <option value="alphabetical">Sort A-Z</option>
-            </select>
-          </div>
-
-          {/* Type Filter */}
-          <div className="flex items-center gap-1 bg-brand-navy-100 rounded-lg p-1">
-            <button
-              onClick={() => {
-                setTypeFilter("all");
-                setDisciplineFilter("all");
-              }}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                typeFilter === "all"
-                  ? "bg-white text-brand-navy-900 shadow-sm"
-                  : "text-brand-navy-600 hover:text-brand-navy-900"
-              )}
-            >
-              All
-            </button>
-            <button
-              onClick={() => {
-                setTypeFilter("bike");
-                setDisciplineFilter("all");
-              }}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                typeFilter === "bike"
-                  ? "bg-white text-brand-navy-900 shadow-sm"
-                  : "text-brand-navy-600 hover:text-brand-navy-900"
-              )}
-            >
-              <Bike className="h-4 w-4" />
-              Cycling
-            </button>
-            <button
-              onClick={() => {
-                setTypeFilter("run");
-                setDisciplineFilter("all");
-              }}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                typeFilter === "run"
-                  ? "bg-white text-brand-navy-900 shadow-sm"
-                  : "text-brand-navy-600 hover:text-brand-navy-900"
-              )}
-            >
-              <Footprints className="h-4 w-4" />
-              Running
-            </button>
-          </div>
-
-          {/* Discipline Filter (only shown for Cycling) */}
-          {typeFilter === "bike" && (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Sort */}
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-brand-navy-500" />
+              <ArrowUpDown className="h-4 w-4 text-brand-navy-500" />
               <select
-                value={disciplineFilter}
-                onChange={(e) => setDisciplineFilter(e.target.value as DisciplineFilter)}
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
                 className="text-sm border border-brand-navy-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-sky-400"
               >
-                <option value="all">All Disciplines</option>
-                <option value="gravel">Gravel</option>
-                <option value="mtb">MTB</option>
-                <option value="road">Road</option>
+                <option value="date">Sort by Date</option>
+                <option value="alphabetical">Sort A-Z</option>
               </select>
             </div>
-          )}
+
+            {/* Discipline Filter */}
+            <div className="flex items-center gap-1 bg-brand-navy-100 rounded-lg p-1">
+              {[
+                { value: "all", label: "All" },
+                { value: "gravel", label: "Gravel" },
+                { value: "mtb", label: "MTB" },
+                { value: "road", label: "Road" },
+                { value: "cx", label: "CX" },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setDisciplineFilter(value as DisciplineFilter)}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                    disciplineFilter === value
+                      ? "bg-white text-brand-navy-900 shadow-sm"
+                      : "text-brand-navy-600 hover:text-brand-navy-900"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 bg-brand-navy-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                viewMode === "grid"
+                  ? "bg-white text-brand-navy-900 shadow-sm"
+                  : "text-brand-navy-500 hover:text-brand-navy-700"
+              )}
+              aria-label="Grid view"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                viewMode === "list"
+                  ? "bg-white text-brand-navy-900 shadow-sm"
+                  : "text-brand-navy-500 hover:text-brand-navy-700"
+              )}
+              aria-label="List view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Loading State */}
       {loading && (
-        <div className="grid gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <Skeleton className="h-6 w-48 mb-2" />
-                <Skeleton className="h-4 w-32" />
-              </CardContent>
-            </Card>
+        <div className={cn(
+          "gap-6",
+          viewMode === "grid"
+            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            : "grid grid-cols-1"
+        )}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <RaceCardSkeleton key={i} variant={viewMode === "list" ? "compact" : "default"} />
           ))}
         </div>
       )}
 
-      {/* Races List */}
+      {/* Races Grid/List */}
       {!loading && (
-        <div className="grid gap-4">
+        <div className={cn(
+          "gap-6",
+          viewMode === "grid"
+            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            : "grid grid-cols-1 max-w-3xl"
+        )}>
           {filteredAndSortedRaces.map((race) => {
             const latestEdition = race.race_editions[0];
             const participantCount = participantCounts[race.id] || 0;
-
-            // Collect all dates from distances
-            const allDates = latestEdition?.race_distances?.map(d => d.date) || [];
+            // Only show dates from the edition with upcoming dates, or fall back to latest
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const editionWithUpcoming = race.race_editions.find(ed =>
+              ed.race_distances.some(d => d.date && parseLocalDate(d.date) >= today)
+            ) || latestEdition;
+            const allDates = editionWithUpcoming?.race_distances?.map(d => d.date) || [];
             const dateRange = formatDateRange(allDates);
+            const distances = (editionWithUpcoming?.race_distances || []).map(d => ({
+              miles: d.distance_miles,
+              elevationGain: d.elevation_gain,
+            }));
 
             return (
-              <Link key={race.id} href={`/dashboard/races/${race.slug}`}>
-                <Card className="hover:shadow-elevated hover:border-brand-sky-300 transition-all cursor-pointer group">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        {/* Race Type Badge */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={cn(
-                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                            race.race_type === "bike"
-                              ? "bg-brand-sky-100 text-brand-sky-700"
-                              : "bg-emerald-100 text-emerald-700"
-                          )}>
-                            {race.race_type === "bike" ? (
-                              <Bike className="h-3 w-3" />
-                            ) : (
-                              <Footprints className="h-3 w-3" />
-                            )}
-                            {race.race_subtype ? (
-                              race.race_subtype.charAt(0).toUpperCase() + race.race_subtype.slice(1)
-                            ) : (
-                              race.race_type === "bike" ? "Cycling" : "Running"
-                            )}
-                          </span>
-                        </div>
-
-                        {/* Race Name */}
-                        <h3 className="text-lg font-semibold text-brand-navy-900 group-hover:text-brand-sky-600 transition-colors">
-                          {race.name}
-                        </h3>
-
-                        {/* Meta Info */}
-                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-brand-navy-600">
-                          {race.location && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {race.location}
-                            </span>
-                          )}
-                          {dateRange && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              {dateRange}
-                            </span>
-                          )}
-                          {latestEdition?.race_distances && latestEdition.race_distances.length > 0 && (
-                            <span className="flex items-center gap-1">
-                              <Route className="h-3.5 w-3.5" />
-                              {latestEdition.race_distances
-                                .map((d) => `${d.distance_miles}mi`)
-                                .join(", ")}
-                            </span>
-                          )}
-                          {participantCount > 0 && (
-                            <span className="flex items-center gap-1 text-brand-sky-600">
-                              <Users className="h-3.5 w-3.5" />
-                              {participantCount} {participantCount === 1 ? "athlete" : "athletes"}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <ChevronRight className="h-5 w-5 text-brand-navy-400 group-hover:text-brand-sky-500 transition-colors flex-shrink-0 ml-4" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+              <RaceCard
+                key={race.id}
+                name={race.name}
+                slug={race.slug}
+                location={race.location}
+                heroImageUrl={race.hero_image_url}
+                dateRange={dateRange}
+                distances={distances}
+                participantCount={participantCount}
+                raceSubtype={race.race_subtype}
+                variant={viewMode === "list" ? "compact" : "default"}
+              />
             );
           })}
         </div>
@@ -443,19 +376,26 @@ export default function RacesPage() {
 
       {/* Empty State */}
       {!loading && filteredAndSortedRaces.length === 0 && (
-        <div className="text-center py-12">
+        <div className="text-center py-16">
           <div className="p-4 rounded-full bg-brand-navy-100 inline-flex mb-4">
             <Route className="h-8 w-8 text-brand-navy-400" />
           </div>
-          <h2 className="text-lg font-medium text-brand-navy-900">
-            {searchQuery || typeFilter !== "all" ? "No races found" : "No races available"}
+          <h2 className="text-lg font-semibold text-brand-navy-900">
+            {searchQuery || disciplineFilter !== "all" ? "No races found" : "No races available"}
           </h2>
-          <p className="mt-1 text-brand-navy-600 max-w-sm mx-auto">
-            {searchQuery || typeFilter !== "all"
+          <p className="mt-2 text-brand-navy-600 max-w-sm mx-auto">
+            {searchQuery || disciplineFilter !== "all"
               ? "Try adjusting your search or filters."
               : "Check back soon for upcoming races!"}
           </p>
         </div>
+      )}
+
+      {/* Results count */}
+      {!loading && filteredAndSortedRaces.length > 0 && (
+        <p className="text-sm text-brand-navy-500 text-center">
+          Showing {filteredAndSortedRaces.length} {filteredAndSortedRaces.length === 1 ? "race" : "races"}
+        </p>
       )}
     </div>
   );

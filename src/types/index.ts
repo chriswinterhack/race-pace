@@ -38,6 +38,13 @@ export interface User {
   updated_at: string;
 }
 
+// Intensity factors type
+export interface IntensityFactors {
+  safe: number;
+  tempo: number;
+  pushing: number;
+}
+
 // Athlete profile type
 export interface AthleteProfile {
   id: string;
@@ -45,6 +52,14 @@ export interface AthleteProfile {
   weight_kg: number | null;
   ftp_watts: number | null;
   altitude_adjustment_factor: number;
+  // Intensity factors for power zones
+  if_safe: number;
+  if_tempo: number;
+  if_pushing: number;
+  // Coach lock settings
+  power_settings_locked: boolean;
+  power_settings_locked_by: string | null;
+  // Nutrition defaults
   nutrition_cho_per_hour: number;
   hydration_ml_per_hour: number;
   sodium_mg_per_hour: number;
@@ -86,6 +101,7 @@ export interface Race {
   description: string | null;
   website_url: string | null;
   logo_url: string | null;
+  hero_image_url: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -106,6 +122,15 @@ export interface RaceEdition {
   updated_at: string;
 }
 
+// Course profile from GPX analysis
+export interface CourseProfile {
+  climbing_pct: number | null;
+  flat_pct: number | null;
+  descent_pct: number | null;
+  avg_climb_grade: number | null;
+  avg_descent_grade: number | null;
+}
+
 // Race distance type (specific course - e.g., "Unbound 2025 - 200 mile")
 export interface RaceDistance {
   id: string;
@@ -122,6 +147,13 @@ export interface RaceDistance {
   elevation_high: number | null;
   elevation_low: number | null;
   surface_composition: SurfaceComposition;
+  // Course profile from GPX analysis
+  climbing_pct: number | null;
+  flat_pct: number | null;
+  descent_pct: number | null;
+  avg_climb_grade: number | null;
+  avg_descent_grade: number | null;
+  total_elevation_loss: number | null;
   aid_stations: AidStation[];
   time_limit_minutes: number | null;
   participant_limit: number | null;

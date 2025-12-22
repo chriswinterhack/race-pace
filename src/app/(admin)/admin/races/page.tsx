@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Loader2,
   Bike,
-  Footprints,
 } from "lucide-react";
 import {
   Card,
@@ -49,7 +48,7 @@ interface Race {
   is_active: boolean;
   description: string | null;
   website_url: string | null;
-  race_type: "bike" | "run";
+  race_type: "bike";
   race_subtype: string;
   race_editions: RaceEdition[];
 }
@@ -210,12 +209,10 @@ export default function AdminRacesPage() {
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-brand-navy-600">
                       <span className="flex items-center gap-1">
-                        {race.race_type === "bike" ? (
-                          <Bike className="h-3.5 w-3.5" />
-                        ) : (
-                          <Footprints className="h-3.5 w-3.5" />
-                        )}
-                        <span className="capitalize">{race.race_subtype}</span>
+                        <Bike className="h-3.5 w-3.5" />
+                        <span className="capitalize">
+                          {race.race_subtype === "cx" ? "Cyclocross" : race.race_subtype}
+                        </span>
                       </span>
                       {race.location && (
                         <span className="flex items-center gap-1">
@@ -348,7 +345,7 @@ function CreateRaceModal({
     location: "",
     description: "",
     website_url: "",
-    race_type: "" as "" | "bike" | "run",
+    race_type: "bike" as const,
     race_subtype: "",
   });
   const [saving, setSaving] = useState(false);
@@ -465,88 +462,34 @@ function CreateRaceModal({
               />
             </div>
 
-            {/* Race Type Selection */}
+            {/* Discipline Selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-brand-navy-700">
-                Race Type *
+                Discipline *
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, race_type: "bike", race_subtype: "" })}
-                  className={cn(
-                    "flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors",
-                    formData.race_type === "bike"
-                      ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
-                      : "border-brand-navy-200 hover:border-brand-navy-300"
-                  )}
-                >
-                  <Bike className="h-5 w-5" />
-                  <span className="font-medium">Bike</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, race_type: "run", race_subtype: "" })}
-                  className={cn(
-                    "flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors",
-                    formData.race_type === "run"
-                      ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
-                      : "border-brand-navy-200 hover:border-brand-navy-300"
-                  )}
-                >
-                  <Footprints className="h-5 w-5" />
-                  <span className="font-medium">Run</span>
-                </button>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { value: "gravel", label: "Gravel" },
+                  { value: "mtb", label: "MTB" },
+                  { value: "road", label: "Road" },
+                  { value: "cx", label: "Cyclocross" },
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, race_subtype: value })}
+                    className={cn(
+                      "p-3 rounded-lg border-2 text-sm font-medium transition-colors",
+                      formData.race_subtype === value
+                        ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
+                        : "border-brand-navy-200 hover:border-brand-navy-300"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
-
-            {/* Race Subtype Selection */}
-            {formData.race_type && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-brand-navy-700">
-                  {formData.race_type === "bike" ? "Discipline" : "Race Type"} *
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {formData.race_type === "bike" ? (
-                    <>
-                      {["gravel", "mtb", "road"].map((subtype) => (
-                        <button
-                          key={subtype}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, race_subtype: subtype })}
-                          className={cn(
-                            "p-3 rounded-lg border-2 text-sm font-medium transition-colors capitalize",
-                            formData.race_subtype === subtype
-                              ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
-                              : "border-brand-navy-200 hover:border-brand-navy-300"
-                          )}
-                        >
-                          {subtype === "mtb" ? "MTB" : subtype}
-                        </button>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      {["trail", "ultra", "road"].map((subtype) => (
-                        <button
-                          key={subtype}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, race_subtype: subtype })}
-                          className={cn(
-                            "p-3 rounded-lg border-2 text-sm font-medium transition-colors capitalize",
-                            formData.race_subtype === subtype
-                              ? "border-brand-sky-500 bg-brand-sky-50 text-brand-sky-700"
-                              : "border-brand-navy-200 hover:border-brand-navy-300"
-                          )}
-                        >
-                          {subtype}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
 
             <div className="space-y-2">
               <label
@@ -591,7 +534,7 @@ function CreateRaceModal({
               </Button>
               <Button
                 type="submit"
-                disabled={saving || !formData.race_type || !formData.race_subtype}
+                disabled={saving || !formData.race_subtype}
               >
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Create Race

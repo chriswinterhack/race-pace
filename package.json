@@ -1,8 +1,8 @@
 {
-  "name": "racepace",
+  "name": "finalclimb",
   "version": "1.0.0",
   "private": true,
-  "description": "Race planning platform for endurance athletes. Build personalized race execution plans with pacing, nutrition, and gear management.",
+  "description": "Race planning platform for cyclists. Build personalized race execution plans with pacing, nutrition, and gear management for gravel, road, MTB, and cyclocross racing.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

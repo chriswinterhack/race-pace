@@ -11,7 +11,7 @@ import {
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDateLong } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { usePlanBuilder } from "../context/PlanBuilderContext";
@@ -155,11 +155,7 @@ export function ReviewSave() {
               {state.distance?.date && (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
-                  {new Date(state.distance.date).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {formatDateLong(state.distance.date)}
                 </span>
               )}
               <span className="flex items-center gap-1">

@@ -23,8 +23,30 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-// Parse GPX and calculate total distance and elevation stats
-function parseGPXStats(gpxText: string): { totalDistanceMiles: number; elevationGain: number; elevationLoss: number; elevationHigh: number; elevationLow: number } | null {
+// Course profile analysis result
+interface CourseProfileResult {
+  climbingPct: number;
+  flatPct: number;
+  descentPct: number;
+  avgClimbGrade: number;
+  avgDescentGrade: number;
+}
+
+// Grade thresholds for terrain classification
+const GRADE_THRESHOLDS = {
+  climb: 2.0,    // >= 2% is climbing
+  descent: -2.0, // <= -2% is descending
+};
+
+// Parse GPX and calculate total distance, elevation stats, and course profile
+function parseGPXStats(gpxText: string): {
+  totalDistanceMiles: number;
+  elevationGain: number;
+  elevationLoss: number;
+  elevationHigh: number;
+  elevationLow: number;
+  courseProfile: CourseProfileResult;
+} | null {
   try {
     const parser = new DOMParser();
     const gpxDoc = parser.parseFromString(gpxText, "text/xml");
@@ -40,8 +62,18 @@ function parseGPXStats(gpxText: string): { totalDistanceMiles: number; elevation
     let prevLat: number | null = null;
     let prevLon: number | null = null;
     let prevElevation: number | null = null;
+    let prevDistanceMeters = 0;
     let minElev = Infinity;
     let maxElev = -Infinity;
+
+    // Course profile tracking
+    let climbingDistance = 0;
+    let flatDistance = 0;
+    let descentDistance = 0;
+    let climbingGradeSum = 0;
+    let climbingSegments = 0;
+    let descentGradeSum = 0;
+    let descentSegments = 0;
 
     for (let i = 0; i < trackPoints.length; i++) {
       const point = trackPoints.item(i);
@@ -50,34 +82,65 @@ function parseGPXStats(gpxText: string): { totalDistanceMiles: number; elevation
       const lon = parseFloat(point.getAttribute("lon") || "0");
       const eleElements = point.getElementsByTagName("ele");
       const firstEle = eleElements.item(0);
-      const elevation = firstEle ? parseFloat(firstEle.textContent || "0") : 0;
+      const elevationMeters = firstEle ? parseFloat(firstEle.textContent || "0") : 0;
 
-      // Convert elevation from meters to feet
-      const elevationFt = elevation * 3.28084;
+      // Convert elevation from meters to feet for storage
+      const elevationFt = elevationMeters * 3.28084;
 
       // Track min/max elevation
       if (elevationFt < minElev) minElev = elevationFt;
       if (elevationFt > maxElev) maxElev = elevationFt;
 
-      // Calculate elevation gain/loss
-      if (prevElevation !== null) {
-        const elevDiff = elevationFt - prevElevation;
-        if (elevDiff > 0) {
-          totalGain += elevDiff;
-        } else {
-          totalLoss += Math.abs(elevDiff);
-        }
-      }
-      prevElevation = elevationFt;
-
       if (prevLat !== null && prevLon !== null) {
-        const distanceKm = haversineDistance(prevLat, prevLon, lat, lon);
-        totalDistance += distanceKm * 0.621371; // Convert to miles
+        const segmentDistanceKm = haversineDistance(prevLat, prevLon, lat, lon);
+        const segmentDistanceMeters = segmentDistanceKm * 1000;
+        totalDistance += segmentDistanceKm * 0.621371; // Convert to miles
+
+        // Calculate elevation change and grade for course profile
+        if (prevElevation !== null && segmentDistanceMeters > 0) {
+          const elevDiffFt = elevationFt - prevElevation;
+          const elevDiffMeters = elevationMeters - (prevElevation / 3.28084);
+
+          // Track elevation gain/loss
+          if (elevDiffFt > 0) {
+            totalGain += elevDiffFt;
+          } else {
+            totalLoss += Math.abs(elevDiffFt);
+          }
+
+          // Calculate grade for this segment (in percent)
+          const gradePct = (elevDiffMeters / segmentDistanceMeters) * 100;
+
+          // Classify terrain and track
+          if (gradePct >= GRADE_THRESHOLDS.climb) {
+            climbingDistance += segmentDistanceMeters;
+            climbingGradeSum += gradePct;
+            climbingSegments++;
+          } else if (gradePct <= GRADE_THRESHOLDS.descent) {
+            descentDistance += segmentDistanceMeters;
+            descentGradeSum += gradePct;
+            descentSegments++;
+          } else {
+            flatDistance += segmentDistanceMeters;
+          }
+        }
       }
 
       prevLat = lat;
       prevLon = lon;
+      prevElevation = elevationFt;
+      prevDistanceMeters += prevLat !== null ? haversineDistance(prevLat, prevLon, lat, lon) * 1000 : 0;
     }
+
+    // Calculate course profile percentages
+    const totalDistanceMeters = climbingDistance + flatDistance + descentDistance;
+    const courseProfile: CourseProfileResult = {
+      climbingPct: totalDistanceMeters > 0 ? Math.round((climbingDistance / totalDistanceMeters) * 100) : 0,
+      flatPct: totalDistanceMeters > 0 ? Math.round((flatDistance / totalDistanceMeters) * 100) : 0,
+      descentPct: totalDistanceMeters > 0 ? Math.round((descentDistance / totalDistanceMeters) * 100) : 0,
+      avgClimbGrade: climbingSegments > 0 ? Math.round((climbingGradeSum / climbingSegments) * 10) / 10 : 0,
+      avgDescentGrade: descentSegments > 0 ? Math.round((descentGradeSum / descentSegments) * 10) / 10 : 0,
+    };
 
     return {
       totalDistanceMiles: Math.round(totalDistance * 10) / 10,
@@ -85,6 +148,7 @@ function parseGPXStats(gpxText: string): { totalDistanceMiles: number; elevation
       elevationLoss: Math.round(totalLoss),
       elevationHigh: Math.round(maxElev),
       elevationLow: Math.round(minElev),
+      courseProfile,
     };
   } catch (err) {
     console.error("Error parsing GPX:", err);
@@ -131,8 +195,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize filename - remove special characters that could cause storage issues
+    const sanitizedFileName = file.name
+      .replace(/[|®©™]/g, "") // Remove pipe and special symbols
+      .replace(/[^\w\s.-]/g, "") // Remove other non-word chars except spaces, dots, hyphens
+      .replace(/\s+/g, "_") // Replace spaces with underscores
+      .toLowerCase();
+
     // Create a unique file path
-    const filePath = `${raceSlug}/${year}/${Date.now()}-${file.name}`;
+    const filePath = `${raceSlug}/${year}/${Date.now()}-${sanitizedFileName}`;
 
     // Convert File to ArrayBuffer then to Buffer for upload
     const arrayBuffer = await file.arrayBuffer();
@@ -175,6 +246,13 @@ export async function POST(request: NextRequest) {
         updateData.elevation_loss = gpxStats.elevationLoss;
         updateData.elevation_high = gpxStats.elevationHigh;
         updateData.elevation_low = gpxStats.elevationLow;
+        // Course profile data from GPX analysis
+        updateData.climbing_pct = gpxStats.courseProfile.climbingPct;
+        updateData.flat_pct = gpxStats.courseProfile.flatPct;
+        updateData.descent_pct = gpxStats.courseProfile.descentPct;
+        updateData.avg_climb_grade = gpxStats.courseProfile.avgClimbGrade;
+        updateData.avg_descent_grade = gpxStats.courseProfile.avgDescentGrade;
+        updateData.total_elevation_loss = gpxStats.elevationLoss;
       }
 
       const { error: updateError } = await supabaseAdmin

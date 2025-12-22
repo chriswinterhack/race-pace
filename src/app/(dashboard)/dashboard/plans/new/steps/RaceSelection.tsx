@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, MapPin, Calendar, Mountain, Check, Route, ChevronLeft } from "lucide-react";
 import { Input, Skeleton, Button } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDateWithYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { usePlanBuilder } from "../context/PlanBuilderContext";
 import type { RaceDistance } from "@/types";
@@ -108,6 +108,12 @@ export function RaceSelection({ preselectedDistanceId }: RaceSelectionProps) {
       elevation_high: distance.elevation_high,
       elevation_low: distance.elevation_low,
       surface_composition: distance.surface_composition,
+      climbing_pct: null,
+      flat_pct: null,
+      descent_pct: null,
+      avg_climb_grade: null,
+      avg_descent_grade: null,
+      total_elevation_loss: null,
       aid_stations: distance.aid_stations,
       time_limit_minutes: distance.time_limit_minutes,
       participant_limit: distance.participant_limit,
@@ -259,11 +265,7 @@ export function RaceSelection({ preselectedDistanceId }: RaceSelectionProps) {
                       {distance.date && (
                         <span className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          {new Date(distance.date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {formatDateWithYear(distance.date)}
                         </span>
                       )}
                       {distance.elevation_gain && (

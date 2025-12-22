@@ -92,7 +92,7 @@ function LoginForm() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-heading text-brand-navy-900">
-          Sign in to RacePace
+          Sign in to FinalClimb
         </CardTitle>
       </CardHeader>
       <CardContent>

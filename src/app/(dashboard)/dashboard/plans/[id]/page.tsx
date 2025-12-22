@@ -18,7 +18,7 @@ import {
   Mountain,
 } from "lucide-react";
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDateLong } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import {
@@ -227,11 +227,7 @@ export default function PlanDetailPage() {
             {plan.race_distance?.date && (
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {new Date(plan.race_distance.date).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatDateLong(plan.race_distance.date)}
               </span>
             )}
           </div>

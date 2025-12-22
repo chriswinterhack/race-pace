@@ -91,3 +91,15 @@ export function formatDateWithYear(date: string | null): string | null {
     year: "numeric",
   });
 }
+
+/**
+ * Format a single date with long month and year (e.g., "March 15, 2026")
+ */
+export function formatDateLong(date: string | null): string | null {
+  if (!date) return null;
+  return parseLocalDate(date).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}

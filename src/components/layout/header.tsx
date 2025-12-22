@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Bell, Search, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ export function Header({ title }: HeaderProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [userInitial, setUserInitial] = useState("U");
   const [userName, setUserName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -25,13 +27,14 @@ export function Header({ title }: HeaderProps) {
       if (user) {
         const { data } = await supabase
           .from("users")
-          .select("name, email")
+          .select("name, email, avatar_url")
           .eq("id", user.id)
           .single();
         if (data) {
           const name = data.name || data.email || "";
           setUserName(name);
           setUserInitial(name.charAt(0).toUpperCase() || "U");
+          setAvatarUrl(data.avatar_url);
         }
       }
     }
@@ -94,11 +97,21 @@ export function Header({ title }: HeaderProps) {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-navy-100 text-brand-navy-600 font-medium text-sm hover:bg-brand-navy-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky-400"
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-navy-100 text-brand-navy-600 font-medium text-sm hover:bg-brand-navy-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky-400 overflow-hidden"
             aria-label="User menu"
             aria-expanded={showMenu}
           >
-            {userInitial}
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt="Profile"
+                width={32}
+                height={32}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              userInitial
+            )}
           </button>
 
           {showMenu && (

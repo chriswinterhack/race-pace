@@ -11,7 +11,6 @@ import {
   ExternalLink,
   Flag,
   Route,
-  Gauge,
   Car,
   Package,
   Backpack,
@@ -21,6 +20,10 @@ import {
   Pencil,
   Check,
   X,
+  TrendingUp,
+  Gauge,
+  ChevronRight,
+  Zap,
 } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -88,13 +91,23 @@ function formatMinutes(minutes: number): string {
   return `${hours}h ${mins}min`;
 }
 
+// Surface colors with gradients for visual interest
+const SURFACE_STYLES: Record<string, { bg: string; text: string; gradient: string }> = {
+  gravel: { bg: "bg-amber-500", text: "text-amber-700", gradient: "from-amber-400 to-amber-600" },
+  dirt: { bg: "bg-orange-600", text: "text-orange-700", gradient: "from-orange-500 to-orange-700" },
+  pavement: { bg: "bg-slate-500", text: "text-slate-700", gradient: "from-slate-400 to-slate-600" },
+  singletrack: { bg: "bg-emerald-600", text: "text-emerald-700", gradient: "from-emerald-500 to-emerald-700" },
+  doubletrack: { bg: "bg-lime-600", text: "text-lime-700", gradient: "from-lime-500 to-lime-700" },
+  sand: { bg: "bg-yellow-400", text: "text-yellow-700", gradient: "from-yellow-300 to-yellow-500" },
+  mud: { bg: "bg-stone-600", text: "text-stone-700", gradient: "from-stone-500 to-stone-700" },
+};
+
 export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
   const distance = plan.race_distance;
   const race = distance?.race_edition?.race;
   const supabase = createClient();
 
   const surfaceComposition = distance?.surface_composition;
-  // Filter to only show actual aid stations (not checkpoints)
   const aidStations = (distance?.aid_stations || []).filter(
     (s) => !s.type || s.type === "aid_station"
   );
@@ -106,9 +119,22 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
   );
   const [savingStartTime, setSavingStartTime] = useState(false);
 
-  // Get the effective start time (plan's custom time or race default)
   const effectiveStartTime = plan.start_time || distance?.start_time;
   const hasCustomStartTime = plan.start_time !== null;
+
+  // Calculate elevation stats
+  const elevationHigh = distance?.elevation_high;
+  const elevationLow = distance?.elevation_low;
+  const elevationRange = elevationHigh && elevationLow ? elevationHigh - elevationLow : null;
+
+  // Calculate effective distance
+  const effectiveMiles = distance?.gpx_distance_miles ?? distance?.distance_miles ?? 0;
+  const effectiveKm = Math.round(effectiveMiles * 1.60934 * 10) / 10;
+
+  // Calculate feet per mile
+  const feetPerMile = distance?.elevation_gain && effectiveMiles
+    ? Math.round(distance.elevation_gain / effectiveMiles)
+    : null;
 
   async function handleSaveStartTime() {
     setSavingStartTime(true);
@@ -133,71 +159,104 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
     setEditingStartTime(false);
   }
 
+  // Format date nicely
+  const formatDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const date = new Date(year!, month! - 1, day!);
+    return {
+      weekday: date.toLocaleDateString("en-US", { weekday: "long" }),
+      month: date.toLocaleDateString("en-US", { month: "short" }),
+      day: day,
+      year: year,
+      full: date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }),
+    };
+  };
+
   return (
-    <div className="space-y-8">
-      {/* Race Description */}
+    <div className="space-y-10">
+      {/* Race Description - Editorial Style */}
       {race?.description && (
-        <div>
-          <h3 className="text-lg font-semibold text-brand-navy-900 mb-3">About the Race</h3>
-          <p className="text-brand-navy-600 leading-relaxed">{race.description}</p>
+        <div className="relative">
+          <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-brand-sky-400 to-brand-sky-600 rounded-full" />
+          <p className="text-lg text-brand-navy-700 leading-relaxed pl-4 italic">
+            {race.description}
+          </p>
         </div>
       )}
 
-      {/* Key Details Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Date & Time */}
-        {distance?.date && (
-          <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-            <div className="flex items-center gap-2 text-brand-navy-500 mb-2">
-              <Calendar className="h-4 w-4" />
-              <span className="text-sm font-medium">Date</span>
-            </div>
-            <p className="text-brand-navy-900 font-semibold">
-              {(() => {
-                // Parse as local time to avoid timezone issues
-                const [year, month, day] = distance.date.split("-").map(Number);
-                const date = new Date(year!, month! - 1, day!);
-                return date.toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                });
-              })()}
+      {/* Hero Stats - Large, Dramatic Cards with Staggered Animation */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Distance Card */}
+        <div
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-navy-900 to-brand-navy-800 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "0ms" }}
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-sky-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <Route className="h-5 w-5 text-brand-sky-400 mb-3" />
+          <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Distance</p>
+          <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
+            {effectiveMiles}
+            <span className="text-lg font-normal text-white/60 ml-1">mi</span>
+          </p>
+          <p className="text-sm text-white/50 mt-1">{effectiveKm} km</p>
+        </div>
+
+        {/* Elevation Card */}
+        {distance?.elevation_gain && (
+          <div
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
+            style={{ animationDelay: "75ms" }}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+            <Mountain className="h-5 w-5 text-emerald-200 mb-3" />
+            <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Elevation Gain</p>
+            <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
+              {distance.elevation_gain.toLocaleString()}
+              <span className="text-lg font-normal text-white/60 ml-1">ft</span>
             </p>
+            {feetPerMile && (
+              <p className="text-sm text-white/50 mt-1">{feetPerMile} ft/mi avg</p>
+            )}
           </div>
         )}
 
-        {/* Start Time - Editable */}
-        <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-brand-navy-500">
-              <Clock className="h-4 w-4" />
-              <span className="text-sm font-medium">Your Start Time</span>
-            </div>
+        {/* Start Time Card - Editable */}
+        <div
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 to-purple-700 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "150ms" }}
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <div className="flex items-start justify-between">
+            <Clock className="h-5 w-5 text-violet-200 mb-3" />
             {!editingStartTime && (
               <button
                 onClick={() => setEditingStartTime(true)}
-                className="p-1 rounded hover:bg-brand-navy-200 text-brand-navy-500 hover:text-brand-navy-700 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-white/20 text-white/60 hover:text-white transition-colors"
                 aria-label="Edit start time"
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="h-4 w-4" />
               </button>
             )}
           </div>
+          <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Your Start</p>
 
           {editingStartTime ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-2">
               <Input
                 type="time"
                 value={startTimeValue}
                 onChange={(e) => setStartTimeValue(e.target.value)}
-                className="w-32 h-8 text-sm"
+                className="w-28 h-9 text-sm bg-white/20 border-white/30 text-white placeholder:text-white/50"
               />
               <button
                 onClick={handleSaveStartTime}
                 disabled={savingStartTime}
-                className="p-1.5 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+                className="p-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 transition-colors disabled:opacity-50"
                 aria-label="Save"
               >
                 <Check className="h-4 w-4" />
@@ -205,7 +264,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
               <button
                 onClick={handleCancelEdit}
                 disabled={savingStartTime}
-                className="p-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+                className="p-2 rounded-lg bg-white/20 text-white hover:bg-white/30 transition-colors disabled:opacity-50"
                 aria-label="Cancel"
               >
                 <X className="h-4 w-4" />
@@ -213,307 +272,411 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
             </div>
           ) : (
             <>
-              <p className="text-brand-navy-900 font-semibold">
-                {effectiveStartTime?.slice(0, 5) || "Not set"}
+              <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
+                {effectiveStartTime?.slice(0, 5) || "--:--"}
               </p>
-              {hasCustomStartTime && distance?.start_time && plan.start_time !== distance.start_time && (
-                <p className="text-xs text-brand-navy-500 mt-1">
-                  Official race start: {distance.start_time.slice(0, 5)}
-                </p>
-              )}
               {!hasCustomStartTime && distance?.start_time && (
-                <p className="text-xs text-brand-navy-500 mt-1">
-                  Set your corral/wave start time
-                </p>
+                <p className="text-sm text-white/50 mt-1">Set your wave time</p>
               )}
-              {distance?.wave_info && (
-                <p className="text-sm text-brand-navy-500 mt-1">{distance.wave_info}</p>
+              {hasCustomStartTime && distance?.start_time && plan.start_time !== distance.start_time && (
+                <p className="text-sm text-white/50 mt-1">Official: {distance.start_time.slice(0, 5)}</p>
               )}
             </>
           )}
         </div>
 
-        {race?.location && (
-          <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-            <div className="flex items-center gap-2 text-brand-navy-500 mb-2">
-              <MapPin className="h-4 w-4" />
-              <span className="text-sm font-medium">Location</span>
-            </div>
-            <p className="text-brand-navy-900 font-semibold">{race.location}</p>
-          </div>
-        )}
-
-        {/* Distance */}
-        <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-          <div className="flex items-center gap-2 text-brand-navy-500 mb-2">
-            <Route className="h-4 w-4" />
-            <span className="text-sm font-medium">Distance</span>
-          </div>
-          {(() => {
-            const effectiveMiles = distance.gpx_distance_miles ?? distance.distance_miles;
-            const effectiveKm = Math.round(effectiveMiles * 1.60934 * 100) / 100;
-            return (
-              <p className="text-brand-navy-900 font-semibold">
-                {effectiveMiles} miles
-                <span className="text-brand-navy-500 font-normal ml-2">
-                  ({effectiveKm} km)
-                </span>
-              </p>
-            );
-          })()}
-        </div>
-
-        {/* Elevation */}
-        {distance?.elevation_gain && (
-          <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-            <div className="flex items-center gap-2 text-brand-navy-500 mb-2">
-              <Mountain className="h-4 w-4" />
-              <span className="text-sm font-medium">Elevation</span>
-            </div>
-            <p className="text-brand-navy-900 font-semibold">
-              +{distance.elevation_gain.toLocaleString()} ft
-              {distance.elevation_loss && (
-                <span className="text-brand-navy-500 font-normal ml-2">
-                  / -{distance.elevation_loss.toLocaleString()} ft
-                </span>
-              )}
+        {/* Time Limit or Date Card */}
+        {distance?.time_limit_minutes ? (
+          <div
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
+            style={{ animationDelay: "225ms" }}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+            <Timer className="h-5 w-5 text-amber-200 mb-3" />
+            <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Time Limit</p>
+            <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
+              {formatMinutes(distance.time_limit_minutes)}
             </p>
-            {(distance.elevation_high || distance.elevation_low) && (
-              <p className="text-sm text-brand-navy-500 mt-1">
-                {distance.elevation_low && `Low: ${distance.elevation_low.toLocaleString()} ft`}
-                {distance.elevation_low && distance.elevation_high && " · "}
-                {distance.elevation_high && `High: ${distance.elevation_high.toLocaleString()} ft`}
+            {effectiveStartTime && (
+              <p className="text-sm text-white/50 mt-1">
+                Cutoff: {(() => {
+                  const [h, m] = effectiveStartTime.split(":").map(Number);
+                  const totalMins = (h ?? 0) * 60 + (m ?? 0) + distance.time_limit_minutes;
+                  const cutoffH = Math.floor(totalMins / 60) % 24;
+                  const cutoffM = totalMins % 60;
+                  return `${cutoffH.toString().padStart(2, "0")}:${cutoffM.toString().padStart(2, "0")}`;
+                })()}
               </p>
             )}
           </div>
-        )}
-
-        {/* Time Limit */}
-        {distance?.time_limit_minutes && (
-          <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-            <div className="flex items-center gap-2 text-brand-navy-500 mb-2">
-              <Timer className="h-4 w-4" />
-              <span className="text-sm font-medium">Time Limit</span>
-            </div>
-            <p className="text-brand-navy-900 font-semibold">
-              {formatMinutes(distance.time_limit_minutes)}
+        ) : distance?.date ? (
+          <div
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
+            style={{ animationDelay: "225ms" }}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+            <Calendar className="h-5 w-5 text-rose-200 mb-3" />
+            <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Race Day</p>
+            <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
+              {formatDate(distance.date).month} {formatDate(distance.date).day}
             </p>
+            <p className="text-sm text-white/50 mt-1">{formatDate(distance.date).weekday}</p>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Secondary Stats Row */}
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+        {race?.location && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-navy-50 border border-brand-navy-100">
+            <div className="p-2 rounded-lg bg-brand-sky-100">
+              <MapPin className="h-4 w-4 text-brand-sky-600" />
+            </div>
+            <div>
+              <p className="text-xs text-brand-navy-500 font-medium">Location</p>
+              <p className="text-sm font-semibold text-brand-navy-900">{race.location}</p>
+            </div>
           </div>
         )}
 
-        {/* Participant Limit */}
-        {distance?.participant_limit && (
-          <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-            <div className="flex items-center gap-2 text-brand-navy-500 mb-2">
-              <Users className="h-4 w-4" />
-              <span className="text-sm font-medium">Participant Limit</span>
+        {elevationRange && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-navy-50 border border-brand-navy-100">
+            <div className="p-2 rounded-lg bg-emerald-100">
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
             </div>
-            <p className="text-brand-navy-900 font-semibold">
-              {distance.participant_limit.toLocaleString()} riders
-            </p>
+            <div>
+              <p className="text-xs text-brand-navy-500 font-medium">Elevation Range</p>
+              <p className="text-sm font-semibold text-brand-navy-900">
+                {elevationLow?.toLocaleString()} - {elevationHigh?.toLocaleString()} ft
+              </p>
+            </div>
+          </div>
+        )}
+
+        {distance?.participant_limit && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-navy-50 border border-brand-navy-100">
+            <div className="p-2 rounded-lg bg-violet-100">
+              <Users className="h-4 w-4 text-violet-600" />
+            </div>
+            <div>
+              <p className="text-xs text-brand-navy-500 font-medium">Field Size</p>
+              <p className="text-sm font-semibold text-brand-navy-900">
+                {distance.participant_limit.toLocaleString()} riders
+              </p>
+            </div>
+          </div>
+        )}
+
+        {distance?.wave_info && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-navy-50 border border-brand-navy-100">
+            <div className="p-2 rounded-lg bg-amber-100">
+              <Zap className="h-4 w-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs text-brand-navy-500 font-medium">Wave</p>
+              <p className="text-sm font-semibold text-brand-navy-900">{distance.wave_info}</p>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Surface Composition */}
+      {/* Surface Composition - Visual Bar Chart */}
       {surfaceComposition && Object.keys(surfaceComposition).length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-brand-navy-900 mb-4">Surface Composition</h3>
-          <div className="flex gap-2 h-4 rounded-full overflow-hidden bg-brand-navy-100">
+        <div className="rounded-2xl bg-gradient-to-br from-brand-navy-50 to-white border border-brand-navy-100 p-6 shadow-sm opacity-0 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-brand-navy-900">
+                <Gauge className="h-4 w-4 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-brand-navy-900">Surface Composition</h3>
+            </div>
+          </div>
+
+          {/* Stacked bar with animated fill */}
+          <div className="relative h-10 rounded-xl overflow-hidden bg-brand-navy-100 shadow-inner">
+            <div className="absolute inset-0 flex">
+              {Object.entries(surfaceComposition)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .map(([surface, percent], index) => {
+                  const style = SURFACE_STYLES[surface.toLowerCase()] || { bg: "bg-brand-navy-400", gradient: "from-brand-navy-400 to-brand-navy-500" };
+                  return (
+                    <div
+                      key={surface}
+                      className={cn(
+                        "relative h-full flex items-center justify-center overflow-hidden animate-bar-fill",
+                        `bg-gradient-to-r ${style.gradient}`
+                      )}
+                      style={{
+                        "--bar-width": `${percent}%`,
+                        animationDelay: `${400 + index * 100}ms`,
+                      } as React.CSSProperties}
+                    >
+                      {(percent as number) >= 15 && (
+                        <span className="text-xs font-bold text-white/90 drop-shadow-sm opacity-0 animate-fade-in" style={{ animationDelay: `${600 + index * 100}ms` }}>
+                          {percent}%
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4">
             {Object.entries(surfaceComposition)
               .sort(([, a], [, b]) => (b as number) - (a as number))
               .map(([surface, percent]) => {
-                const colors: Record<string, string> = {
-                  gravel: "bg-amber-500",
-                  dirt: "bg-orange-600",
-                  pavement: "bg-gray-500",
-                  singletrack: "bg-green-600",
-                  sand: "bg-yellow-400",
-                  mud: "bg-stone-600",
-                };
+                const style = SURFACE_STYLES[surface.toLowerCase()] || { bg: "bg-brand-navy-400", text: "text-brand-navy-700" };
                 return (
-                  <div
-                    key={surface}
-                    className={colors[surface.toLowerCase()] || "bg-brand-navy-400"}
-                    style={{ width: `${percent}%` }}
-                    title={`${surface}: ${percent}%`}
-                  />
+                  <div key={surface} className="flex items-center gap-2">
+                    <div className={cn("w-3 h-3 rounded-full", style.bg)} />
+                    <span className="text-sm capitalize text-brand-navy-700">{surface}</span>
+                    <span className="text-sm font-semibold text-brand-navy-900">{percent}%</span>
+                  </div>
                 );
               })}
           </div>
-          <div className="flex flex-wrap gap-4 mt-3">
-            {Object.entries(surfaceComposition)
-              .sort(([, a], [, b]) => (b as number) - (a as number))
-              .map(([surface, percent]) => (
-                <div key={surface} className="flex items-center gap-2 text-sm">
-                  <Gauge className="h-3.5 w-3.5 text-brand-navy-400" />
-                  <span className="capitalize text-brand-navy-700">{surface}:</span>
-                  <span className="font-medium text-brand-navy-900">{percent}%</span>
+        </div>
+      )}
+
+      {/* Aid Stations - Timeline Style */}
+      {aidStations.length > 0 && (
+        <div className="rounded-2xl bg-gradient-to-br from-brand-navy-50 to-white border border-brand-navy-100 p-6 shadow-sm opacity-0 animate-fade-in-up" style={{ animationDelay: "400ms" }}>
+          <div className="flex items-center gap-2 mb-6">
+            <div className="p-2 rounded-lg bg-brand-sky-500">
+              <Flag className="h-4 w-4 text-white" />
+            </div>
+            <h3 className="text-lg font-semibold text-brand-navy-900">Aid Stations</h3>
+            <span className="ml-auto text-sm text-brand-navy-500">{aidStations.length} stops</span>
+          </div>
+
+          <div className="relative">
+            {/* Timeline line */}
+            <div className="absolute left-[27px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-brand-sky-400 via-brand-sky-500 to-brand-sky-600" />
+
+            <div className="space-y-4">
+              {aidStations.map((station, index) => (
+                <div
+                  key={index}
+                  className="relative flex items-start gap-4 group opacity-0 animate-slide-in-right"
+                  style={{ animationDelay: `${500 + index * 75}ms` }}
+                >
+                  {/* Timeline dot */}
+                  <div className={cn(
+                    "relative z-10 w-[54px] flex flex-col items-center flex-shrink-0",
+                  )}>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 border-brand-sky-500 bg-white transition-all duration-200",
+                      "group-hover:scale-125 group-hover:bg-brand-sky-500"
+                    )} />
+                  </div>
+
+                  {/* Station card */}
+                  <div className="flex-1 pb-4">
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-white border border-brand-navy-100 shadow-sm group-hover:shadow-md group-hover:border-brand-sky-200 transition-all duration-200">
+                      <div className="flex-1">
+                        <p className="font-semibold text-brand-navy-900">{station.name}</p>
+                        <p className="text-sm text-brand-navy-500 mt-0.5">
+                          Mile {station.mile.toFixed(1)}
+                        </p>
+                      </div>
+                      {station.cutoff && (
+                        <div className="text-right">
+                          <p className="text-xs text-brand-navy-500">Cutoff</p>
+                          <p className="text-sm font-mono font-semibold text-amber-600">{station.cutoff}</p>
+                        </div>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-brand-navy-300 group-hover:text-brand-sky-500 transition-colors" />
+                    </div>
+                  </div>
                 </div>
               ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Aid Stations */}
-      {aidStations.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-brand-navy-900 mb-4">Aid Stations</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-brand-navy-200">
-                  <th className="text-left py-2 px-3 font-medium text-brand-navy-500">Station</th>
-                  <th className="text-right py-2 px-3 font-medium text-brand-navy-500">Mile</th>
-                  {aidStations.some((s) => s.cutoff) && (
-                    <th className="text-right py-2 px-3 font-medium text-brand-navy-500">Cutoff</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {aidStations.map((station, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-brand-navy-100 hover:bg-brand-navy-50"
-                  >
-                    <td className="py-2 px-3">
-                      <div className="flex items-center gap-2">
-                        <Flag className="h-4 w-4 text-brand-sky-500" />
-                        <span className="font-medium text-brand-navy-900">{station.name}</span>
-                      </div>
-                    </td>
-                    <td className="text-right py-2 px-3 text-brand-navy-700">
-                      {station.mile.toFixed(1)} mi
-                    </td>
-                    {aidStations.some((s) => s.cutoff) && (
-                      <td className="text-right py-2 px-3 text-brand-navy-700">
-                        {station.cutoff || "—"}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Race Day Logistics Section */}
+      {/* Race Day Logistics - Grid of Cards */}
       {(race?.parking_info || race?.packet_pickup?.length || race?.event_schedule?.length ||
         race?.crew_info || race?.crew_locations?.length || race?.drop_bag_info ||
         race?.course_rules || race?.course_marking || race?.weather_notes || race?.additional_info) && (
-        <div className="space-y-6 pt-4 border-t border-brand-navy-100">
-          <h3 className="text-xl font-semibold text-brand-navy-900">Race Day Logistics</h3>
+        <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-navy-200 to-transparent" />
+            <h3 className="text-lg font-semibold text-brand-navy-900 px-4">Race Day Logistics</h3>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-navy-200 to-transparent" />
+          </div>
 
-          {/* Packet Pickup */}
-          {race?.packet_pickup && race.packet_pickup.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-brand-sky-500" />
-                <h4 className="font-semibold text-brand-navy-900">Packet Pickup</h4>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {race.packet_pickup.map((pickup, index) => (
-                  <div key={index} className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-                    <p className="font-medium text-brand-navy-900">
-                      {(() => {
-                        // Parse as local time to avoid timezone issues
-                        const [year, month, day] = pickup.date.split("-").map(Number);
-                        const date = new Date(year!, month! - 1, day!);
-                        return date.toLocaleDateString("en-US", {
-                          weekday: "long",
-                          month: "short",
-                          day: "numeric",
-                        });
-                      })()}
-                    </p>
-                    <p className="text-brand-navy-700">
-                      {pickup.start_time.slice(0, 5)} - {pickup.end_time.slice(0, 5)}
-                    </p>
-                    <p className="text-sm text-brand-navy-600 mt-1">{pickup.location}</p>
-                    {pickup.notes && (
-                      <p className="text-sm text-brand-navy-500 mt-1">{pickup.notes}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Packet Pickup */}
+            {race?.packet_pickup && race.packet_pickup.length > 0 && (
+              <LogisticsCard
+                icon={Package}
+                iconBg="bg-blue-100"
+                iconColor="text-blue-600"
+                title="Packet Pickup"
+              >
+                <div className="space-y-3">
+                  {race.packet_pickup.map((pickup, index) => (
+                    <div key={index} className="text-sm">
+                      <p className="font-medium text-brand-navy-900">
+                        {formatDate(pickup.date).weekday}, {formatDate(pickup.date).month} {formatDate(pickup.date).day}
+                      </p>
+                      <p className="text-brand-navy-600">
+                        {pickup.start_time.slice(0, 5)} - {pickup.end_time.slice(0, 5)}
+                      </p>
+                      <p className="text-brand-navy-500">{pickup.location}</p>
+                      {pickup.notes && (
+                        <p className="text-brand-navy-400 text-xs mt-1">{pickup.notes}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </LogisticsCard>
+            )}
 
-          {/* Event Schedule */}
-          {race?.event_schedule && race.event_schedule.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-brand-sky-500" />
-                <h4 className="font-semibold text-brand-navy-900">Race Day Schedule</h4>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {race.event_schedule.map((item, index) => (
-                      <tr key={index} className="border-b border-brand-navy-100 last:border-b-0">
-                        <td className="py-2 pr-4 font-mono text-brand-navy-600 whitespace-nowrap">
-                          {item.time}
-                        </td>
-                        <td className="py-2 font-medium text-brand-navy-900">{item.title}</td>
+            {/* Event Schedule */}
+            {race?.event_schedule && race.event_schedule.length > 0 && (
+              <LogisticsCard
+                icon={Calendar}
+                iconBg="bg-violet-100"
+                iconColor="text-violet-600"
+                title="Race Day Schedule"
+              >
+                <div className="space-y-2">
+                  {race.event_schedule.map((item, index) => (
+                    <div key={index} className="flex gap-3 text-sm">
+                      <span className="font-mono text-brand-navy-500 w-14 flex-shrink-0">{item.time}</span>
+                      <div>
+                        <span className="font-medium text-brand-navy-900">{item.title}</span>
                         {item.description && (
-                          <td className="py-2 pl-4 text-brand-navy-600">{item.description}</td>
+                          <span className="text-brand-navy-500 ml-1">{item.description}</span>
                         )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </LogisticsCard>
+            )}
+
+            {/* Parking */}
+            {race?.parking_info && (
+              <LogisticsCard
+                icon={Car}
+                iconBg="bg-emerald-100"
+                iconColor="text-emerald-600"
+                title="Parking"
+              >
+                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.parking_info}</p>
+              </LogisticsCard>
+            )}
+
+            {/* Drop Bags */}
+            {race?.drop_bag_info && (
+              <LogisticsCard
+                icon={Backpack}
+                iconBg="bg-orange-100"
+                iconColor="text-orange-600"
+                title="Drop Bags"
+              >
+                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.drop_bag_info}</p>
+              </LogisticsCard>
+            )}
+
+            {/* Course Marking */}
+            {race?.course_marking && (
+              <LogisticsCard
+                icon={Flag}
+                iconBg="bg-pink-100"
+                iconColor="text-pink-600"
+                title="Course Marking"
+              >
+                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.course_marking}</p>
+              </LogisticsCard>
+            )}
+
+            {/* Weather */}
+            {race?.weather_notes && (
+              <LogisticsCard
+                icon={Cloud}
+                iconBg="bg-sky-100"
+                iconColor="text-sky-600"
+                title="Weather & Conditions"
+              >
+                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.weather_notes}</p>
+              </LogisticsCard>
+            )}
+
+            {/* Additional Info */}
+            {race?.additional_info && (
+              <LogisticsCard
+                icon={Info}
+                iconBg="bg-brand-navy-100"
+                iconColor="text-brand-navy-600"
+                title="Additional Information"
+              >
+                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.additional_info}</p>
+              </LogisticsCard>
+            )}
+          </div>
+
+          {/* Course Rules - Full Width Warning Card */}
+          {race?.course_rules && (
+            <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 p-5 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="p-2 rounded-lg bg-amber-500 flex-shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-amber-900 mb-2">Important Rules</h4>
+                  <p className="text-sm text-amber-800 whitespace-pre-line">{race.course_rules}</p>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Parking */}
-          {race?.parking_info && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Car className="h-5 w-5 text-brand-sky-500" />
-                <h4 className="font-semibold text-brand-navy-900">Parking</h4>
-              </div>
-              <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-                <p className="text-brand-navy-700 whitespace-pre-line">{race.parking_info}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Crew Information */}
+          {/* Crew Information - Full Width */}
           {(race?.crew_info || (race?.crew_locations && race.crew_locations.length > 0)) && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-brand-sky-500" />
-                <h4 className="font-semibold text-brand-navy-900">Crew Access</h4>
+            <div className="rounded-2xl bg-white border border-brand-navy-100 p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="p-2 rounded-lg bg-indigo-500">
+                  <Users className="h-4 w-4 text-white" />
+                </div>
+                <h4 className="font-semibold text-brand-navy-900">Crew Access Points</h4>
               </div>
 
               {race?.crew_locations && race.crew_locations.length > 0 && (
-                <div className="grid gap-3">
+                <div className="grid gap-4 sm:grid-cols-2 mb-4">
                   {race.crew_locations.map((loc, index) => (
-                    <div key={index} className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-                      <div className="flex items-start justify-between">
+                    <div
+                      key={index}
+                      className="p-4 rounded-xl bg-brand-navy-50 border border-brand-navy-100"
+                    >
+                      <div className="flex items-start justify-between mb-2">
                         <div>
                           <p className="font-semibold text-brand-navy-900">{loc.name}</p>
                           <p className="text-sm text-brand-navy-600">
                             Mile {loc.mile_out}
-                            {loc.mile_in && loc.mile_in !== loc.mile_out && ` (return: ${loc.mile_in})`}
+                            {loc.mile_in && loc.mile_in !== loc.mile_out && ` → ${loc.mile_in}`}
                           </p>
                         </div>
-                        <span className={cn(
-                          "px-2 py-0.5 text-xs font-medium rounded-full",
-                          loc.access_type === "unlimited" && "bg-green-100 text-green-700",
-                          loc.access_type === "limited" && "bg-amber-100 text-amber-700",
-                          loc.access_type === "reserved" && "bg-red-100 text-red-700"
-                        )}>
-                          {loc.access_type === "unlimited" && "Open Access"}
-                          {loc.access_type === "limited" && "Limited Access"}
-                          {loc.access_type === "reserved" && "Reserved Only"}
+                        <span
+                          className={cn(
+                            "px-2.5 py-1 text-xs font-semibold rounded-full",
+                            loc.access_type === "unlimited" && "bg-emerald-100 text-emerald-700",
+                            loc.access_type === "limited" && "bg-amber-100 text-amber-700",
+                            loc.access_type === "reserved" && "bg-red-100 text-red-700"
+                          )}
+                        >
+                          {loc.access_type === "unlimited" && "Open"}
+                          {loc.access_type === "limited" && "Limited"}
+                          {loc.access_type === "reserved" && "Reserved"}
                         </span>
                       </div>
 
                       {(loc.parking_info || loc.setup_time || loc.shuttle_info) && (
-                        <div className="mt-2 flex flex-wrap gap-4 text-sm text-brand-navy-600">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-brand-navy-500 mt-2">
                           {loc.parking_info && <span>Parking: {loc.parking_info}</span>}
                           {loc.setup_time && <span>Setup: {loc.setup_time}</span>}
                           {loc.shuttle_info && <span>Shuttle: {loc.shuttle_info}</span>}
@@ -521,14 +684,14 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                       )}
 
                       {loc.restrictions && (
-                        <p className="mt-2 text-sm text-amber-700">
-                          <AlertTriangle className="inline h-3.5 w-3.5 mr-1" />
+                        <p className="mt-2 text-xs text-amber-700 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 inline" />
                           {loc.restrictions}
                         </p>
                       )}
 
                       {loc.notes && (
-                        <p className="mt-2 text-sm text-brand-navy-600">{loc.notes}</p>
+                        <p className="mt-2 text-xs text-brand-navy-500">{loc.notes}</p>
                       )}
                     </div>
                   ))}
@@ -536,75 +699,8 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
               )}
 
               {race?.crew_info && (
-                <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-                  <p className="text-brand-navy-700 whitespace-pre-line">{race.crew_info}</p>
-                </div>
+                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.crew_info}</p>
               )}
-            </div>
-          )}
-
-          {/* Drop Bags */}
-          {race?.drop_bag_info && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Backpack className="h-5 w-5 text-brand-sky-500" />
-                <h4 className="font-semibold text-brand-navy-900">Drop Bags</h4>
-              </div>
-              <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-                <p className="text-brand-navy-700 whitespace-pre-line">{race.drop_bag_info}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Course Rules */}
-          {race?.course_rules && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                <h4 className="font-semibold text-brand-navy-900">Important Rules</h4>
-              </div>
-              <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
-                <p className="text-brand-navy-700 whitespace-pre-line">{race.course_rules}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Course Marking */}
-          {race?.course_marking && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Flag className="h-5 w-5 text-brand-sky-500" />
-                <h4 className="font-semibold text-brand-navy-900">Course Marking</h4>
-              </div>
-              <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-                <p className="text-brand-navy-700 whitespace-pre-line">{race.course_marking}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Weather */}
-          {race?.weather_notes && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Cloud className="h-5 w-5 text-brand-sky-500" />
-                <h4 className="font-semibold text-brand-navy-900">Weather & Conditions</h4>
-              </div>
-              <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-                <p className="text-brand-navy-700 whitespace-pre-line">{race.weather_notes}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Additional Info */}
-          {race?.additional_info && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Info className="h-5 w-5 text-brand-sky-500" />
-                <h4 className="font-semibold text-brand-navy-900">Additional Information</h4>
-              </div>
-              <div className="p-4 rounded-lg bg-brand-navy-50 border border-brand-navy-100">
-                <p className="text-brand-navy-700 whitespace-pre-line">{race.additional_info}</p>
-              </div>
             </div>
           )}
         </div>
@@ -613,7 +709,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
       {/* Registration Link */}
       {distance?.registration_url && (
         <div className="flex justify-center pt-4">
-          <Button asChild variant="outline">
+          <Button asChild className="rounded-xl px-6 bg-brand-navy-900 hover:bg-brand-navy-800">
             <a
               href={distance.registration_url}
               target="_blank"
@@ -626,6 +722,33 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+// Reusable Logistics Card Component
+function LogisticsCard({
+  icon: Icon,
+  iconBg,
+  iconColor,
+  title,
+  children,
+}: {
+  icon: React.ElementType;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl bg-white border border-brand-navy-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center gap-3 mb-4">
+        <div className={cn("p-2 rounded-lg", iconBg)}>
+          <Icon className={cn("h-4 w-4", iconColor)} />
+        </div>
+        <h4 className="font-semibold text-brand-navy-900">{title}</h4>
+      </div>
+      {children}
     </div>
   );
 }

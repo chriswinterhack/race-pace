@@ -25,6 +25,7 @@ import {
   Footprints,
   Droplet,
   Milestone,
+  ImagePlus,
 } from "lucide-react";
 import {
   DndContext,
@@ -53,11 +54,12 @@ import {
   Label,
   Skeleton,
 } from "@/components/ui";
-import { cn, formatDateRange } from "@/lib/utils";
+import { cn, formatDateRange, formatDateShort } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { useGpxUpload } from "@/hooks";
+import { useGpxUpload, useHeroImageUpload } from "@/hooks";
 import { toast } from "sonner";
 import { RaceLogisticsEditor } from "@/components/admin/RaceLogisticsEditor";
+import Image from "next/image";
 
 interface AidStation {
   id?: string; // For drag and drop tracking
@@ -66,6 +68,14 @@ interface AidStation {
   supplies?: string[];
   cutoff_time?: string;
   type?: "aid_station" | "checkpoint"; // Defaults to "aid_station" for backward compatibility
+}
+
+interface SurfaceComposition {
+  gravel?: number;
+  pavement?: number;
+  singletrack?: number;
+  doubletrack?: number;
+  dirt?: number;
 }
 
 interface RaceDistance {
@@ -79,6 +89,7 @@ interface RaceDistance {
   is_active: boolean;
   sort_order: number;
   aid_stations: AidStation[] | null;
+  surface_composition: SurfaceComposition | null;
 }
 
 interface RaceEdition {
@@ -109,6 +120,7 @@ interface Race {
   location: string | null;
   description: string | null;
   website_url: string | null;
+  hero_image_url: string | null;
   is_active: boolean;
   race_type: "bike" | "run";
   race_subtype: string;
@@ -154,6 +166,7 @@ export default function RaceDetailPage() {
         location,
         description,
         website_url,
+        hero_image_url,
         is_active,
         race_type,
         race_subtype,
@@ -182,7 +195,8 @@ export default function RaceDetailPage() {
             elevation_gain,
             is_active,
             sort_order,
-            aid_stations
+            aid_stations,
+            surface_composition
           )
         )
       `)
@@ -599,10 +613,7 @@ function DistanceRow({ distance, raceSlug, editionYear, onRefresh }: DistanceRow
           {distance.date && (
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
-              {new Date(distance.date).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })}
+              {formatDateShort(distance.date)}
             </span>
           )}
           {distance.start_time && (
@@ -931,11 +942,30 @@ function EditDistanceModal({
     start_time: distance.start_time || "",
     elevation_gain: distance.elevation_gain?.toString() || "",
   });
+  const [surface, setSurface] = useState<SurfaceComposition>(
+    distance.surface_composition || {}
+  );
   const [saving, setSaving] = useState(false);
+
+  // Calculate total percentage
+  const totalPercent = Object.values(surface).reduce((sum, val) => sum + (val || 0), 0);
+
+  const handleSurfaceChange = (key: keyof SurfaceComposition, value: string) => {
+    const numValue = parseInt(value) || 0;
+    setSurface({ ...surface, [key]: numValue > 0 ? numValue : undefined });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+
+    // Clean surface composition (remove zero/undefined values)
+    const cleanedSurface: SurfaceComposition = {};
+    Object.entries(surface).forEach(([key, val]) => {
+      if (val && val > 0) {
+        cleanedSurface[key as keyof SurfaceComposition] = val;
+      }
+    });
 
     try {
       const response = await fetch("/api/admin/distances", {
@@ -948,6 +978,7 @@ function EditDistanceModal({
           date: formData.date || null,
           start_time: formData.start_time || null,
           elevation_gain: formData.elevation_gain ? parseInt(formData.elevation_gain) : null,
+          surface_composition: Object.keys(cleanedSurface).length > 0 ? cleanedSurface : null,
         }),
       });
 
@@ -1035,6 +1066,48 @@ function EditDistanceModal({
               />
             </div>
 
+            {/* Surface Composition */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Surface Composition</Label>
+                <span className={cn(
+                  "text-xs font-medium px-2 py-0.5 rounded",
+                  totalPercent === 100 ? "bg-emerald-100 text-emerald-700" :
+                  totalPercent === 0 ? "bg-brand-navy-100 text-brand-navy-500" :
+                  "bg-amber-100 text-amber-700"
+                )}>
+                  {totalPercent}% total
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: "gravel", label: "Gravel" },
+                  { key: "pavement", label: "Pavement" },
+                  { key: "singletrack", label: "Singletrack" },
+                  { key: "doubletrack", label: "Doubletrack" },
+                  { key: "dirt", label: "Dirt Road" },
+                ].map(({ key, label }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={surface[key as keyof SurfaceComposition] || ""}
+                      onChange={(e) => handleSurfaceChange(key as keyof SurfaceComposition, e.target.value)}
+                      className="w-20 h-9"
+                      placeholder="0"
+                    />
+                    <span className="text-sm text-brand-navy-600">% {label}</span>
+                  </div>
+                ))}
+              </div>
+              {totalPercent > 0 && totalPercent !== 100 && (
+                <p className="text-xs text-amber-600">
+                  Surface percentages should add up to 100%
+                </p>
+              )}
+            </div>
+
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
@@ -1071,6 +1144,28 @@ function EditRaceModal({
     race_subtype: race.race_subtype || "",
   });
   const [saving, setSaving] = useState(false);
+  const [heroImagePreview, setHeroImagePreview] = useState<string | null>(race.hero_image_url || null);
+  const { upload: uploadHeroImage, isUploading: isUploadingHero, progress: heroProgress } = useHeroImageUpload();
+
+  const handleHeroImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onload = (e) => setHeroImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // Upload the file (API updates database directly)
+    const result = await uploadHeroImage(file, race.id, race.slug);
+    if (result) {
+      setHeroImagePreview(result.url);
+      toast.success("Hero image uploaded!");
+    } else {
+      toast.error("Failed to upload hero image");
+      setHeroImagePreview(race.hero_image_url || null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1260,6 +1355,90 @@ function EditRaceModal({
                 rows={3}
                 className="flex w-full rounded-md border border-brand-navy-200 bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-brand-navy-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky-400 focus-visible:ring-offset-2"
               />
+            </div>
+
+            {/* Hero Image Upload */}
+            <div className="space-y-2">
+              <Label>Hero Image</Label>
+              <p className="text-xs text-brand-navy-500">
+                Landscape image (16:9 ratio) for race cards. Recommended: 1200x675px
+              </p>
+              <div className="mt-2">
+                {heroImagePreview ? (
+                  <div className="relative rounded-lg overflow-hidden border border-brand-navy-200">
+                    <div className="aspect-video relative">
+                      <Image
+                        src={heroImagePreview}
+                        alt="Hero image preview"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                      <span className="text-white text-sm font-medium drop-shadow-lg">
+                        {race.name}
+                      </span>
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleHeroImageSelect}
+                          className="hidden"
+                          disabled={isUploadingHero}
+                        />
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                          isUploadingHero
+                            ? "bg-white/50 text-brand-navy-600"
+                            : "bg-white/90 text-brand-navy-700 hover:bg-white"
+                        )}>
+                          {isUploadingHero ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              {heroProgress}%
+                            </>
+                          ) : (
+                            <>
+                              <ImagePlus className="h-3.5 w-3.5" />
+                              Replace
+                            </>
+                          )}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer block">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleHeroImageSelect}
+                      className="hidden"
+                      disabled={isUploadingHero}
+                    />
+                    <div className={cn(
+                      "aspect-video rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors",
+                      isUploadingHero
+                        ? "border-brand-sky-300 bg-brand-sky-50"
+                        : "border-brand-navy-200 hover:border-brand-sky-400 hover:bg-brand-sky-50/50"
+                    )}>
+                      {isUploadingHero ? (
+                        <>
+                          <Loader2 className="h-8 w-8 text-brand-sky-500 animate-spin" />
+                          <span className="text-sm text-brand-sky-600">Uploading... {heroProgress}%</span>
+                        </>
+                      ) : (
+                        <>
+                          <ImagePlus className="h-8 w-8 text-brand-navy-400" />
+                          <span className="text-sm text-brand-navy-600">Click to upload hero image</span>
+                          <span className="text-xs text-brand-navy-400">JPG, PNG, or WebP up to 5MB</span>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2">

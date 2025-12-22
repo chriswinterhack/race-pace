@@ -1,18 +1,22 @@
 import Link from "next/link";
+import { Mountain } from "lucide-react";
 
 export default function HomePage() {
   return (
     <main id="main-content" className="min-h-screen">
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-16">
         <div className="max-w-2xl mx-auto text-center">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <Mountain className="h-10 w-10 sm:h-12 sm:w-12 text-brand-sky-400" />
+          </div>
           <h1 className="text-4xl font-heading font-bold tracking-tight text-brand-navy-900 sm:text-5xl md:text-6xl">
-            Race
-            <span className="text-brand-sky-400">Pace</span>
+            Final
+            <span className="text-brand-sky-400">Climb</span>
           </h1>
           <p className="mt-6 text-lg text-brand-navy-600 leading-relaxed">
             Build personalized race execution plans with pacing, nutrition, gear
-            management, and checkpoint strategies for gravel cycling, mountain
-            biking, and ultrarunning.
+            management, and checkpoint strategies for gravel, road, MTB, and
+            cyclocross racing.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link
