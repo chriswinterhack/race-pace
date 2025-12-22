@@ -8,35 +8,40 @@ import {
   Map,
   Users,
   ChevronRight,
-  Star,
   Shield,
   Bike,
   Check,
+  MapPin,
+  Calendar,
+  Route,
 } from "lucide-react";
 
 // Enhanced SEO metadata for landing page
 export const metadata: Metadata = {
-  title: "FinalClimb - Race Day Execution Plans for Endurance Athletes",
+  title: "FinalClimb - Cycling Race Execution Plans | Gravel, MTB & Road",
   description:
-    "Build personalized race execution plans with power targets, pacing strategy, nutrition timing, and checkpoint goals. Used by gravel racers, mountain bikers, and ultra-endurance cyclists worldwide.",
+    "Build personalized cycling race execution plans with power targets, pacing strategy, nutrition timing, and checkpoint goals. Designed for gravel racing, mountain biking, and ultra-endurance cycling events.",
   keywords: [
-    "race planning software",
+    "cycling race planning",
     "gravel race pacing",
     "cycling power targets",
-    "endurance race nutrition",
     "MTB race strategy",
+    "gravel cycling",
+    "endurance cycling",
     "Unbound Gravel",
     "Mid South",
     "SBT GRVL",
-    "Leadville 100",
+    "Leadville 100 MTB",
     "cycling coach software",
     "FTP pacing calculator",
-    "race day nutrition plan",
+    "bike race nutrition plan",
+    "gravel bike racing",
+    "mountain bike racing",
   ],
   openGraph: {
-    title: "FinalClimb - Race Day Execution Plans for Endurance Athletes",
+    title: "FinalClimb - Cycling Race Execution Plans | Gravel, MTB & Road",
     description:
-      "Stop guessing on race day. Build data-driven execution plans with power targets, nutrition timing, and checkpoint strategies.",
+      "Stop guessing on race day. Build data-driven cycling race plans with power targets, nutrition timing, and checkpoint strategies for gravel, MTB, and road events.",
     type: "website",
     url: "https://finalclimb.com",
     images: [
@@ -44,15 +49,15 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "FinalClimb - Race Planning Platform",
+        alt: "FinalClimb - Cycling Race Planning Platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "FinalClimb - Race Day Execution Plans",
+    title: "FinalClimb - Cycling Race Execution Plans",
     description:
-      "Build data-driven race plans with power targets, nutrition timing, and checkpoint strategies.",
+      "Build data-driven cycling race plans with power targets, nutrition timing, and checkpoint strategies.",
   },
   alternates: {
     canonical: "https://finalclimb.com",
@@ -85,17 +90,13 @@ const structuredData = {
       "@type": "SoftwareApplication",
       name: "FinalClimb",
       applicationCategory: "SportsApplication",
+      applicationSubCategory: "Cycling Race Planning",
       operatingSystem: "Web",
       offers: {
         "@type": "Offer",
         price: "20",
         priceCurrency: "USD",
-        priceValidUntil: "2025-12-31",
-      },
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "4.9",
-        ratingCount: "127",
+        priceValidUntil: "2026-12-31",
       },
     },
   ],
@@ -106,7 +107,7 @@ const features = [
     icon: Zap,
     title: "Power-Based Pacing",
     description:
-      "Altitude-adjusted power targets for every segment. Know exactly what watts to hold on climbs vs flats.",
+      "Altitude-adjusted power targets for every segment. Know exactly what watts to hold on climbs vs flats based on your FTP.",
     color: "text-amber-500",
     bg: "bg-amber-500/10",
   },
@@ -114,7 +115,7 @@ const features = [
     icon: Clock,
     title: "Checkpoint Timing",
     description:
-      "Hit your splits with precision. See projected arrival times at every aid station and landmark.",
+      "Hit your splits with precision. See projected arrival times at every aid station, water crossing, and key landmark.",
     color: "text-brand-sky-500",
     bg: "bg-brand-sky-500/10",
   },
@@ -122,7 +123,7 @@ const features = [
     icon: Utensils,
     title: "Nutrition Strategy",
     description:
-      "Carbs, hydration, and sodium targets by the hour. Never bonk or cramp again.",
+      "Carbs, hydration, and sodium targets by the hour. Dial in your fueling for 6, 10, or 20+ hour efforts.",
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
   },
@@ -130,15 +131,15 @@ const features = [
     icon: Map,
     title: "Course Intelligence",
     description:
-      "Elevation profiles, surface breakdowns, and key sections flagged so you know what's coming.",
+      "Elevation profiles, surface breakdowns (gravel, pavement, singletrack), and key sections flagged.",
     color: "text-purple-500",
     bg: "bg-purple-500/10",
   },
   {
     icon: Bike,
-    title: "Gear Management",
+    title: "Gear Tracking",
     description:
-      "Track your race setup. See what the community is running for tire choice, gearing, and more.",
+      "Log your bike setup, tire choice, and gearing. See what other riders are running for each course.",
     color: "text-rose-500",
     bg: "bg-rose-500/10",
   },
@@ -146,52 +147,81 @@ const features = [
     icon: Users,
     title: "Coach Integration",
     description:
-      "Coaches can build and lock plans for athletes. Perfect power targets, every time.",
+      "Coaches can build and lock plans for their athletes. Dial in power targets for your entire roster.",
     color: "text-indigo-500",
     bg: "bg-indigo-500/10",
   },
 ];
 
-const stats = [
-  { value: "2,500+", label: "Race Plans Created" },
-  { value: "150+", label: "Supported Races" },
-  { value: "98%", label: "Finish Rate" },
-  { value: "4.9/5", label: "Athlete Rating" },
+// Featured races with real data
+const featuredRaces = [
+  {
+    name: "Unbound Gravel",
+    slug: "unbound-gravel",
+    location: "Emporia, KS",
+    subtype: "Gravel",
+    distances: "25-350 mi",
+    elevation: "Up to 18,000 ft",
+    date: "June 2026",
+    gradient: "from-amber-700 via-orange-600 to-red-800",
+  },
+  {
+    name: "Mid South",
+    slug: "mid-south",
+    location: "Stillwater, OK",
+    subtype: "Gravel",
+    distances: "50-100 mi",
+    elevation: "Up to 5,500 ft",
+    date: "March 2026",
+    gradient: "from-emerald-800 via-teal-700 to-brand-navy-900",
+  },
+  {
+    name: "SBT GRVL",
+    slug: "sbt-grvl",
+    location: "Steamboat Springs, CO",
+    subtype: "Gravel",
+    distances: "37-142 mi",
+    elevation: "Up to 9,000 ft",
+    date: "August 2026",
+    gradient: "from-brand-sky-700 via-cyan-600 to-teal-700",
+  },
+  {
+    name: "Leadville Trail 100 MTB",
+    slug: "leadville-100-mtb",
+    location: "Leadville, CO",
+    subtype: "MTB",
+    distances: "100 mi",
+    elevation: "12,600 ft",
+    date: "August 2026",
+    gradient: "from-slate-800 via-zinc-700 to-stone-800",
+  },
+  {
+    name: "Belgian Waffle Ride",
+    slug: "belgian-waffle-ride",
+    location: "San Marcos, CA",
+    subtype: "Gravel",
+    distances: "34-131 mi",
+    elevation: "Up to 10,000 ft",
+    date: "May 2026",
+    gradient: "from-rose-700 via-pink-600 to-purple-800",
+  },
+  {
+    name: "Big Sugar Gravel",
+    slug: "big-sugar",
+    location: "Bentonville, AR",
+    subtype: "Gravel",
+    distances: "51-104 mi",
+    elevation: "Up to 8,000 ft",
+    date: "October 2026",
+    gradient: "from-purple-800 via-violet-700 to-brand-navy-900",
+  },
 ];
 
-const testimonials = [
-  {
-    quote:
-      "Finally finished Unbound under my goal time. The pacing strategy kept me from going out too hot in the first 50 miles.",
-    author: "Sarah K.",
-    role: "Unbound 200 Finisher",
-    avatar: "SK",
-  },
-  {
-    quote:
-      "As a coach, I can dial in power targets for each athlete and know they'll execute. Game changer for race week.",
-    author: "Marcus T.",
-    role: "Endurance Coach",
-    avatar: "MT",
-  },
-  {
-    quote:
-      "The nutrition timing alone is worth it. No more guessing when to eat - it's all laid out mile by mile.",
-    author: "Jake R.",
-    role: "Leadville 100 Finisher",
-    avatar: "JR",
-  },
-];
-
-const races = [
-  "Unbound Gravel",
-  "Mid South",
-  "SBT GRVL",
-  "Leadville 100",
-  "Belgian Waffle Ride",
-  "Dirty Kanza",
-  "Gravel Worlds",
-  "Big Sugar",
+const disciplines = [
+  { name: "Gravel Racing", description: "Long-distance mixed-surface events" },
+  { name: "Mountain Biking", description: "XC, endurance, and ultra-distance MTB" },
+  { name: "Road Cycling", description: "Gran fondos and ultra-endurance road events" },
+  { name: "Cyclocross", description: "CX race pacing and strategy" },
 ];
 
 export default function HomePage() {
@@ -227,6 +257,12 @@ export default function HomePage() {
                 Features
               </a>
               <a
+                href="#races"
+                className="text-sm text-white/70 hover:text-white transition-colors"
+              >
+                Races
+              </a>
+              <a
                 href="#how-it-works"
                 className="text-sm text-white/70 hover:text-white transition-colors"
               >
@@ -252,7 +288,7 @@ export default function HomePage() {
                 href="/signup"
                 className="text-sm font-medium text-brand-navy-900 bg-brand-sky-400 hover:bg-brand-sky-300 px-4 py-2 rounded-lg transition-colors"
               >
-                Start Free
+                Get Started
               </Link>
             </div>
           </div>
@@ -270,11 +306,11 @@ export default function HomePage() {
             {/* Gradient Mesh */}
             <div className="absolute inset-0 bg-gradient-to-br from-brand-navy-900 via-brand-navy-950 to-black" />
 
-            {/* Topographic Pattern */}
+            {/* Topographic Pattern - evokes cycling/terrain */}
             <div
-              className="absolute inset-0 opacity-[0.03]"
+              className="absolute inset-0 opacity-[0.04]"
               style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 50 Q 25 30, 50 50 T 100 50' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3Cpath d='M0 60 Q 25 40, 50 60 T 100 60' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3Cpath d='M0 70 Q 25 50, 50 70 T 100 70' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3C/svg%3E")`,
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 50 Q 25 30, 50 50 T 100 50' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3Cpath d='M0 60 Q 25 40, 50 60 T 100 60' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3Cpath d='M0 70 Q 25 50, 50 70 T 100 70' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3Cpath d='M0 40 Q 25 20, 50 40 T 100 40' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3Cpath d='M0 30 Q 25 10, 50 30 T 100 30' fill='none' stroke='%23ffffff' stroke-width='0.5'/%3E%3C/svg%3E")`,
                 backgroundSize: "200px 200px",
               }}
             />
@@ -295,12 +331,9 @@ export default function HomePage() {
           <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 text-center">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
+              <Bike className="h-4 w-4 text-brand-sky-400" />
               <span className="text-sm text-white/80">
-                2025 Race Season Ready
+                2026 Race Season Ready
               </span>
             </div>
 
@@ -309,19 +342,33 @@ export default function HomePage() {
               id="hero-heading"
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-heading font-bold text-white tracking-tight leading-[1.1]"
             >
-              Stop Guessing.
+              Race Day
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-sky-400 via-brand-sky-300 to-emerald-400">
-                Start Executing.
+                Execution Plans
               </span>
             </h1>
 
             {/* Subheadline */}
             <p className="mt-6 text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed">
-              Data-driven race execution plans with power targets, nutrition
-              timing, and checkpoint strategies. Built for gravel racers,
-              mountain bikers, and ultra-endurance athletes.
+              Data-driven race plans for{" "}
+              <span className="text-white/80 font-medium">gravel racing</span>,{" "}
+              <span className="text-white/80 font-medium">mountain biking</span>, and{" "}
+              <span className="text-white/80 font-medium">ultra-endurance cycling</span>.
+              Power targets, nutrition timing, and checkpoint strategies built around your FTP.
             </p>
+
+            {/* Discipline Tags */}
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+              {["Gravel", "MTB", "Road", "Cyclocross"].map((discipline) => (
+                <span
+                  key={discipline}
+                  className="px-3 py-1 rounded-full text-sm font-medium bg-white/5 text-white/70 border border-white/10"
+                >
+                  {discipline}
+                </span>
+              ))}
+            </div>
 
             {/* CTA Buttons */}
             <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
@@ -344,15 +391,15 @@ export default function HomePage() {
             <div className="mt-16 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-white/40 text-sm">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                <span>Free to start</span>
+                <span>Free to explore races</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4" />
                 <span>No credit card required</span>
               </div>
               <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-amber-400" />
-                <span>4.9/5 from 127 athletes</span>
+                <Bike className="h-4 w-4" />
+                <span>Built for cyclists</span>
               </div>
             </div>
           </div>
@@ -365,16 +412,18 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Stats Bar */}
+        {/* Disciplines Bar */}
         <section className="relative bg-brand-navy-900 border-y border-white/5 py-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {stats.map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <div className="text-2xl sm:text-3xl font-heading font-bold text-white">
-                    {stat.value}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {disciplines.map((discipline) => (
+                <div key={discipline.name} className="text-center">
+                  <div className="text-lg font-heading font-semibold text-white">
+                    {discipline.name}
                   </div>
-                  <div className="mt-1 text-sm text-white/50">{stat.label}</div>
+                  <div className="mt-1 text-sm text-white/50">
+                    {discipline.description}
+                  </div>
                 </div>
               ))}
             </div>
@@ -395,11 +444,11 @@ export default function HomePage() {
                 className="text-3xl sm:text-4xl font-heading font-bold text-brand-navy-900"
               >
                 Everything You Need to
-                <span className="text-brand-sky-500"> Execute Perfectly</span>
+                <span className="text-brand-sky-500"> Execute Your Race</span>
               </h2>
               <p className="mt-4 text-lg text-brand-navy-600">
-                Race day is too important for guesswork. Get the tools
-                professional athletes and coaches use.
+                Stop guessing on race day. Get the tools to pace your effort, fuel properly,
+                and hit your goal time.
               </p>
             </div>
 
@@ -430,10 +479,104 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Featured Races Section */}
+        <section
+          id="races"
+          className="py-24 sm:py-32 bg-brand-navy-50"
+          aria-labelledby="races-heading"
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-3xl mx-auto text-center mb-12">
+              <h2
+                id="races-heading"
+                className="text-3xl sm:text-4xl font-heading font-bold text-brand-navy-900"
+              >
+                Pre-Loaded <span className="text-brand-sky-500">Race Courses</span>
+              </h2>
+              <p className="mt-4 text-lg text-brand-navy-600">
+                Select your race and get instant access to course data, elevation profiles,
+                aid station locations, and more. New races added regularly.
+              </p>
+            </div>
+
+            {/* Race Cards Grid */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredRaces.map((race) => (
+                <article
+                  key={race.slug}
+                  className="group relative overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 border border-brand-navy-100 hover:border-brand-sky-300 transform hover:-translate-y-1 h-80"
+                >
+                  {/* Hero Gradient */}
+                  <div className="relative w-full h-48 overflow-hidden">
+                    <div className={`absolute inset-0 bg-gradient-to-br ${race.gradient}`}>
+                      {/* Subtle pattern overlay */}
+                      <div
+                        className="absolute inset-0 opacity-10"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                        }}
+                      />
+                    </div>
+
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+                    {/* Stats Badge */}
+                    <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-navy-900/90 backdrop-blur-sm text-white text-sm font-medium shadow-lg">
+                        <Route className="h-3.5 w-3.5 text-brand-sky-400" />
+                        {race.distances}
+                        <span className="text-brand-navy-400 mx-0.5">•</span>
+                        <Mountain className="h-3.5 w-3.5 text-brand-sky-400" />
+                        {race.elevation}
+                      </span>
+                    </div>
+
+                    {/* Race Type Badge */}
+                    <div className="absolute top-3 right-3">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-sm text-brand-navy-700 text-xs font-semibold uppercase tracking-wide shadow-md">
+                        {race.subtype}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-4 space-y-3">
+                    <h3 className="font-heading font-bold text-brand-navy-900 text-lg group-hover:text-brand-sky-600 transition-colors">
+                      {race.name}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-brand-navy-600">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5 text-brand-sky-500" />
+                        {race.location}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5 text-brand-sky-500" />
+                        {race.date}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* View All Link */}
+            <div className="mt-12 text-center">
+              <Link
+                href="/signup"
+                className="inline-flex items-center gap-2 text-brand-sky-600 hover:text-brand-sky-700 font-semibold"
+              >
+                View all supported races
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* How It Works Section */}
         <section
           id="how-it-works"
-          className="py-24 sm:py-32 bg-brand-navy-50"
+          className="py-24 sm:py-32 bg-white"
           aria-labelledby="how-heading"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -445,7 +588,8 @@ export default function HomePage() {
                 Race Ready in <span className="text-brand-sky-500">3 Steps</span>
               </h2>
               <p className="mt-4 text-lg text-brand-navy-600">
-                From signup to start line in minutes, not hours.
+                From signup to start line in minutes. Get your personalized race plan
+                before your next big event.
               </p>
             </div>
 
@@ -455,19 +599,19 @@ export default function HomePage() {
                   step: "01",
                   title: "Enter Your Numbers",
                   description:
-                    "FTP, weight, and nutrition preferences. We handle the altitude adjustments automatically.",
+                    "Your FTP, weight, and nutrition preferences. We calculate altitude-adjusted power targets automatically.",
                 },
                 {
                   step: "02",
                   title: "Select Your Race",
                   description:
-                    "Choose from 150+ supported races with pre-loaded courses, aid stations, and elevation data.",
+                    "Choose from our library of gravel, MTB, and road events with pre-loaded course data and aid stations.",
                 },
                 {
                   step: "03",
                   title: "Get Your Plan",
                   description:
-                    "Receive personalized power targets, checkpoint times, and nutrition schedule. Export or print.",
+                    "Receive personalized power targets, checkpoint times, and nutrition schedule for race day.",
                 },
               ].map((item, index) => (
                 <div key={item.step} className="relative">
@@ -476,7 +620,7 @@ export default function HomePage() {
                     <div className="hidden md:block absolute top-12 left-[60%] w-[80%] h-px bg-gradient-to-r from-brand-sky-300 to-transparent" />
                   )}
 
-                  <div className="relative bg-white rounded-2xl p-8 shadow-sm border border-brand-navy-100">
+                  <div className="relative bg-brand-navy-50 rounded-2xl p-8 border border-brand-navy-100">
                     <div className="text-5xl font-heading font-bold text-brand-sky-400/20 mb-4">
                       {item.step}
                     </div>
@@ -491,101 +635,25 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Testimonials Section */}
-        <section
-          className="py-24 sm:py-32 bg-brand-navy-900"
-          aria-labelledby="testimonials-heading"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto text-center mb-16">
-              <h2
-                id="testimonials-heading"
-                className="text-3xl sm:text-4xl font-heading font-bold text-white"
-              >
-                Trusted by <span className="text-brand-sky-400">Finishers</span>
-              </h2>
-              <p className="mt-4 text-lg text-white/60">
-                Athletes who execute their race plans, not abandon them.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              {testimonials.map((testimonial) => (
-                <blockquote
-                  key={testimonial.author}
-                  className="relative bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
-                >
-                  {/* Stars */}
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className="h-4 w-4 fill-amber-400 text-amber-400"
-                      />
-                    ))}
-                  </div>
-
-                  <p className="text-white/80 leading-relaxed mb-6">
-                    &ldquo;{testimonial.quote}&rdquo;
-                  </p>
-
-                  <footer className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-sky-400 to-brand-sky-600 flex items-center justify-center text-white font-semibold text-sm">
-                      {testimonial.avatar}
-                    </div>
-                    <div>
-                      <cite className="not-italic font-medium text-white">
-                        {testimonial.author}
-                      </cite>
-                      <p className="text-sm text-white/50">{testimonial.role}</p>
-                    </div>
-                  </footer>
-                </blockquote>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Supported Races */}
-        <section className="py-16 bg-white border-y border-brand-navy-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <p className="text-center text-sm font-medium text-brand-navy-500 mb-8">
-              PRE-LOADED COURSES FOR 150+ RACES INCLUDING
-            </p>
-            <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-4">
-              {races.map((race) => (
-                <span
-                  key={race}
-                  className="text-brand-navy-400 font-medium text-sm sm:text-base"
-                >
-                  {race}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* Pricing Section */}
         <section
           id="pricing"
-          className="py-24 sm:py-32 bg-brand-navy-50"
+          className="py-24 sm:py-32 bg-brand-navy-900"
           aria-labelledby="pricing-heading"
         >
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2
               id="pricing-heading"
-              className="text-3xl sm:text-4xl font-heading font-bold text-brand-navy-900"
+              className="text-3xl sm:text-4xl font-heading font-bold text-white"
             >
-              Simple, <span className="text-brand-sky-500">Athlete-First</span>{" "}
-              Pricing
+              Simple <span className="text-brand-sky-400">Pricing</span>
             </h2>
-            <p className="mt-4 text-lg text-brand-navy-600 max-w-2xl mx-auto">
-              One plan. All features. No upsells. Build unlimited race plans for
-              less than a gel pack per month.
+            <p className="mt-4 text-lg text-white/60 max-w-2xl mx-auto">
+              One plan. All features. Build unlimited race plans for less than a gel pack per month.
             </p>
 
             {/* Pricing Card */}
-            <div className="mt-12 bg-white rounded-3xl shadow-xl border border-brand-navy-100 p-8 sm:p-12 max-w-lg mx-auto">
+            <div className="mt-12 bg-white rounded-3xl shadow-2xl border border-brand-navy-100 p-8 sm:p-12 max-w-lg mx-auto">
               <div className="text-brand-sky-500 font-semibold text-sm uppercase tracking-wider mb-2">
                 Annual Membership
               </div>
@@ -602,10 +670,10 @@ export default function HomePage() {
               <ul className="mt-8 space-y-4 text-left">
                 {[
                   "Unlimited race plans",
-                  "All 150+ supported races",
+                  "All supported races & courses",
                   "Power & nutrition calculations",
                   "Exportable race sheets",
-                  "Gear tracking & community data",
+                  "Gear tracking",
                   "Course maps & elevation profiles",
                 ].map((feature) => (
                   <li key={feature} className="flex items-center gap-3">
@@ -619,22 +687,22 @@ export default function HomePage() {
                 href="/signup"
                 className="mt-8 w-full inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold text-white bg-brand-navy-900 rounded-xl hover:bg-brand-navy-800 transition-all duration-200"
               >
-                Start Your Free Trial
+                Get Started
                 <ChevronRight className="h-4 w-4" />
               </Link>
 
               <p className="mt-4 text-sm text-brand-navy-500">
-                14-day free trial. No credit card required.
+                Browse races free. Subscription required for full plans.
               </p>
             </div>
 
             {/* Coach Pricing Teaser */}
-            <p className="mt-12 text-brand-navy-600">
-              <span className="font-semibold">Coaches:</span> Manage your
+            <p className="mt-12 text-white/60">
+              <span className="font-semibold text-white">Coaches:</span> Manage your
               athletes&apos; race plans.{" "}
               <Link
                 href="/signup"
-                className="text-brand-sky-600 hover:text-brand-sky-700 font-medium"
+                className="text-brand-sky-400 hover:text-brand-sky-300 font-medium"
               >
                 View coach pricing →
               </Link>
@@ -654,15 +722,15 @@ export default function HomePage() {
               Your Next PR Starts with a Plan
             </h2>
             <p className="mt-6 text-xl text-white/60 max-w-2xl mx-auto">
-              Join thousands of athletes who show up to race day with a clear
-              execution strategy.
+              Show up to race day with a clear execution strategy. Know your power targets,
+              your nutrition timing, and your checkpoint goals.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/signup"
                 className="group inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold text-brand-navy-900 bg-brand-sky-400 rounded-xl hover:bg-brand-sky-300 transition-all duration-200 shadow-lg shadow-brand-sky-500/25"
               >
-                Build Your Race Plan Free
+                Build Your Race Plan
                 <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
@@ -686,6 +754,9 @@ export default function HomePage() {
             <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-white/50">
               <a href="#features" className="hover:text-white transition-colors">
                 Features
+              </a>
+              <a href="#races" className="hover:text-white transition-colors">
+                Races
               </a>
               <a href="#pricing" className="hover:text-white transition-colors">
                 Pricing
