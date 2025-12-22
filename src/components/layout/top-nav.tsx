@@ -11,7 +11,6 @@ import {
   Users,
   LogOut,
   Bell,
-  Search,
   User,
   Shield,
   FlagTriangleRight,
@@ -318,16 +317,6 @@ export function TopNav() {
 
             {/* Right Actions */}
             <div className="flex items-center gap-1">
-              {/* Search */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-brand-navy-300 hover:text-white hover:bg-brand-navy-800 h-9 w-9"
-                aria-label="Search"
-              >
-                <Search className="h-4.5 w-4.5" />
-              </Button>
-
               {/* Notifications */}
               <Button
                 variant="ghost"
