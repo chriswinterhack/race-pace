@@ -348,17 +348,7 @@ export default function DashboardPage() {
             <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8 lg:p-10">
               <div className="max-w-6xl mx-auto w-full">
                 {/* Top Bar - Quick Actions */}
-                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2">
-                  <Link href="/dashboard/settings">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-2 text-white/80 hover:text-white hover:bg-white/10"
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span className="hidden sm:inline">Settings</span>
-                    </Button>
-                  </Link>
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
                   <Button
                     onClick={() => setShowAddRace(true)}
                     size="sm"
