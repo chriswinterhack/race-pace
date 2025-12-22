@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth/admin";
 
 // Use service role for storage operations
 const supabaseAdmin = createClient(
@@ -8,6 +9,10 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(request: NextRequest) {
+  // Verify user is authenticated
+  const auth = await requireAuth();
+  if (!auth.authorized) return auth.response;
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

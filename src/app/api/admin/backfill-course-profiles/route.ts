@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { DOMParser } from "@xmldom/xmldom";
+import { requireAdmin } from "@/lib/auth/admin";
 
 // Use service role for admin operations
 const supabaseAdmin = createClient(
@@ -122,6 +123,10 @@ function parseGPXCourseProfile(gpxText: string): CourseProfileResult | null {
 }
 
 export async function POST(_request: NextRequest) {
+  // Verify admin authorization
+  const auth = await requireAdmin();
+  if (!auth.authorized) return auth.response;
+
   try {
     // Get all race_distances with GPX but no course profile
     const { data: distances, error } = await supabaseAdmin

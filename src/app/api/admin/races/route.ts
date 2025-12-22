@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/auth/admin";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,10 @@ const supabaseAdmin = createClient(
 );
 
 export async function PUT(request: NextRequest) {
+  // Verify admin authorization
+  const auth = await requireAdmin();
+  if (!auth.authorized) return auth.response;
+
   try {
     const body = await request.json();
     const { raceId, name, slug, location, description, website_url, is_active, race_type, race_subtype } = body;
@@ -42,6 +47,10 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  // Verify admin authorization
+  const auth = await requireAdmin();
+  if (!auth.authorized) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const raceId = searchParams.get("id");

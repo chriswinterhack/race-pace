@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { DOMParser } from "@xmldom/xmldom";
+import { requireAdmin } from "@/lib/auth/admin";
 
 // Use service role for admin operations
 const supabaseAdmin = createClient(
@@ -157,6 +158,10 @@ function parseGPXStats(gpxText: string): {
 }
 
 export async function POST(request: NextRequest) {
+  // Verify admin authorization
+  const auth = await requireAdmin();
+  if (!auth.authorized) return auth.response;
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

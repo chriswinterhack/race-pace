@@ -4,7 +4,6 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail, Lock } from "lucide-react";
 import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@/components/ui";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 function LoginForm() {
@@ -16,33 +15,41 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const supabase = createClient();
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (error) {
-      console.error("Login error:", error);
-      // Handle unconfirmed email specifically
-      if (error.message.includes("Email not confirmed")) {
-        toast.error("Email not confirmed. Check Supabase Dashboard → Auth → Users to confirm manually.");
-      } else {
-        toast.error(error.message);
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Handle rate limiting
+        if (response.status === 429) {
+          toast.error(`Too many login attempts. Please wait ${result.retryAfter || 60} seconds.`);
+        } else if (result.error?.includes("Email not confirmed")) {
+          toast.error("Email not confirmed. Check your email or contact support.");
+        } else {
+          toast.error(result.error || "Login failed");
+        }
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-      return;
-    }
 
-    if (data.user) {
-      toast.success("Signed in successfully");
-      router.push(redirectTo);
-      router.refresh();
+      if (result.data?.user) {
+        toast.success("Signed in successfully");
+        router.push(redirectTo);
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An error occurred. Please try again.");
+      setLoading(false);
     }
   };
 
@@ -52,37 +59,42 @@ function LoginForm() {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
       return;
     }
 
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return;
-    }
+      const result = await response.json();
 
-    if (data.user) {
-      // Check if email confirmation is required
-      if (data.user.identities?.length === 0) {
-        toast.error("This email is already registered. Try signing in.");
-      } else if (data.session) {
-        // No email confirmation required - auto signed in
+      if (!response.ok) {
+        if (response.status === 429) {
+          toast.error(`Too many signup attempts. Please wait ${result.retryAfter || 60} seconds.`);
+        } else {
+          toast.error(result.error || "Signup failed");
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (result.data?.needsEmailConfirmation) {
+        toast.success("Account created! Check your email to confirm, then sign in.");
+      } else if (result.data?.session) {
         toast.success("Account created!");
         router.push(redirectTo);
         router.refresh();
-      } else {
-        // Email confirmation required
-        toast.success("Account created! Check your email to confirm, then sign in.");
       }
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error("An error occurred. Please try again.");
     }
 
     setLoading(false);
@@ -125,7 +137,7 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10"
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
           </div>

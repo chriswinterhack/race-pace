@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin";
 
 // Use service role for admin operations to bypass RLS
 const supabaseAdmin = createClient(
@@ -47,6 +48,10 @@ interface RaceLogistics {
 }
 
 export async function PUT(request: NextRequest) {
+  // Verify admin authorization
+  const auth = await requireAdmin();
+  if (!auth.authorized) return auth.response;
+
   try {
     const body = await request.json();
     const { raceId, logistics } = body as {

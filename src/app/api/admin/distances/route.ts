@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/auth/admin";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,10 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(request: NextRequest) {
+  // Verify admin authorization
+  const auth = await requireAdmin();
+  if (!auth.authorized) return auth.response;
+
   try {
     const body = await request.json();
     const { race_edition_id, name, distance_miles, date, start_time, elevation_gain, gpx_file_url } = body;
@@ -43,6 +48,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  // Verify admin authorization
+  const auth = await requireAdmin();
+  if (!auth.authorized) return auth.response;
+
   try {
     const body = await request.json();
     const { distanceId, name, distance_miles, date, start_time, elevation_gain, surface_composition } = body;
@@ -76,6 +85,10 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  // Verify admin authorization
+  const auth = await requireAdmin();
+  if (!auth.authorized) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const distanceId = searchParams.get("id");

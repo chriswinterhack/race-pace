@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { rateLimit, getClientIP, RATE_LIMITS } from "@/lib/rate-limit";
+
+export async function POST(request: NextRequest) {
+  // Rate limit by IP address - use same limit as login
+  const ip = getClientIP(request);
+  const rateLimitResult = rateLimit(`auth:signup:${ip}`, RATE_LIMITS.auth);
+
+  if (!rateLimitResult.allowed) {
+    console.warn(`Rate limit exceeded for signup from IP: ${ip}`);
+    return rateLimitResult.response;
+  }
+
+  try {
+    const body = await request.json();
+    const { email, password } = body;
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.warn(`Failed signup attempt for email: ${email} from IP: ${ip}`);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    // Check for duplicate email (identities will be empty)
+    if (data.user?.identities?.length === 0) {
+      return NextResponse.json(
+        { error: "This email is already registered. Try signing in." },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      data: {
+        user: data.user,
+        session: data.session,
+        needsEmailConfirmation: !data.session,
+      },
+      error: null,
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
