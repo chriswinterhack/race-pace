@@ -343,8 +343,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-heading font-bold text-brand-navy-900">Settings</h1>
-        <p className="mt-1 text-brand-navy-600">Manage your profile and preferences</p>
+        <h1 className="text-2xl font-heading font-bold text-brand-navy-900 sm:text-3xl">Settings</h1>
+        <p className="mt-2 text-brand-navy-600">Manage your profile and preferences</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

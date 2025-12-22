@@ -257,9 +257,11 @@ export default function RaceDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <Skeleton className="h-[400px] w-full" />
-        <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+      <div className="min-h-screen -mt-6 lg:-mt-8">
+        <div className="ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen">
+          <Skeleton className="h-[480px] w-full" />
+        </div>
+        <div className="py-8 space-y-6">
           <Skeleton className="h-12 w-64" />
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-48 w-full" />
@@ -294,9 +296,9 @@ export default function RaceDetailPage() {
     : null;
 
   return (
-    <div className="min-h-screen -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
-      {/* Hero Section */}
-      <div className="relative h-[420px] sm:h-[480px] overflow-hidden">
+    <div className="min-h-screen -mt-6 lg:-mt-8">
+      {/* Hero Section - Full viewport width */}
+      <div className="relative ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen h-[420px] sm:h-[480px] overflow-hidden">
         {/* Background Image */}
         {race.hero_image_url ? (
           <Image
@@ -335,7 +337,7 @@ export default function RaceDetailPage() {
 
         {/* Hero Content */}
         <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 lg:p-12">
-          <div className="max-w-6xl mx-auto">
+          <div className="container mx-auto max-w-7xl px-4 lg:px-6">
             {/* Race Type Badge */}
             <div className="flex items-center gap-3 mb-4">
               <span className={cn(
@@ -407,9 +409,9 @@ export default function RaceDetailPage() {
         </div>
       </div>
 
-      {/* Quick Stats Bar */}
-      <div className="bg-brand-navy-900 border-b border-brand-navy-700">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Quick Stats Bar - Full viewport width */}
+      <div className="ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen bg-brand-navy-900 border-b border-brand-navy-700">
+        <div className="container mx-auto max-w-7xl px-4 lg:px-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-brand-navy-700">
             <QuickStat
               icon={<Route className="h-5 w-5" />}
@@ -435,10 +437,10 @@ export default function RaceDetailPage() {
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="sticky top-0 z-30 bg-white border-b border-brand-navy-200 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex gap-1">
+      {/* Tab Navigation - Full viewport width, matching race plan page style */}
+      <div className="sticky top-16 z-20 ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen bg-white/80 backdrop-blur-xl border-b border-brand-navy-100">
+        <div className="container mx-auto max-w-7xl px-4 lg:px-6">
+          <nav className="relative flex gap-1 overflow-x-auto scrollbar-hide py-3">
             {[
               { id: "overview" as TabId, label: "Overview" },
               { id: "course" as TabId, label: "Course & Distances" },
@@ -449,16 +451,13 @@ export default function RaceDetailPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "relative px-5 py-4 text-sm font-medium transition-colors",
+                  "relative px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200",
                   activeTab === tab.id
-                    ? "text-brand-navy-900"
-                    : "text-brand-navy-500 hover:text-brand-navy-700"
+                    ? "bg-brand-navy-900 text-white shadow-lg"
+                    : "text-brand-navy-600 hover:text-brand-navy-900 hover:bg-brand-navy-50"
                 )}
               >
                 {tab.label}
-                {activeTab === tab.id && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-sky-500" />
-                )}
               </button>
             ))}
           </nav>
@@ -466,7 +465,7 @@ export default function RaceDetailPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <div className="py-8 sm:py-12">
         {activeTab === "overview" && (
           <OverviewTab race={race} latestEdition={latestEdition} />
         )}

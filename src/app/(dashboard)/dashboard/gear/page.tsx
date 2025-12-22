@@ -335,10 +335,10 @@ export default function GearPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-brand-navy-900">
+          <h1 className="text-2xl font-heading font-bold text-brand-navy-900 sm:text-3xl">
             Gear Inventory
           </h1>
-          <p className="mt-1 text-brand-navy-600">
+          <p className="mt-2 text-brand-navy-600">
             Manage your gear to select for races
           </p>
         </div>
@@ -349,7 +349,7 @@ export default function GearPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex items-center gap-1 bg-brand-navy-100 rounded-lg p-1 overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -357,10 +357,10 @@ export default function GearPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors",
+                "flex items-center gap-2 px-3 py-2 rounded-md font-medium text-sm whitespace-nowrap transition-colors",
                 activeTab === tab.id
-                  ? "bg-brand-sky-100 text-brand-sky-700"
-                  : "bg-brand-navy-50 text-brand-navy-600 hover:bg-brand-navy-100"
+                  ? "bg-white text-brand-navy-900 shadow-sm"
+                  : "text-brand-navy-600 hover:text-brand-navy-900"
               )}
             >
               <Icon className="h-4 w-4" />

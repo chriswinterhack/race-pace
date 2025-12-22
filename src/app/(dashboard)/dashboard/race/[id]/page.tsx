@@ -129,7 +129,7 @@ const sections: Section[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, category: "plan" },
   { id: "course", label: "Course", icon: Route, category: "plan" },
   { id: "goal", label: "Goal", icon: Target, category: "strategy" },
-  { id: "pacing", label: "Pacing", icon: Clock, category: "strategy" },
+  { id: "pacing", label: "Splits", icon: Clock, category: "strategy" },
   { id: "power", label: "Power", icon: Zap, category: "strategy" },
   { id: "nutrition", label: "Nutrition", icon: Utensils, category: "strategy" },
   { id: "gear", label: "Gear", icon: Bike, category: "prep" },

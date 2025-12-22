@@ -9,7 +9,6 @@ import {
   Map,
   Bike,
   Users,
-  Settings,
   LogOut,
   Bell,
   Search,
@@ -187,7 +186,7 @@ export function TopNav() {
                 <div className="absolute inset-0 bg-brand-sky-400/20 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
               <span className="text-xl font-heading font-bold text-white tracking-tight">
-                Race<span className="text-brand-sky-400">Pace</span>
+                Final<span className="text-brand-sky-400">Climb</span>
               </span>
             </Link>
 
@@ -339,23 +338,6 @@ export function TopNav() {
                 <Bell className="h-4.5 w-4.5" />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-sky-400 rounded-full ring-2 ring-brand-navy-900" />
               </Button>
-
-              {/* Settings */}
-              <Link href="/dashboard/settings">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-9 w-9",
-                    pathname === "/dashboard/settings"
-                      ? "text-white bg-brand-navy-800"
-                      : "text-brand-navy-300 hover:text-white hover:bg-brand-navy-800"
-                  )}
-                  aria-label="Settings"
-                >
-                  <Settings className="h-4.5 w-4.5" />
-                </Button>
-              </Link>
 
               {/* Divider */}
               <div className="w-px h-6 bg-brand-navy-700 mx-2" />

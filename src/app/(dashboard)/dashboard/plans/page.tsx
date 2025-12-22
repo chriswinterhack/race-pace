@@ -106,10 +106,10 @@ export default function PlansPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-brand-navy-900">
+          <h1 className="text-2xl font-heading font-bold text-brand-navy-900 sm:text-3xl">
             My Plans
           </h1>
-          <p className="mt-1 text-brand-navy-600">
+          <p className="mt-2 text-brand-navy-600">
             Your race execution plans
           </p>
         </div>
@@ -139,7 +139,7 @@ export default function PlansPage() {
       {!loading && plans.length > 0 && (
         <div className="grid gap-4">
           {plans.map((plan) => (
-            <Card key={plan.id} className="hover:shadow-elevated transition-shadow">
+            <Card key={plan.id} className="hover:border-brand-sky-300 hover:shadow-md transition-all duration-200">
               <CardContent className="p-0">
                 <Link href={`/dashboard/plans/${plan.id}`} className="block p-4 sm:p-6">
                   <div className="flex items-start justify-between">

@@ -7,10 +7,10 @@ export default function ChecklistsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-brand-navy-900">
+          <h1 className="text-2xl font-heading font-bold text-brand-navy-900 sm:text-3xl">
             Packing Checklists
           </h1>
-          <p className="mt-1 text-brand-navy-600">
+          <p className="mt-2 text-brand-navy-600">
             Never forget race day essentials
           </p>
         </div>

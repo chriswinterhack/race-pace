@@ -101,7 +101,7 @@ export default function CommunityPage() {
             return (
               <div
                 key={feature.title}
-                className="group relative overflow-hidden rounded-xl border border-brand-navy-200 bg-white hover:shadow-lg transition-all duration-300"
+                className="group relative overflow-hidden rounded-xl border border-brand-navy-200 bg-white hover:border-brand-sky-300 hover:shadow-md transition-all duration-200"
               >
                 {/* Gradient header */}
                 <div className={cn("h-2 bg-gradient-to-r", feature.gradient)} />

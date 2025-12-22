@@ -1,7 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Clock, Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  Timer,
+  Loader2,
+  Mountain,
+  TrendingUp,
+  TrendingDown,
+  Flag,
+  Sparkles,
+  ChevronRight,
+  Clock,
+  Gauge,
+} from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -84,7 +95,6 @@ async function fetchElevationPoints(gpxUrl: string): Promise<ElevationPoint[]> {
       totalDistance += distanceKm * 0.621371;
     }
 
-    // Sample every ~0.1 miles
     const lastPoint = points[points.length - 1];
     if (points.length === 0 || (lastPoint && totalDistance - lastPoint.mile >= 0.1)) {
       points.push({
@@ -100,6 +110,28 @@ async function fetchElevationPoints(gpxUrl: string): Promise<ElevationPoint[]> {
   return points;
 }
 
+// Effort level configuration
+const EFFORT_CONFIG = {
+  safe: {
+    label: "Safe",
+    color: "emerald",
+    description: "Sustainable pace, saving energy",
+    intensityFactor: 0.67,
+  },
+  tempo: {
+    label: "Tempo",
+    color: "sky",
+    description: "Target race pace",
+    intensityFactor: 0.70,
+  },
+  pushing: {
+    label: "Pushing",
+    color: "orange",
+    description: "Above target, high effort",
+    intensityFactor: 0.73,
+  },
+} as const;
+
 interface PacingSectionProps {
   plan: RacePlan;
   onUpdate: () => void;
@@ -107,22 +139,16 @@ interface PacingSectionProps {
 
 export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
   const [generating, setGenerating] = useState(false);
-  const [_saving, setSaving] = useState(false);
+  const [expandedSegment, setExpandedSegment] = useState<string | null>(null);
   const supabase = createClient();
 
-  // Use _saving to suppress unused variable warning - used for future loading state
-  void _saving;
-
-  // Use GPX distance if available, otherwise fall back to nominal distance
   const effectiveDistance = plan.race_distance.gpx_distance_miles ?? plan.race_distance.distance_miles;
 
-  // Filter to only use actual aid stations (not checkpoints) for pacing
   const aidStations = (plan.race_distance.aid_stations ?? []).filter(
     (s) => !s.type || s.type === "aid_station"
   );
 
   const segments = [...plan.segments].sort((a, b) => a.segment_order - b.segment_order);
-  // Use plan's custom start time if set, otherwise fall back to race distance start time
   const startTime = plan.start_time?.slice(0, 5) || plan.race_distance.start_time?.slice(0, 5) || "06:00";
 
   const handleGenerateFromAidStations = async () => {
@@ -139,27 +165,19 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
     setGenerating(true);
 
     try {
-      // Fetch elevation data from GPX if available
       let elevationPoints: ElevationPoint[] | undefined;
       if (plan.race_distance.gpx_file_url) {
         try {
           elevationPoints = await fetchElevationPoints(plan.race_distance.gpx_file_url);
-          toast.success("Elevation data loaded - times will be terrain-adjusted");
         } catch (err) {
           console.warn("Could not fetch elevation data:", err);
-          toast.info("Generating without elevation data");
         }
       }
 
-      // Delete existing segments
       if (segments.length > 0) {
-        await supabase
-          .from("segments")
-          .delete()
-          .eq("race_plan_id", plan.id);
+        await supabase.from("segments").delete().eq("race_plan_id", plan.id);
       }
 
-      // Generate new segments with terrain-adjusted times
       const newSegments = generateSegmentsFromAidStations(
         aidStations,
         effectiveDistance,
@@ -167,7 +185,6 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
         elevationPoints
       );
 
-      // Insert segments with elevation data
       const segmentsToInsert = newSegments.map((seg, index) => ({
         race_plan_id: plan.id,
         segment_order: index,
@@ -182,73 +199,50 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
         avg_gradient: seg.avgGradient ?? null,
       }));
 
-      const { error } = await supabase
-        .from("segments")
-        .insert(segmentsToInsert);
-
+      const { error } = await supabase.from("segments").insert(segmentsToInsert);
       if (error) throw error;
 
-      toast.success("Segments generated with terrain-adjusted times!");
+      toast.success("Race splits generated with terrain-adjusted times");
       onUpdate();
     } catch (error) {
       console.error("Error generating segments:", error);
-      toast.error("Failed to generate segments");
+      toast.error("Failed to generate splits");
     }
 
     setGenerating(false);
   };
 
   const handleUpdateSegment = async (segmentId: string, updates: Partial<Segment>) => {
-    setSaving(true);
-    const { error } = await supabase
-      .from("segments")
-      .update(updates)
-      .eq("id", segmentId);
-
+    const { error } = await supabase.from("segments").update(updates).eq("id", segmentId);
     if (error) {
-      toast.error("Failed to update segment");
+      toast.error("Failed to update split");
     } else {
       onUpdate();
     }
-    setSaving(false);
   };
 
-  // Intensity factors for effort levels
-  const INTENSITY_FACTORS: Record<string, number> = {
-    safe: 0.67,
-    tempo: 0.70,
-    pushing: 0.73,
-  };
-
-  // Calculate time adjustment when changing effort level
-  // Physics: Speed ∝ Power^x where x=1 for climbs, x=1/3 for flats
-  // Time = Distance/Speed, so Time ∝ 1/Power^x
-  const handleEffortChange = async (segment: Segment & { arrivalTime: string; elapsedMinutes: number }, newEffort: string) => {
-    const oldIF = INTENSITY_FACTORS[segment.effort_level] || 0.70;
-    const newIF = INTENSITY_FACTORS[newEffort] || 0.70;
+  const handleEffortChange = async (
+    segment: Segment & { arrivalTime: string; elapsedMinutes: number },
+    newEffort: string
+  ) => {
+    const oldIF = EFFORT_CONFIG[segment.effort_level as keyof typeof EFFORT_CONFIG]?.intensityFactor || 0.70;
+    const newIF = EFFORT_CONFIG[newEffort as keyof typeof EFFORT_CONFIG]?.intensityFactor || 0.70;
 
     if (oldIF === newIF) {
       return handleUpdateSegment(segment.id, { effort_level: newEffort });
     }
 
-    // Determine terrain type from gradient
-    // Climbs: power directly affects speed (exponent = 1)
-    // Flats: aerodynamic drag dominates (exponent = 1/3)
-    // Descents: gravity helps, less power effect (exponent = 0.2)
-    let exponent = 1/3; // default for flat/rolling
+    let exponent = 1 / 3;
     if (segment.avg_gradient != null) {
       if (segment.avg_gradient > 3) {
-        exponent = 1; // climbing - power directly affects speed
+        exponent = 1;
       } else if (segment.avg_gradient < -3) {
-        exponent = 0.2; // descending - less power effect
+        exponent = 0.2;
       } else {
-        // Mixed terrain - interpolate based on gradient
-        exponent = 1/3 + (segment.avg_gradient / 10) * (2/3);
+        exponent = 1 / 3 + (segment.avg_gradient / 10) * (2 / 3);
       }
     }
 
-    // Calculate time ratio: Time_new / Time_old = (IF_old / IF_new)^exponent
-    // Use a minimum exponent to ensure meaningful time changes
     const effectiveExponent = Math.max(exponent, 0.5);
     const timeRatio = Math.pow(oldIF / newIF, effectiveExponent);
     const newTime = Math.round(segment.target_time_minutes * timeRatio);
@@ -258,15 +252,11 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
       target_time_minutes: newTime,
     });
 
-    // Determine if going to harder or easier effort
-    const goingHarder = newIF > oldIF;
-
-    if (newTime === segment.target_time_minutes) {
-      toast.success(`Effort updated to ${newEffort}`);
-    } else if (goingHarder) {
-      toast.success(`Harder effort: ${formatDuration(segment.target_time_minutes)} → ${formatDuration(newTime)}`);
-    } else {
-      toast.success(`Easier effort: ${formatDuration(segment.target_time_minutes)} → ${formatDuration(newTime)}`);
+    const timeDiff = segment.target_time_minutes - newTime;
+    if (timeDiff !== 0) {
+      toast.success(
+        `${timeDiff > 0 ? "Faster" : "Slower"}: ${Math.abs(timeDiff)} min ${timeDiff > 0 ? "saved" : "added"}`
+      );
     }
   };
 
@@ -283,162 +273,357 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
   });
 
   const totalTime = segments.reduce((sum, s) => sum + s.target_time_minutes, 0);
+  const totalElevationGain = segments.reduce((sum, s) => sum + (s.elevation_gain || 0), 0);
+  const totalElevationLoss = segments.reduce((sum, s) => sum + (s.elevation_loss || 0), 0);
+
+  // Calculate pace per mile
+  const avgPacePerMile = effectiveDistance > 0 ? totalTime / effectiveDistance : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-brand-navy-900">Pacing Plan</h3>
-          <p className="mt-1 text-sm text-brand-navy-600">
-            Set target times for each segment of the race
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-brand-sky-500 to-brand-sky-600 text-white shadow-lg shadow-brand-sky-500/25">
+              <Timer className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-brand-navy-900">Race Splits</h3>
+              <p className="text-sm text-brand-navy-500">
+                Your segment-by-segment time targets
+              </p>
+            </div>
+          </div>
         </div>
         {aidStations.length > 0 && (
           <Button
-            variant="outline"
             onClick={handleGenerateFromAidStations}
             disabled={generating}
+            className="gap-2 bg-brand-navy-900 hover:bg-brand-navy-800 text-white shadow-lg"
           >
             {generating ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Plus className="h-4 w-4 mr-2" />
+              <Sparkles className="h-4 w-4" />
             )}
-            Generate from Aid Stations
+            {generating ? "Generating..." : "Auto-Generate Splits"}
           </Button>
         )}
       </div>
 
       {segments.length === 0 ? (
-        <div className="text-center py-12 bg-brand-navy-50 rounded-lg">
-          <Clock className="h-8 w-8 text-brand-navy-300 mx-auto mb-3" />
-          <p className="text-brand-navy-600 mb-4">No segments yet</p>
-          {aidStations.length > 0 ? (
-            <Button onClick={handleGenerateFromAidStations} disabled={generating}>
-              {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Generate from Aid Stations
-            </Button>
-          ) : (
-            <p className="text-sm text-brand-navy-500">
-              This race doesn&apos;t have aid station data yet
+        /* Empty State */
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-navy-50 to-brand-sky-50 border border-brand-navy-100 p-8 sm:p-12">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-brand-sky-100/50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="relative text-center max-w-md mx-auto">
+            <div className="inline-flex p-4 rounded-2xl bg-white shadow-lg mb-6">
+              <Timer className="h-8 w-8 text-brand-sky-500" />
+            </div>
+            <h4 className="text-xl font-bold text-brand-navy-900 mb-2">
+              No splits configured yet
+            </h4>
+            <p className="text-brand-navy-600 mb-6">
+              Generate race splits based on aid station locations and your goal time.
+              Times are automatically adjusted for terrain difficulty.
             </p>
-          )}
+            {aidStations.length > 0 ? (
+              <Button
+                onClick={handleGenerateFromAidStations}
+                disabled={generating}
+                size="lg"
+                className="gap-2 bg-brand-navy-900 hover:bg-brand-navy-800"
+              >
+                {generating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Generate Race Splits
+              </Button>
+            ) : (
+              <p className="text-sm text-brand-navy-500 bg-white/80 rounded-lg px-4 py-3">
+                This race doesn&apos;t have aid station data configured yet
+              </p>
+            )}
+          </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Header */}
-          <div className="grid grid-cols-12 gap-2 px-4 text-sm font-medium text-brand-navy-600">
-            <div className="col-span-3">Segment</div>
-            <div className="col-span-1 text-center">Dist</div>
-            <div className="col-span-2 text-center">Elevation</div>
-            <div className="col-span-2 text-center">Time</div>
-            <div className="col-span-2 text-center">Arrival</div>
-            <div className="col-span-2 text-center">Effort</div>
+        <div className="space-y-6">
+          {/* Quick Stats Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white rounded-xl border border-brand-navy-100 p-4">
+              <div className="flex items-center gap-2 text-brand-navy-500 text-xs font-medium mb-1">
+                <Flag className="h-3.5 w-3.5" />
+                SPLITS
+              </div>
+              <p className="text-2xl font-bold text-brand-navy-900">{segments.length}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-brand-navy-100 p-4">
+              <div className="flex items-center gap-2 text-brand-navy-500 text-xs font-medium mb-1">
+                <Clock className="h-3.5 w-3.5" />
+                TOTAL TIME
+              </div>
+              <p className="text-2xl font-bold font-mono text-brand-navy-900">{formatDuration(totalTime)}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-brand-navy-100 p-4">
+              <div className="flex items-center gap-2 text-brand-navy-500 text-xs font-medium mb-1">
+                <Gauge className="h-3.5 w-3.5" />
+                AVG PACE
+              </div>
+              <p className="text-2xl font-bold font-mono text-brand-navy-900">
+                {formatDuration(avgPacePerMile)}<span className="text-sm font-normal text-brand-navy-500">/mi</span>
+              </p>
+            </div>
+            <div className="bg-white rounded-xl border border-brand-navy-100 p-4">
+              <div className="flex items-center gap-2 text-brand-navy-500 text-xs font-medium mb-1">
+                <Mountain className="h-3.5 w-3.5" />
+                ELEVATION
+              </div>
+              <p className="text-lg font-bold text-brand-navy-900">
+                <span className="text-green-600">+{totalElevationGain.toLocaleString()}</span>
+                <span className="text-brand-navy-300 mx-1">/</span>
+                <span className="text-red-500">-{totalElevationLoss.toLocaleString()}</span>
+              </p>
+            </div>
           </div>
 
-          {/* Segments */}
-          <div className="space-y-2">
-            {segmentsWithTiming.map((segment, index) => (
-              <div
-                key={segment.id}
-                className="grid grid-cols-12 gap-2 items-center p-4 rounded-lg border border-brand-navy-200 hover:border-brand-navy-300 transition-colors"
-              >
-                <div className="col-span-3">
-                  <div className="flex items-center gap-2">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-navy-100 flex items-center justify-center text-xs font-medium text-brand-navy-600">
-                      {index + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-medium text-brand-navy-900 truncate text-sm">
-                        {segment.start_name || `Mile ${segment.start_mile}`}
-                      </p>
-                      <p className="text-xs text-brand-navy-500 truncate">
-                        to {segment.end_name || `Mile ${segment.end_mile}`}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+          {/* Splits Timeline */}
+          <div className="relative">
+            {/* Progress line connecting all splits */}
+            <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-gradient-to-b from-brand-sky-400 via-brand-sky-300 to-brand-sky-400 hidden sm:block" />
 
-                <div className="col-span-1 text-center">
-                  <span className="text-sm font-medium text-brand-navy-900">
-                    {(segment.end_mile - segment.start_mile).toFixed(1)}
-                  </span>
-                </div>
+            <div className="space-y-3">
+              {segmentsWithTiming.map((segment, index) => {
+                const effort = EFFORT_CONFIG[segment.effort_level as keyof typeof EFFORT_CONFIG] || EFFORT_CONFIG.tempo;
+                const distance = segment.end_mile - segment.start_mile;
+                const pacePerMile = distance > 0 ? segment.target_time_minutes / distance : 0;
+                const progressPercent = (segment.end_mile / effectiveDistance) * 100;
+                const isExpanded = expandedSegment === segment.id;
+                const isFirst = index === 0;
+                const isLast = index === segments.length - 1;
 
-                <div className="col-span-2 text-center">
-                  {segment.elevation_gain != null ? (
-                    <div className="flex items-center justify-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-green-600" />
-                      <span className="text-xs font-medium text-green-700">
-                        {segment.elevation_gain.toLocaleString()}
-                      </span>
-                      {segment.elevation_loss != null && segment.elevation_loss > 0 && (
-                        <>
-                          <TrendingDown className="h-3 w-3 text-red-500 ml-1" />
-                          <span className="text-xs font-medium text-red-600">
-                            {segment.elevation_loss.toLocaleString()}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-brand-navy-400">—</span>
-                  )}
-                </div>
-
-                <div className="col-span-2 text-center">
-                  <span className="text-sm font-mono font-medium text-brand-navy-900">
-                    {formatDuration(segment.target_time_minutes)}
-                  </span>
-                </div>
-
-                <div className="col-span-2 text-center">
-                  <span className="text-sm font-medium text-brand-navy-900">
-                    {segment.arrivalTime}
-                  </span>
-                </div>
-
-                <div className="col-span-2">
-                  <select
-                    value={segment.effort_level}
-                    onChange={(e) => handleEffortChange(segment, e.target.value)}
+                return (
+                  <div
+                    key={segment.id}
                     className={cn(
-                      "w-full text-xs font-medium rounded px-2 py-1 border-0 cursor-pointer",
-                      segment.effort_level === "safe" && "bg-emerald-100 text-emerald-700",
-                      segment.effort_level === "tempo" && "bg-amber-100 text-amber-700",
-                      segment.effort_level === "pushing" && "bg-red-100 text-red-700"
+                      "group relative bg-white rounded-xl border transition-all duration-200",
+                      isExpanded
+                        ? "border-brand-sky-300 shadow-lg shadow-brand-sky-500/10"
+                        : "border-brand-navy-100 hover:border-brand-navy-200 hover:shadow-md"
                     )}
                   >
-                    <option value="safe">Safe</option>
-                    <option value="tempo">Tempo</option>
-                    <option value="pushing">Pushing</option>
-                  </select>
-                </div>
-              </div>
-            ))}
+                    {/* Main Row */}
+                    <div
+                      className="flex items-center gap-4 p-4 cursor-pointer"
+                      onClick={() => setExpandedSegment(isExpanded ? null : segment.id)}
+                    >
+                      {/* Split Number with Timeline Dot */}
+                      <div className="relative flex-shrink-0">
+                        <div className={cn(
+                          "w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold transition-colors",
+                          isFirst
+                            ? "bg-gradient-to-br from-green-500 to-emerald-600 text-white"
+                            : isLast
+                              ? "bg-gradient-to-br from-brand-sky-500 to-brand-sky-600 text-white"
+                              : "bg-brand-navy-100 text-brand-navy-700 group-hover:bg-brand-navy-200"
+                        )}>
+                          {index + 1}
+                        </div>
+                        {/* Connection dot for timeline */}
+                        <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-3 h-3 rounded-full bg-brand-sky-400 border-2 border-white hidden sm:block" />
+                      </div>
+
+                      {/* Segment Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-brand-navy-900 truncate">
+                            {segment.start_name || `Mile ${segment.start_mile}`}
+                          </h4>
+                          <ChevronRight className="h-4 w-4 text-brand-navy-400 flex-shrink-0" />
+                          <span className="font-medium text-brand-navy-900 truncate flex items-center gap-1.5">
+                            {segment.end_name || `Mile ${segment.end_mile}`}
+                            {isLast && <Flag className="h-4 w-4 text-brand-sky-500" />}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="text-brand-navy-500">
+                            {distance.toFixed(1)} mi
+                          </span>
+                          {segment.elevation_gain != null && (
+                            <span className="flex items-center gap-1">
+                              <TrendingUp className="h-3.5 w-3.5 text-green-500" />
+                              <span className="text-green-600 font-medium">{segment.elevation_gain.toLocaleString()}</span>
+                              {segment.elevation_loss != null && segment.elevation_loss > 0 && (
+                                <>
+                                  <TrendingDown className="h-3.5 w-3.5 text-red-400 ml-1" />
+                                  <span className="text-red-500 font-medium">{segment.elevation_loss.toLocaleString()}</span>
+                                </>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Time & Arrival */}
+                      <div className="hidden sm:flex items-center gap-6">
+                        <div className="text-right">
+                          <p className="text-xs text-brand-navy-500 uppercase tracking-wide">Split Time</p>
+                          <p className="text-lg font-bold font-mono text-brand-navy-900">
+                            {formatDuration(segment.target_time_minutes)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-brand-navy-500 uppercase tracking-wide">ETA</p>
+                          <p className="text-lg font-bold text-brand-navy-900">
+                            {segment.arrivalTime}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Effort Badge */}
+                      <div className="flex-shrink-0">
+                        <select
+                          value={segment.effort_level}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleEffortChange(segment, e.target.value);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className={cn(
+                            "appearance-none cursor-pointer px-3 py-2 rounded-lg text-sm font-semibold border-2 transition-all",
+                            "focus:outline-none focus:ring-2 focus:ring-offset-2",
+                            effort.color === "emerald" && "bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-500",
+                            effort.color === "sky" && "bg-sky-50 border-sky-200 text-sky-700 focus:ring-sky-500",
+                            effort.color === "orange" && "bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-500"
+                          )}
+                        >
+                          <option value="safe">Safe</option>
+                          <option value="tempo">Tempo</option>
+                          <option value="pushing">Pushing</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Mobile Time Display */}
+                    <div className="sm:hidden flex items-center justify-between px-4 pb-4 pt-0 border-t border-brand-navy-50 mt-0">
+                      <div>
+                        <p className="text-xs text-brand-navy-500">Split Time</p>
+                        <p className="text-lg font-bold font-mono text-brand-navy-900">
+                          {formatDuration(segment.target_time_minutes)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-brand-navy-500">Arrival</p>
+                        <p className="text-lg font-bold text-brand-navy-900">
+                          {segment.arrivalTime}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Expanded Details */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 pt-2 border-t border-brand-navy-100">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          <div>
+                            <p className="text-xs text-brand-navy-500 mb-1">Pace</p>
+                            <p className="font-mono font-semibold text-brand-navy-900">
+                              {formatDuration(pacePerMile)}/mi
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-brand-navy-500 mb-1">Elapsed</p>
+                            <p className="font-mono font-semibold text-brand-navy-900">
+                              {formatDuration(segment.elapsedMinutes)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-brand-navy-500 mb-1">Progress</p>
+                            <p className="font-semibold text-brand-navy-900">
+                              {progressPercent.toFixed(0)}% complete
+                            </p>
+                          </div>
+                          {segment.avg_gradient != null && (
+                            <div>
+                              <p className="text-xs text-brand-navy-500 mb-1">Avg Grade</p>
+                              <p className={cn(
+                                "font-semibold",
+                                segment.avg_gradient > 2 ? "text-orange-600" :
+                                segment.avg_gradient < -2 ? "text-green-600" : "text-brand-navy-900"
+                              )}>
+                                {segment.avg_gradient > 0 ? "+" : ""}{segment.avg_gradient.toFixed(1)}%
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mt-4">
+                          <div className="h-2 bg-brand-navy-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-brand-sky-400 to-brand-sky-500 rounded-full transition-all duration-500"
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between mt-1 text-xs text-brand-navy-500">
+                            <span>Start</span>
+                            <span>{segment.end_mile.toFixed(1)} mi</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Summary */}
-          <div className="flex items-center justify-between p-4 rounded-lg bg-brand-navy-50">
-            <span className="font-medium text-brand-navy-700">Total</span>
-            <div className="flex items-center gap-6">
-              <span className="text-sm text-brand-navy-600">
-                {effectiveDistance} mi
-              </span>
-              <span className="font-mono font-bold text-brand-navy-900">
-                {formatDuration(totalTime)}
-              </span>
-              {plan.goal_time_minutes && Math.abs(totalTime - plan.goal_time_minutes) > 1 && (
-                <span className={cn(
-                  "text-sm font-medium",
-                  totalTime > plan.goal_time_minutes ? "text-red-600" : "text-emerald-600"
-                )}>
-                  {totalTime > plan.goal_time_minutes ? "+" : "-"}
-                  {formatDuration(Math.abs(totalTime - plan.goal_time_minutes))} from goal
-                </span>
-              )}
+          {/* Summary Footer */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-navy-900 to-brand-navy-800 p-6">
+            <div
+              className="absolute inset-0 opacity-30"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 15h30M15 0v30' stroke='%23ffffff' stroke-opacity='0.1' fill='none'/%3E%3C/svg%3E\")"
+              }}
+            />
+            <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-white/10 backdrop-blur">
+                  <Flag className="h-6 w-6 text-brand-sky-400" />
+                </div>
+                <div>
+                  <p className="text-brand-navy-300 text-sm">Race Finish</p>
+                  <p className="text-white text-2xl font-bold font-mono">
+                    {formatDuration(totalTime)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <p className="text-brand-navy-400 text-xs uppercase tracking-wide">Distance</p>
+                  <p className="text-white font-semibold">{effectiveDistance} mi</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-brand-navy-400 text-xs uppercase tracking-wide">Finish Time</p>
+                  <p className="text-white font-semibold">
+                    {segmentsWithTiming.length > 0
+                      ? segmentsWithTiming[segmentsWithTiming.length - 1]?.arrivalTime
+                      : startTime}
+                  </p>
+                </div>
+                {plan.goal_time_minutes && Math.abs(totalTime - plan.goal_time_minutes) > 1 && (
+                  <div className={cn(
+                    "px-4 py-2 rounded-lg font-semibold",
+                    totalTime > plan.goal_time_minutes
+                      ? "bg-red-500/20 text-red-300"
+                      : "bg-emerald-500/20 text-emerald-300"
+                  )}>
+                    {totalTime > plan.goal_time_minutes ? "+" : "-"}
+                    {formatDuration(Math.abs(totalTime - plan.goal_time_minutes))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
