@@ -3,7 +3,7 @@
  * When JS parses "2025-08-08" it treats it as UTC midnight, which displays
  * as the previous day in US timezones. This function parses as local time.
  */
-function parseLocalDate(dateStr: string): Date {
+export function parseLocalDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year!, month! - 1, day!);
 }

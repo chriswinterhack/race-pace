@@ -3,7 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { MapPin, Calendar, Clock, ChevronRight, Mountain, Route } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDistance, formatElevation, generateGradient } from "@/lib/utils";
+import { useUnits } from "@/hooks";
 
 interface RacePlanCardProps {
   planId: string;
@@ -20,26 +21,6 @@ interface RacePlanCardProps {
   progressBadges?: { label: string; complete: boolean }[];
 }
 
-// Generate a beautiful gradient based on race name
-function generateGradient(name: string): string {
-  const gradients = [
-    "from-brand-navy-800 via-brand-navy-700 to-brand-sky-900",
-    "from-emerald-800 via-teal-700 to-brand-navy-900",
-    "from-amber-700 via-orange-600 to-red-800",
-    "from-purple-800 via-violet-700 to-brand-navy-900",
-    "from-rose-700 via-pink-600 to-purple-800",
-    "from-brand-sky-700 via-cyan-600 to-teal-700",
-    "from-slate-800 via-zinc-700 to-stone-800",
-    "from-indigo-800 via-blue-700 to-brand-navy-900",
-  ];
-
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return gradients[Math.abs(hash) % gradients.length]!;
-}
-
 export function RacePlanCard({
   planId,
   raceName,
@@ -54,10 +35,11 @@ export function RacePlanCard({
   isPast = false,
   progressBadges = [],
 }: RacePlanCardProps) {
+  const { units } = useUnits();
   const gradient = generateGradient(raceName);
   const displayName = distanceName
-    ? `${distanceName} (${distanceMiles} mi)`
-    : `${distanceMiles} mi`;
+    ? `${distanceName} (${formatDistance(distanceMiles, units)})`
+    : formatDistance(distanceMiles, units);
 
   return (
     <Link href={`/dashboard/race/${planId}`} className="group block">
@@ -115,12 +97,12 @@ export function RacePlanCard({
             <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-navy-900/90 backdrop-blur-sm text-white text-xs font-medium shadow-lg">
                 <Route className="h-3 w-3 text-brand-sky-400" />
-                {distanceMiles} mi
+                {formatDistance(distanceMiles, units)}
                 {elevationGain && elevationGain > 0 && (
                   <>
                     <span className="text-brand-navy-400 mx-0.5">•</span>
                     <Mountain className="h-3 w-3 text-brand-sky-400" />
-                    {elevationGain.toLocaleString()} ft
+                    {formatElevation(elevationGain, units)}
                   </>
                 )}
               </span>

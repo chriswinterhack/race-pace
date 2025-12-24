@@ -26,8 +26,9 @@ import {
   Zap,
 } from "lucide-react";
 import { Button, Input } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatElevation, formatElevationPerDistance, getDisplayDistance, getDistanceUnit, getElevationUnit } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useUnits } from "@/hooks";
 import { toast } from "sonner";
 
 interface RaceDistance {
@@ -106,6 +107,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
   const distance = plan.race_distance;
   const race = distance?.race_edition?.race;
   const supabase = createClient();
+  const { units } = useUnits();
 
   const surfaceComposition = distance?.surface_composition;
   const aidStations = (distance?.aid_stations || []).filter(
@@ -129,7 +131,6 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
 
   // Calculate effective distance
   const effectiveMiles = distance?.gpx_distance_miles ?? distance?.distance_miles ?? 0;
-  const effectiveKm = Math.round(effectiveMiles * 1.60934 * 10) / 10;
 
   // Calculate feet per mile
   const feetPerMile = distance?.elevation_gain && effectiveMiles
@@ -200,10 +201,14 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
           <Route className="h-5 w-5 text-brand-sky-400 mb-3" />
           <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Distance</p>
           <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
-            {effectiveMiles}
-            <span className="text-lg font-normal text-white/60 ml-1">mi</span>
+            {units === "metric"
+              ? Math.round(getDisplayDistance(effectiveMiles, units) * 10) / 10
+              : effectiveMiles}
+            <span className="text-lg font-normal text-white/60 ml-1">{getDistanceUnit(units)}</span>
           </p>
-          <p className="text-sm text-white/50 mt-1">{effectiveKm} km</p>
+          <p className="text-sm text-white/50 mt-1">
+            {units === "metric" ? `${effectiveMiles} mi` : `${Math.round(effectiveMiles * 1.60934 * 10) / 10} km`}
+          </p>
         </div>
 
         {/* Elevation Card */}
@@ -216,11 +221,11 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
             <Mountain className="h-5 w-5 text-emerald-200 mb-3" />
             <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Elevation Gain</p>
             <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
-              {distance.elevation_gain.toLocaleString()}
-              <span className="text-lg font-normal text-white/60 ml-1">ft</span>
+              {formatElevation(distance.elevation_gain, units, { includeUnit: false })}
+              <span className="text-lg font-normal text-white/60 ml-1">{getElevationUnit(units)}</span>
             </p>
             {feetPerMile && (
-              <p className="text-sm text-white/50 mt-1">{feetPerMile} ft/mi avg</p>
+              <p className="text-sm text-white/50 mt-1">{formatElevationPerDistance(feetPerMile, units)} avg</p>
             )}
           </div>
         )}
@@ -347,7 +352,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
             <div>
               <p className="text-xs text-brand-navy-500 font-medium">Elevation Range</p>
               <p className="text-sm font-semibold text-brand-navy-900">
-                {elevationLow?.toLocaleString()} - {elevationHigh?.toLocaleString()} ft
+                {formatElevation(elevationLow!, units, { includeUnit: false })} - {formatElevation(elevationHigh!, units)}
               </p>
             </div>
           </div>
@@ -478,7 +483,9 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                       <div className="flex-1">
                         <p className="font-semibold text-brand-navy-900">{station.name}</p>
                         <p className="text-sm text-brand-navy-500 mt-0.5">
-                          Mile {station.mile.toFixed(1)}
+                          {units === "metric"
+                            ? `Km ${(station.mile * 1.60934).toFixed(1)}`
+                            : `Mile ${station.mile.toFixed(1)}`}
                         </p>
                       </div>
                       {station.cutoff && (
@@ -657,8 +664,8 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                         <div>
                           <p className="font-semibold text-brand-navy-900">{loc.name}</p>
                           <p className="text-sm text-brand-navy-600">
-                            Mile {loc.mile_out}
-                            {loc.mile_in && loc.mile_in !== loc.mile_out && ` → ${loc.mile_in}`}
+                            {units === "metric" ? "Km" : "Mile"} {units === "metric" ? (loc.mile_out * 1.60934).toFixed(1) : loc.mile_out}
+                            {loc.mile_in && loc.mile_in !== loc.mile_out && ` → ${units === "metric" ? (loc.mile_in * 1.60934).toFixed(1) : loc.mile_in}`}
                           </p>
                         </div>
                         <span

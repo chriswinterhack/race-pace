@@ -16,3 +16,4 @@ export { Input } from "./input";
 export { Label } from "./label";
 export { Skeleton } from "./skeleton";
 export { Textarea } from "./textarea";
+export { ViewToggle, type ViewMode } from "./ViewToggle";

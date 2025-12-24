@@ -301,10 +301,10 @@ export function GearSection({ plan }: GearSectionProps) {
         </GearSlot>
       </div>
 
-      {/* Bags */}
+      {/* On Bike Storage */}
       <GearSlot
         icon={Package}
-        label="Bags"
+        label="On Bike Storage"
         isEmpty={selectedBags.length === 0}
         onAdd={() => setPickerType("bags")}
         onRemove={() => setSelectedBagIds([])}
@@ -360,7 +360,7 @@ export function GearSection({ plan }: GearSectionProps) {
               {pickerType === "bike" && "Select Bike"}
               {pickerType === "front_tire" && "Select Front Tire"}
               {pickerType === "rear_tire" && "Select Rear Tire"}
-              {pickerType === "bags" && "Select Bags"}
+              {pickerType === "bags" && "Select On Bike Storage"}
               {pickerType === "repair_kit" && "Select Repair Kit"}
             </DialogTitle>
           </DialogHeader>
@@ -476,7 +476,7 @@ export function GearSection({ plan }: GearSectionProps) {
                   onDelete={() => {}}
                 />
               )}
-              emptyMessage="No bags in your inventory"
+              emptyMessage="No storage bags in your inventory"
             />
           )}
 

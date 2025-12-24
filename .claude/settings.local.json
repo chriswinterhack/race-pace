@@ -18,7 +18,9 @@
       "Bash(supabase migration --help:*)",
       "Bash(supabase migration:*)",
       "Bash(npm ls:*)",
-      "Bash(npx knip:*)"
+      "Bash(npx knip:*)",
+      "Bash(node test-elevation.js:*)",
+      "WebSearch"
     ]
   }
 }

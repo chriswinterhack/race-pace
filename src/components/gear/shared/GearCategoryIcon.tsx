@@ -35,7 +35,7 @@ const categoryLabels: Record<GearCategory, string> = {
   tires: "Tires",
   shoes: "Shoes",
   hydration_packs: "Hydration",
-  bags: "Bags",
+  bags: "On Bike Storage",
   repair_kits: "Repair Kit",
   clothing: "Clothing",
 };

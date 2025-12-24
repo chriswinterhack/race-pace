@@ -21,17 +21,12 @@ import {
   CardContent,
   Button,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDistance, formatElevation, parseLocalDate, generateGradient } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { formatDuration } from "@/lib/calculations";
 import { AddRaceModal } from "@/components/race/AddRaceModal";
 import { RacePlanCard, RacePlanCardSkeleton } from "@/components/race/RacePlanCard";
-
-// Parse date string as local time to avoid timezone issues
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year!, month! - 1, day!);
-}
+import { useUnits } from "@/hooks";
 
 interface RacePlan {
   id: string;
@@ -62,28 +57,13 @@ interface AthleteProfile {
   weight_kg: number | null;
 }
 
-// Generate gradient based on race name
-function generateGradient(name: string): string {
-  const gradients = [
-    "from-brand-navy-800 via-brand-navy-700 to-brand-sky-900",
-    "from-emerald-800 via-teal-700 to-brand-navy-900",
-    "from-amber-700 via-orange-600 to-red-800",
-    "from-purple-800 via-violet-700 to-brand-navy-900",
-    "from-rose-700 via-pink-600 to-purple-800",
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return gradients[Math.abs(hash) % gradients.length]!;
-}
-
 export default function DashboardPage() {
   const [racePlans, setRacePlans] = useState<RacePlan[]>([]);
   const [athleteProfile, setAthleteProfile] = useState<AthleteProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddRace, setShowAddRace] = useState(false);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const { units } = useUnits();
 
   const supabase = createClient();
 
@@ -389,12 +369,12 @@ export default function DashboardPage() {
                   )}
                   <span className="flex items-center gap-1.5">
                     <Route className="h-4 w-4" />
-                    {nextRace.race_distance.distance_miles} miles
+                    {formatDistance(nextRace.race_distance.distance_miles, units)}
                   </span>
                   {nextRace.race_distance.elevation_gain && (
                     <span className="flex items-center gap-1.5">
                       <Mountain className="h-4 w-4" />
-                      {nextRace.race_distance.elevation_gain.toLocaleString()} ft
+                      {formatElevation(nextRace.race_distance.elevation_gain, units)}
                     </span>
                   )}
                   {nextRace.goal_time_minutes && (

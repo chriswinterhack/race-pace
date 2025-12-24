@@ -3,7 +3,16 @@
 import Link from "next/link";
 import Image from "next/image";
 import { MapPin, Calendar, Mountain, Route, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  cn,
+  formatDistance,
+  formatElevation,
+  getDisplayDistance,
+  getDistanceUnit,
+  generateGradient,
+} from "@/lib/utils";
+import { useUnits } from "@/hooks";
+import type { UnitPreference } from "@/types";
 
 interface RaceCardProps {
   name: string;
@@ -18,29 +27,11 @@ interface RaceCardProps {
   href?: string;
 }
 
-// Generate a beautiful gradient based on race name for cards without images
-function generateGradient(name: string): string {
-  const gradients = [
-    "from-brand-navy-800 via-brand-navy-700 to-brand-sky-900",
-    "from-emerald-800 via-teal-700 to-brand-navy-900",
-    "from-amber-700 via-orange-600 to-red-800",
-    "from-purple-800 via-violet-700 to-brand-navy-900",
-    "from-rose-700 via-pink-600 to-purple-800",
-    "from-brand-sky-700 via-cyan-600 to-teal-700",
-    "from-slate-800 via-zinc-700 to-stone-800",
-    "from-indigo-800 via-blue-700 to-brand-navy-900",
-  ];
-
-  // Use name hash to consistently pick a gradient
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return gradients[Math.abs(hash) % gradients.length]!;
-}
-
 // Format distance display
-function formatDistances(distances: { miles: number; elevationGain: number | null }[]): {
+function formatDistancesForCard(
+  distances: { miles: number; elevationGain: number | null }[],
+  units: UnitPreference
+): {
   distanceText: string;
   elevationText: string | null;
 } {
@@ -50,15 +41,33 @@ function formatDistances(distances: { miles: number; elevationGain: number | nul
 
   // Get unique distances sorted descending
   const uniqueMiles = [...new Set(distances.map(d => d.miles))].sort((a, b) => b - a);
-  const distanceText = uniqueMiles.length > 1
-    ? `${uniqueMiles[uniqueMiles.length - 1]}-${uniqueMiles[0]} mi`
-    : `${uniqueMiles[0]} mi`;
+  const unit = getDistanceUnit(units);
 
-  // Get max elevation gain
-  const maxElevation = Math.max(...distances.map(d => d.elevationGain || 0));
-  const elevationText = maxElevation > 0
-    ? `${maxElevation.toLocaleString()} ft`
-    : null;
+  let distanceText: string;
+  if (uniqueMiles.length > 1) {
+    const minDisplay = Math.round(getDisplayDistance(uniqueMiles[uniqueMiles.length - 1]!, units));
+    const maxDisplay = Math.round(getDisplayDistance(uniqueMiles[0]!, units));
+    distanceText = `${minDisplay}-${maxDisplay} ${unit}`;
+  } else {
+    distanceText = formatDistance(uniqueMiles[0]!, units, { decimals: 0 });
+  }
+
+  // Get elevation range
+  const elevations = distances.map(d => d.elevationGain || 0).filter(e => e > 0);
+  if (elevations.length === 0) {
+    return { distanceText, elevationText: null };
+  }
+
+  const minElevation = Math.min(...elevations);
+  const maxElevation = Math.max(...elevations);
+
+  // Show range if there's meaningful difference, otherwise show single value or "Up to"
+  let elevationText: string;
+  if (elevations.length === 1 || minElevation === maxElevation) {
+    elevationText = formatElevation(maxElevation, units);
+  } else {
+    elevationText = `Up to ${formatElevation(maxElevation, units)}`;
+  }
 
   return { distanceText, elevationText };
 }
@@ -75,7 +84,8 @@ export function RaceCard({
   variant = "default",
   href,
 }: RaceCardProps) {
-  const { distanceText, elevationText } = formatDistances(distances);
+  const { units } = useUnits();
+  const { distanceText, elevationText } = formatDistancesForCard(distances, units);
   const gradient = generateGradient(name);
   const linkHref = href || `/dashboard/races/${slug}`;
 

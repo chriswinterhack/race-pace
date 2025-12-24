@@ -29,7 +29,7 @@ const tabs: { id: Tab; label: string; icon: typeof Bike }[] = [
   { id: "tires", label: "Tires", icon: Circle },
   { id: "shoes", label: "Shoes", icon: Bike },
   { id: "hydration", label: "Hydration", icon: Droplets },
-  { id: "bags", label: "Bags", icon: Package },
+  { id: "bags", label: "On Bike Storage", icon: Package },
   { id: "repair", label: "Repair Kits", icon: Wrench },
   { id: "clothing", label: "Clothing", icon: Shirt },
 ];
@@ -195,8 +195,8 @@ export default function GearPage() {
       case "bags":
         return bags.length === 0 ? (
           <GearEmptyState
-            title="No bags yet"
-            description="Add your bike bags and packs"
+            title="No storage bags yet"
+            description="Add your on-bike storage (saddle bags, frame bags, etc.)"
             actionLabel="Add Bag"
             onAction={() => setShowForm(true)}
           />

@@ -2,33 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { DOMParser } from "@xmldom/xmldom";
 import { requireAdmin } from "@/lib/auth/admin";
+import { haversineDistance } from "@/lib/utils";
+import { GRADE_THRESHOLDS } from "@/lib/constants";
 
 // Use service role for admin operations
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-// Haversine formula for distance between two points in km
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-// Grade thresholds for terrain classification
-const GRADE_THRESHOLDS = {
-  climb: 2.0,
-  descent: -2.0,
-};
 
 interface CourseProfileResult {
   climbingPct: number;
@@ -87,11 +68,11 @@ function parseGPXCourseProfile(gpxText: string): CourseProfileResult | null {
 
           const gradePct = (elevDiffMeters / segmentDistanceMeters) * 100;
 
-          if (gradePct >= GRADE_THRESHOLDS.climb) {
+          if (gradePct >= GRADE_THRESHOLDS.CLIMBING) {
             climbingDistance += segmentDistanceMeters;
             climbingGradeSum += gradePct;
             climbingSegments++;
-          } else if (gradePct <= GRADE_THRESHOLDS.descent) {
+          } else if (gradePct <= GRADE_THRESHOLDS.FLAT_MIN) {
             descentDistance += segmentDistanceMeters;
             descentGradeSum += gradePct;
             descentSegments++;

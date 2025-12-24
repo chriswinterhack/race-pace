@@ -39,7 +39,7 @@ export const TIRE_WIDTH_OPTIONS_IN = [
   { value: 2.8, label: "2.8\"", category: "plus" },
   { value: 3.0, label: "3.0\"", category: "plus" },
 ] as const;
-export type BagType = "saddle" | "frame" | "handlebar" | "top_tube" | "stem" | "feed";
+export type BagType = "saddle" | "frame" | "handlebar" | "top_tube" | "stem" | "feed" | "travel_bag";
 export type ClothingType =
   | "jersey"
   | "bibs"
@@ -273,6 +273,7 @@ export const BAG_TYPE_LABELS: Record<BagType, string> = {
   top_tube: "Top Tube Bag",
   stem: "Stem Bag",
   feed: "Feed Bag",
+  travel_bag: "Travel Bag",
 };
 
 export const CLOTHING_TYPE_LABELS: Record<ClothingType, string> = {

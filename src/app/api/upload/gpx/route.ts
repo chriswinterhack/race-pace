@@ -2,27 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { DOMParser } from "@xmldom/xmldom";
 import { requireAdmin } from "@/lib/auth/admin";
+import { haversineDistance } from "@/lib/utils";
 
 // Use service role for admin operations
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-// Haversine formula for distance between two points in km
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
 
 // Course profile analysis result
 interface CourseProfileResult {
@@ -38,6 +24,10 @@ const GRADE_THRESHOLDS = {
   climb: 2.0,    // >= 2% is climbing
   descent: -2.0, // <= -2% is descending
 };
+
+// Minimum elevation change threshold to filter GPS noise (in feet)
+// ~4.5 meters threshold matches what platforms like RideWithGPS use
+const ELEVATION_THRESHOLD_FT = 15;
 
 // Parse GPX and calculate total distance, elevation stats, and course profile
 function parseGPXStats(gpxText: string): {
@@ -62,10 +52,13 @@ function parseGPXStats(gpxText: string): {
     let totalLoss = 0;
     let prevLat: number | null = null;
     let prevLon: number | null = null;
-    let prevElevation: number | null = null;
-    let prevDistanceMeters = 0;
     let minElev = Infinity;
     let maxElev = -Infinity;
+
+    // Threshold-based elevation tracking to filter GPS noise
+    // We track a "reference elevation" and only count gain/loss when
+    // the elevation change exceeds the threshold
+    let referenceElevation: number | null = null;
 
     // Course profile tracking
     let climbingDistance = 0;
@@ -75,6 +68,7 @@ function parseGPXStats(gpxText: string): {
     let climbingSegments = 0;
     let descentGradeSum = 0;
     let descentSegments = 0;
+    let prevElevationForGrade: number | null = null;
 
     for (let i = 0; i < trackPoints.length; i++) {
       const point = trackPoints.item(i);
@@ -92,22 +86,34 @@ function parseGPXStats(gpxText: string): {
       if (elevationFt < minElev) minElev = elevationFt;
       if (elevationFt > maxElev) maxElev = elevationFt;
 
+      // Initialize reference elevation on first point
+      if (referenceElevation === null) {
+        referenceElevation = elevationFt;
+      }
+
+      // Threshold-based elevation gain/loss calculation
+      // This filters out GPS noise by only counting changes that exceed the threshold
+      const elevDiffFromRef = elevationFt - referenceElevation;
+
+      if (elevDiffFromRef > ELEVATION_THRESHOLD_FT) {
+        // We've climbed significantly - count the gain and reset reference
+        totalGain += elevDiffFromRef;
+        referenceElevation = elevationFt;
+      } else if (elevDiffFromRef < -ELEVATION_THRESHOLD_FT) {
+        // We've descended significantly - count the loss and reset reference
+        totalLoss += Math.abs(elevDiffFromRef);
+        referenceElevation = elevationFt;
+      }
+      // If within threshold, don't count it (GPS noise) and don't reset reference
+
       if (prevLat !== null && prevLon !== null) {
         const segmentDistanceKm = haversineDistance(prevLat, prevLon, lat, lon);
         const segmentDistanceMeters = segmentDistanceKm * 1000;
         totalDistance += segmentDistanceKm * 0.621371; // Convert to miles
 
-        // Calculate elevation change and grade for course profile
-        if (prevElevation !== null && segmentDistanceMeters > 0) {
-          const elevDiffFt = elevationFt - prevElevation;
-          const elevDiffMeters = elevationMeters - (prevElevation / 3.28084);
-
-          // Track elevation gain/loss
-          if (elevDiffFt > 0) {
-            totalGain += elevDiffFt;
-          } else {
-            totalLoss += Math.abs(elevDiffFt);
-          }
+        // Calculate grade for course profile (still uses raw elevation for grade classification)
+        if (prevElevationForGrade !== null && segmentDistanceMeters > 0) {
+          const elevDiffMeters = elevationMeters - (prevElevationForGrade / 3.28084);
 
           // Calculate grade for this segment (in percent)
           const gradePct = (elevDiffMeters / segmentDistanceMeters) * 100;
@@ -129,8 +135,7 @@ function parseGPXStats(gpxText: string): {
 
       prevLat = lat;
       prevLon = lon;
-      prevElevation = elevationFt;
-      prevDistanceMeters += prevLat !== null ? haversineDistance(prevLat, prevLon, lat, lon) * 1000 : 0;
+      prevElevationForGrade = elevationFt;
     }
 
     // Calculate course profile percentages

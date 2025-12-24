@@ -12,10 +12,13 @@ import {
   ChevronRight,
   Clock,
   Gauge,
+  BarChart3,
+  List,
 } from "lucide-react";
-import { Button } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { Button, ViewToggle, type ViewMode } from "@/components/ui";
+import { cn, formatDistance, formatElevation, haversineDistance } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useUnits } from "@/hooks";
 import { toast } from "sonner";
 import {
   formatDuration,
@@ -23,6 +26,7 @@ import {
   generateSegmentsFromAidStations,
 } from "@/lib/calculations";
 import type { ElevationPoint } from "@/lib/calculations";
+import { ElevationPlanner } from "@/components/elevation-planner";
 
 interface Segment {
   id: string;
@@ -51,21 +55,6 @@ interface RacePlan {
     aid_stations: Array<{ name: string; mile: number; type?: "aid_station" | "checkpoint" }> | null;
   };
   segments: Segment[];
-}
-
-// Haversine distance calculation
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
 }
 
 // Parse GPX to extract elevation points
@@ -137,10 +126,18 @@ interface PacingSectionProps {
   onUpdate: () => void;
 }
 
+// View toggle options - Table first (left), Visual second (right)
+const VIEW_OPTIONS = [
+  { value: "table" as ViewMode, icon: <List className="h-4 w-4" />, label: "Table" },
+  { value: "visual" as ViewMode, icon: <BarChart3 className="h-4 w-4" />, label: "Visual" },
+];
+
 export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
   const [generating, setGenerating] = useState(false);
   const [expandedSegment, setExpandedSegment] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const supabase = createClient();
+  const { units } = useUnits();
 
   const effectiveDistance = plan.race_distance.gpx_distance_miles ?? plan.race_distance.distance_miles;
 
@@ -296,20 +293,28 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
             </div>
           </div>
         </div>
-        {aidStations.length > 0 && (
-          <Button
-            onClick={handleGenerateFromAidStations}
-            disabled={generating}
-            className="gap-2 bg-brand-navy-900 hover:bg-brand-navy-800 text-white shadow-lg"
-          >
-            {generating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            {generating ? "Generating..." : "Auto-Generate Splits"}
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <ViewToggle
+            options={VIEW_OPTIONS}
+            value={viewMode}
+            onChange={setViewMode}
+          />
+          {aidStations.length > 0 && (
+            <Button
+              onClick={handleGenerateFromAidStations}
+              disabled={generating}
+              className="gap-2 bg-brand-navy-900 hover:bg-brand-navy-800 text-white shadow-lg"
+            >
+              {generating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {generating ? "Generating..." : "Auto-Generate Splits"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {segments.length === 0 ? (
@@ -348,7 +353,45 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
             )}
           </div>
         </div>
+      ) : viewMode === "visual" ? (
+        /* Visual Planner View */
+        <ElevationPlanner
+          gpxUrl={plan.race_distance.gpx_file_url}
+          segments={segments.map((s) => ({
+            id: s.id,
+            race_plan_id: plan.id,
+            segment_order: s.segment_order,
+            start_mile: s.start_mile,
+            end_mile: s.end_mile,
+            start_name: s.start_name || `Mile ${s.start_mile}`,
+            end_name: s.end_name || `Mile ${s.end_mile}`,
+            target_time_minutes: s.target_time_minutes,
+            effort_level: s.effort_level as "safe" | "tempo" | "pushing",
+            power_target_low: 0,
+            power_target_high: 0,
+            nutrition_notes: null,
+            hydration_notes: null,
+            terrain_notes: null,
+            strategy_notes: null,
+          }))}
+          aidStations={(plan.race_distance.aid_stations ?? []).map((s) => ({
+            name: s.name,
+            mile: s.mile,
+            supplies: [],
+            cutoff_time: null,
+            type: s.type || "aid_station",
+          }))}
+          racePlanId={plan.id}
+          raceStartTime={startTime}
+          onSegmentUpdate={async (segment) => {
+            await handleUpdateSegment(segment.id, {
+              effort_level: segment.effort_level,
+              target_time_minutes: segment.target_time_minutes,
+            });
+          }}
+        />
       ) : (
+        /* Table View */
         <div className="space-y-6">
           {/* Quick Stats Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -448,16 +491,16 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
                         </div>
                         <div className="flex items-center gap-3 text-sm">
                           <span className="text-brand-navy-500">
-                            {distance.toFixed(1)} mi
+                            {formatDistance(distance, units)}
                           </span>
                           {segment.elevation_gain != null && (
                             <span className="flex items-center gap-1">
                               <TrendingUp className="h-3.5 w-3.5 text-green-500" />
-                              <span className="text-green-600 font-medium">{segment.elevation_gain.toLocaleString()}</span>
+                              <span className="text-green-600 font-medium">{formatElevation(segment.elevation_gain, units, { includeUnit: false })}</span>
                               {segment.elevation_loss != null && segment.elevation_loss > 0 && (
                                 <>
                                   <TrendingDown className="h-3.5 w-3.5 text-red-400 ml-1" />
-                                  <span className="text-red-500 font-medium">{segment.elevation_loss.toLocaleString()}</span>
+                                  <span className="text-red-500 font-medium">{formatElevation(segment.elevation_loss, units, { includeUnit: false })}</span>
                                 </>
                               )}
                             </span>
@@ -567,7 +610,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
                           </div>
                           <div className="flex justify-between mt-1 text-xs text-brand-navy-500">
                             <span>Start</span>
-                            <span>{segment.end_mile.toFixed(1)} mi</span>
+                            <span>{formatDistance(segment.end_mile, units)}</span>
                           </div>
                         </div>
                       </div>

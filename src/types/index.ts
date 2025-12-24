@@ -74,6 +74,7 @@ export interface AidStation {
   mile: number;
   supplies: string[];
   cutoff_time: string | null;
+  type?: "aid_station" | "checkpoint";
 }
 
 // Surface composition for courses

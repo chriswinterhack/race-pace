@@ -9,51 +9,10 @@ import {
   List,
 } from "lucide-react";
 import { Input } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDateRange, parseLocalDate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { RaceCard, RaceCardSkeleton } from "@/components/race/RaceCard";
 
-// Parse date string as local time to avoid timezone issues
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year!, month! - 1, day!);
-}
-
-function formatDateRange(dates: (string | null)[]): string | null {
-  const validDates = dates
-    .filter((d): d is string => d !== null)
-    .map((d) => parseLocalDate(d))
-    .sort((a, b) => a.getTime() - b.getTime());
-
-  if (validDates.length === 0) return null;
-
-  const firstDate = validDates[0]!;
-  const lastDate = validDates[validDates.length - 1]!;
-
-  if (validDates.length === 1 || firstDate.getTime() === lastDate.getTime()) {
-    return firstDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }
-
-  const sameYear = firstDate.getFullYear() === lastDate.getFullYear();
-  const sameMonth = sameYear && firstDate.getMonth() === lastDate.getMonth();
-
-  if (sameMonth) {
-    const month = firstDate.toLocaleDateString("en-US", { month: "short" });
-    return `${month} ${firstDate.getDate()}-${lastDate.getDate()}, ${firstDate.getFullYear()}`;
-  } else if (sameYear) {
-    const firstFormatted = firstDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const lastFormatted = lastDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return `${firstFormatted} - ${lastFormatted}, ${firstDate.getFullYear()}`;
-  } else {
-    const firstFormatted = firstDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const lastFormatted = lastDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    return `${firstFormatted} - ${lastFormatted}`;
-  }
-}
 
 interface RaceDistance {
   id: string;

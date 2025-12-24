@@ -34,16 +34,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import {
+  cn,
+  formatDistance,
+  formatElevation,
+  getDistanceUnit,
+  parseLocalDate,
+  formatDateShort,
+} from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { AddToMyRacesModal } from "@/components/race/AddToMyRacesModal";
+import { useUnits } from "@/hooks";
 import { DiscussionsSection } from "@/components/discussions";
-
-// Parse date string as local time to avoid timezone issues
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year!, month! - 1, day!);
-}
+import { formatDuration } from "@/lib/calculations";
 
 function formatDate(dateStr: string): string {
   return parseLocalDate(dateStr).toLocaleDateString("en-US", {
@@ -54,12 +57,6 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatShortDate(dateStr: string): string {
-  return parseLocalDate(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function formatTime(timeStr: string): string {
   const [hours, minutes] = timeStr.split(":").map(Number);
@@ -70,14 +67,6 @@ function formatTime(timeStr: string): string {
     minute: "2-digit",
     hour12: true,
   });
-}
-
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hours === 0) return `${mins}m`;
-  if (mins === 0) return `${hours}h`;
-  return `${hours}h ${mins}m`;
 }
 
 interface AidStation {
@@ -165,6 +154,7 @@ export default function RaceDetailPage() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [selectedDistance, setSelectedDistance] = useState<RaceDistance | null>(null);
   const [showGearModal, setShowGearModal] = useState(false);
+  const { units } = useUnits();
 
   const supabase = createClient();
 
@@ -288,9 +278,10 @@ export default function RaceDetailPage() {
   const totalParticipants = gearStats?.total_participants || 0;
 
   // Calculate aggregate stats
-  const maxElevation = Math.max(
-    ...latestEdition?.race_distances.map((d) => d.elevation_gain || 0) || [0]
-  );
+  const elevations = latestEdition?.race_distances.map((d) => d.elevation_gain || 0).filter(e => e > 0) || [];
+  const minElevation = elevations.length > 0 ? Math.min(...elevations) : 0;
+  const maxElevation = elevations.length > 0 ? Math.max(...elevations) : 0;
+  const hasElevationRange = elevations.length > 1 && minElevation !== maxElevation;
   const distanceRange = latestEdition?.race_distances.length
     ? `${Math.min(...latestEdition.race_distances.map((d) => d.distance_miles))}-${Math.max(...latestEdition.race_distances.map((d) => d.distance_miles))}`
     : null;
@@ -416,12 +407,12 @@ export default function RaceDetailPage() {
             <QuickStat
               icon={<Route className="h-5 w-5" />}
               label="Distances"
-              value={distanceRange ? `${distanceRange} mi` : `${latestEdition?.race_distances.length || 0} options`}
+              value={distanceRange ? `${distanceRange} ${getDistanceUnit(units)}` : `${latestEdition?.race_distances.length || 0} options`}
             />
             <QuickStat
               icon={<Mountain className="h-5 w-5" />}
-              label="Max Elevation"
-              value={maxElevation ? `${maxElevation.toLocaleString()} ft` : "—"}
+              label={hasElevationRange ? "Elevation" : "Elevation Gain"}
+              value={maxElevation ? (hasElevationRange ? `Up to ${formatElevation(maxElevation, units)}` : formatElevation(maxElevation, units)) : "—"}
             />
             <QuickStat
               icon={<Flag className="h-5 w-5" />}
@@ -650,6 +641,7 @@ function InfoCard({
 
 // Distance Preview Card
 function DistancePreviewCard({ distance }: { distance: RaceDistance }) {
+  const { units } = useUnits();
   return (
     <Card className="group hover:shadow-lg transition-shadow cursor-pointer overflow-hidden">
       <CardContent className="p-0">
@@ -658,8 +650,8 @@ function DistancePreviewCard({ distance }: { distance: RaceDistance }) {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-3xl font-bold text-brand-navy-900">
-                {distance.distance_miles}
-                <span className="text-lg font-normal text-brand-navy-500 ml-1">mi</span>
+                {formatDistance(distance.distance_miles, units, { includeUnit: false })}
+                <span className="text-lg font-normal text-brand-navy-500 ml-1">{getDistanceUnit(units)}</span>
               </p>
               {distance.name && (
                 <p className="text-sm font-medium text-brand-navy-600 mt-1">
@@ -675,13 +667,13 @@ function DistancePreviewCard({ distance }: { distance: RaceDistance }) {
           {distance.elevation_gain && (
             <div className="flex items-center gap-2 text-sm text-brand-navy-600">
               <Mountain className="h-4 w-4 text-brand-navy-400" />
-              {distance.elevation_gain.toLocaleString()} ft gain
+              {formatElevation(distance.elevation_gain, units)} gain
             </div>
           )}
           {distance.date && distance.start_time && (
             <div className="flex items-center gap-2 text-sm text-brand-navy-600">
               <Clock className="h-4 w-4 text-brand-navy-400" />
-              {formatShortDate(distance.date)} at {formatTime(distance.start_time)}
+              {formatDateShort(distance.date)!} at {formatTime(distance.start_time)}
             </div>
           )}
           {distance.aid_stations && distance.aid_stations.length > 0 && (
@@ -734,6 +726,7 @@ function DistanceCard({
   distance: RaceDistance;
   onClick: () => void;
 }) {
+  const { units } = useUnits();
   const surface = distance.surface_composition;
   const hasSurface = surface && Object.values(surface).some((v) => v && v > 0);
 
@@ -746,8 +739,8 @@ function DistanceCard({
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-2xl font-bold text-brand-navy-900">
-                  {distance.distance_miles}
-                  <span className="text-base font-normal text-brand-navy-500 ml-1">miles</span>
+                  {formatDistance(distance.distance_miles, units, { includeUnit: false })}
+                  <span className="text-base font-normal text-brand-navy-500 ml-1">{units === "metric" ? "kilometers" : "miles"}</span>
                 </h3>
                 {distance.name && (
                   <p className="text-lg font-medium text-brand-sky-600 mt-1">
@@ -765,7 +758,7 @@ function DistanceCard({
               {distance.date && (
                 <div className="flex items-center gap-2 text-sm text-brand-navy-600">
                   <Calendar className="h-4 w-4 text-brand-navy-400" />
-                  {formatShortDate(distance.date)}
+                  {formatDateShort(distance.date)!}
                 </div>
               )}
               {distance.start_time && (
@@ -777,7 +770,7 @@ function DistanceCard({
               {distance.elevation_gain && (
                 <div className="flex items-center gap-2 text-sm text-brand-navy-600">
                   <Mountain className="h-4 w-4 text-brand-navy-400" />
-                  {distance.elevation_gain.toLocaleString()} ft gain
+                  {formatElevation(distance.elevation_gain, units)} gain
                 </div>
               )}
               {distance.time_limit_minutes && (
@@ -886,7 +879,7 @@ function DistanceCard({
                       {station.name}
                     </span>
                     <span className="text-brand-navy-500 font-mono text-xs">
-                      Mi {station.mile}
+                      {units === "metric" ? "Km" : "Mi"} {units === "metric" ? (station.mile * 1.60934).toFixed(1) : station.mile}
                     </span>
                   </div>
                 ))}
@@ -906,29 +899,30 @@ function DistanceCard({
 
 // Distance Detail Modal
 function DistanceDetailModal({ distance }: { distance: RaceDistance }) {
+  const { units } = useUnits();
   return (
     <>
       <DialogHeader>
         <DialogTitle className="text-2xl">
-          {distance.name || `${distance.distance_miles} miles`}
+          {distance.name || formatDistance(distance.distance_miles, units, { decimals: 0 })}
         </DialogTitle>
       </DialogHeader>
 
       <div className="space-y-6 mt-4">
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <StatBox label="Distance" value={`${distance.distance_miles} mi`} />
+          <StatBox label="Distance" value={formatDistance(distance.distance_miles, units)} />
           {distance.elevation_gain && (
-            <StatBox label="Elevation Gain" value={`${distance.elevation_gain.toLocaleString()} ft`} />
+            <StatBox label="Elevation Gain" value={formatElevation(distance.elevation_gain, units)} />
           )}
           {distance.elevation_loss && (
-            <StatBox label="Elevation Loss" value={`${distance.elevation_loss.toLocaleString()} ft`} />
+            <StatBox label="Elevation Loss" value={formatElevation(distance.elevation_loss, units)} />
           )}
           {distance.time_limit_minutes && (
             <StatBox label="Time Limit" value={formatDuration(distance.time_limit_minutes)} />
           )}
           {distance.date && (
-            <StatBox label="Date" value={formatShortDate(distance.date)} />
+            <StatBox label="Date" value={formatDateShort(distance.date)!} />
           )}
           {distance.start_time && (
             <StatBox label="Start Time" value={formatTime(distance.start_time)} />
@@ -964,7 +958,7 @@ function DistanceDetailModal({ distance }: { distance: RaceDistance }) {
                     <div>
                       <p className="font-medium text-brand-navy-900">{station.name}</p>
                       <p className="text-sm text-brand-navy-500">
-                        Mile {station.mile}
+                        {units === "metric" ? "Km" : "Mile"} {units === "metric" ? (station.mile * 1.60934).toFixed(1) : station.mile}
                         {station.cutoff_time && ` · Cutoff: ${station.cutoff_time}`}
                       </p>
                     </div>

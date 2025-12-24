@@ -17,6 +17,7 @@ import {
   UserCog,
   Mountain,
   ChevronDown,
+  Apple,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ const allNavItems: NavItem[] = [
   { label: "Community", href: "/dashboard/community", icon: Users, category: "main" },
   { label: "Athletes", href: "/dashboard/athletes", icon: Users, roles: ["coach"], category: "coach" },
   { label: "Race Mgmt", href: "/admin/races", icon: FlagTriangleRight, roles: ["admin"], category: "admin" },
+  { label: "Nutrition", href: "/admin/nutrition", icon: Apple, roles: ["admin"], category: "admin" },
   { label: "Users", href: "/admin/users", icon: UserCog, roles: ["admin"], category: "admin" },
 ];
 

@@ -23,6 +23,7 @@ function getBagGradient(bagType: string): string {
     top_tube: "from-violet-600 via-purple-500 to-indigo-600",
     stem: "from-emerald-600 via-green-500 to-teal-600",
     feed: "from-rose-600 via-pink-500 to-purple-600",
+    travel_bag: "from-sky-600 via-blue-500 to-indigo-600",
   };
   return gradients[bagType] || "from-brand-navy-700 via-brand-navy-600 to-brand-sky-700";
 }
@@ -114,7 +115,8 @@ export function BagCard({
             bag.bag_type === "handlebar" && "bg-teal-100 text-teal-700",
             bag.bag_type === "top_tube" && "bg-violet-100 text-violet-700",
             bag.bag_type === "stem" && "bg-emerald-100 text-emerald-700",
-            bag.bag_type === "feed" && "bg-rose-100 text-rose-700"
+            bag.bag_type === "feed" && "bg-rose-100 text-rose-700",
+            bag.bag_type === "travel_bag" && "bg-sky-100 text-sky-700"
           )}>
             {BAG_TYPE_LABELS[bag.bag_type]}
           </span>

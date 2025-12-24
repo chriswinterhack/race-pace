@@ -12,23 +12,10 @@ import {
   Button,
   Label,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, formatDistance, formatElevation, formatDateWithYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useUnits } from "@/hooks";
 import { toast } from "sonner";
-
-// Parse date string as local time to avoid timezone issues
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year!, month! - 1, day!);
-}
-
-function formatShortDate(dateStr: string): string {
-  return parseLocalDate(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 interface RaceDistance {
   id: string;
@@ -64,6 +51,7 @@ export function AddToMyRacesModal({
 }: AddToMyRacesModalProps) {
   const router = useRouter();
   const supabase = createClient();
+  const { units } = useUnits();
 
   const [selectedDistanceId, setSelectedDistanceId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -149,8 +137,8 @@ export function AddToMyRacesModal({
               {edition.race_distances.map((distance) => {
                 const isSelected = selectedDistanceId === distance.id;
                 const displayName = distance.name
-                  ? `${distance.name} (${distance.distance_miles} mi)`
-                  : `${distance.distance_miles} mi`;
+                  ? `${distance.name} (${formatDistance(distance.distance_miles, units)})`
+                  : formatDistance(distance.distance_miles, units);
 
                 return (
                   <button
@@ -176,13 +164,13 @@ export function AddToMyRacesModal({
                           {distance.date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
-                              {formatShortDate(distance.date)}
+                              {formatDateWithYear(distance.date)}
                             </span>
                           )}
                           {distance.elevation_gain && (
                             <span className="flex items-center gap-1">
                               <Mountain className="h-3 w-3" />
-                              {distance.elevation_gain.toLocaleString()} ft
+                              {formatElevation(distance.elevation_gain, units)}
                             </span>
                           )}
                         </div>

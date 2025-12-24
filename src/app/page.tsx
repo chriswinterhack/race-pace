@@ -17,6 +17,7 @@ import {
   Route,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { formatDateRange, generateGradient, parseLocalDate } from "@/lib/utils";
 
 // Enhanced SEO metadata for landing page
 export const metadata: Metadata = {
@@ -155,61 +156,6 @@ const features = [
   },
 ];
 
-// Helper to parse date as local time
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year!, month! - 1, day!);
-}
-
-// Generate a beautiful gradient based on race name for cards without images
-function generateGradient(name: string): string {
-  const gradients = [
-    "from-brand-navy-800 via-brand-navy-700 to-brand-sky-900",
-    "from-emerald-800 via-teal-700 to-brand-navy-900",
-    "from-amber-700 via-orange-600 to-red-800",
-    "from-purple-800 via-violet-700 to-brand-navy-900",
-    "from-rose-700 via-pink-600 to-purple-800",
-    "from-brand-sky-700 via-cyan-600 to-teal-700",
-    "from-slate-800 via-zinc-700 to-stone-800",
-    "from-indigo-800 via-blue-700 to-brand-navy-900",
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return gradients[Math.abs(hash) % gradients.length]!;
-}
-
-// Format date range from array of dates
-function formatDateRange(dates: (string | null)[]): string | null {
-  const validDates = dates
-    .filter((d): d is string => d !== null)
-    .map((d) => parseLocalDate(d))
-    .sort((a, b) => a.getTime() - b.getTime());
-
-  if (validDates.length === 0) return null;
-
-  const firstDate = validDates[0]!;
-  const lastDate = validDates[validDates.length - 1]!;
-
-  if (validDates.length === 1 || firstDate.getTime() === lastDate.getTime()) {
-    return firstDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }
-
-  const sameMonth = firstDate.getMonth() === lastDate.getMonth() && firstDate.getFullYear() === lastDate.getFullYear();
-  if (sameMonth) {
-    const month = firstDate.toLocaleDateString("en-US", { month: "short" });
-    return `${month} ${firstDate.getDate()}-${lastDate.getDate()}, ${firstDate.getFullYear()}`;
-  }
-
-  const firstFormatted = firstDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const lastFormatted = lastDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  return `${firstFormatted} - ${lastFormatted}`;
-}
 
 // Format distances display
 function formatDistances(distances: { distance_miles: number; elevation_gain: number | null }[]): {

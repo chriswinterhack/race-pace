@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Mountain, Map, Download, Loader2, TrendingUp, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useUnits } from "@/hooks";
+import { formatDistance, formatElevation, getDistanceUnit, getElevationUnit, haversineDistance } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import {
   AreaChart,
@@ -69,6 +71,7 @@ export function CourseSection({ plan }: CourseSectionProps) {
   const [courseStats, setCourseStats] = useState<CourseStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { units } = useUnits();
 
   useEffect(() => {
     if (distance?.gpx_file_url) {
@@ -180,21 +183,6 @@ export function CourseSection({ plan }: CourseSectionProps) {
     }
   }
 
-  // Haversine formula for distance between two points
-  function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371; // Earth's radius in km
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
   const minElevation = elevationData.length > 0
     ? Math.min(...elevationData.map((d) => d.elevation))
     : 0;
@@ -240,8 +228,8 @@ export function CourseSection({ plan }: CourseSectionProps) {
             </div>
             <p className="text-sm font-medium text-brand-navy-200">Distance</p>
             <p className="mt-2 text-4xl font-bold tracking-tight">
-              {displayStats.distance}
-              <span className="ml-1 text-xl font-normal text-brand-navy-300">mi</span>
+              {formatDistance(displayStats.distance, units, { includeUnit: false })}
+              <span className="ml-1 text-xl font-normal text-brand-navy-300">{getDistanceUnit(units)}</span>
             </p>
           </div>
 
@@ -252,8 +240,8 @@ export function CourseSection({ plan }: CourseSectionProps) {
             </div>
             <p className="text-sm font-medium text-green-100">Elevation Gain</p>
             <p className="mt-2 text-4xl font-bold tracking-tight">
-              {displayStats.elevationGain?.toLocaleString() ?? "—"}
-              <span className="ml-1 text-xl font-normal text-green-200">ft</span>
+              {displayStats.elevationGain ? formatElevation(displayStats.elevationGain, units, { includeUnit: false }) : "—"}
+              <span className="ml-1 text-xl font-normal text-green-200">{getElevationUnit(units)}</span>
             </p>
           </div>
 
@@ -264,8 +252,8 @@ export function CourseSection({ plan }: CourseSectionProps) {
             </div>
             <p className="text-sm font-medium text-brand-sky-100">Highest Point</p>
             <p className="mt-2 text-4xl font-bold tracking-tight">
-              {displayStats.highPoint?.toLocaleString() ?? "—"}
-              <span className="ml-1 text-xl font-normal text-brand-sky-200">ft</span>
+              {displayStats.highPoint ? formatElevation(displayStats.highPoint, units, { includeUnit: false }) : "—"}
+              <span className="ml-1 text-xl font-normal text-brand-sky-200">{getElevationUnit(units)}</span>
             </p>
           </div>
 
@@ -276,8 +264,8 @@ export function CourseSection({ plan }: CourseSectionProps) {
             </div>
             <p className="text-sm font-medium text-amber-100">Lowest Point</p>
             <p className="mt-2 text-4xl font-bold tracking-tight">
-              {displayStats.lowPoint?.toLocaleString() ?? "—"}
-              <span className="ml-1 text-xl font-normal text-amber-200">ft</span>
+              {displayStats.lowPoint ? formatElevation(displayStats.lowPoint, units, { includeUnit: false }) : "—"}
+              <span className="ml-1 text-xl font-normal text-amber-200">{getElevationUnit(units)}</span>
             </p>
           </div>
         </div>
@@ -357,7 +345,7 @@ export function CourseSection({ plan }: CourseSectionProps) {
                 <XAxis
                   dataKey="mile"
                   tick={{ fontSize: 12, fill: "#627d98" }}
-                  tickFormatter={(value) => `${value} mi`}
+                  tickFormatter={(value) => units === "metric" ? `${(value * 1.60934).toFixed(1)} km` : `${value} mi`}
                   axisLine={{ stroke: "#bcccdc" }}
                   tickLine={{ stroke: "#bcccdc" }}
                 />
@@ -384,10 +372,10 @@ export function CourseSection({ plan }: CourseSectionProps) {
                       return (
                         <div className="bg-white p-3 rounded-lg shadow-lg border border-brand-navy-200">
                           <p className="text-sm font-medium text-brand-navy-900">
-                            Mile {data.mile}
+                            {units === "metric" ? `Km ${(data.mile * 1.60934).toFixed(1)}` : `Mile ${data.mile}`}
                           </p>
                           <p className="text-sm text-brand-navy-600">
-                            Elevation: {data.elevation.toLocaleString()} ft
+                            Elevation: {formatElevation(data.elevation, units)}
                           </p>
                           <p className={`text-sm font-medium ${gradientColor}`}>
                             Grade: {gradientLabel}
@@ -439,7 +427,9 @@ export function CourseSection({ plan }: CourseSectionProps) {
                   className="px-3 py-2 rounded-lg bg-brand-sky-50 border border-brand-sky-200 text-sm"
                 >
                   <span className="font-medium text-brand-sky-700">{station.name}</span>
-                  <span className="text-brand-sky-500 ml-2">Mile {station.mile}</span>
+                  <span className="text-brand-sky-500 ml-2">
+                    {units === "metric" ? `Km ${(station.mile * 1.60934).toFixed(1)}` : `Mile ${station.mile}`}
+                  </span>
                 </div>
               ))}
             </div>

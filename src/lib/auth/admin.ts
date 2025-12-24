@@ -32,15 +32,15 @@ export async function requireAdmin(): Promise<AdminAuthResult> {
     };
   }
 
-  // Check admin role
+  // Check admin flag
   const { data: userData, error: userError } = await supabase
     .from("users")
-    .select("role")
+    .select("is_admin")
     .eq("id", user.id)
     .single();
 
   if (userError || !userData) {
-    console.error("Error fetching user role:", userError);
+    console.error("Error fetching user:", userError);
     return {
       authorized: false,
       response: NextResponse.json(
@@ -50,7 +50,7 @@ export async function requireAdmin(): Promise<AdminAuthResult> {
     };
   }
 
-  if (userData.role !== "admin") {
+  if (!userData.is_admin) {
     console.warn(`Non-admin user ${user.id} attempted admin action`);
     return {
       authorized: false,

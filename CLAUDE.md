@@ -306,6 +306,173 @@ interface AthleteProfile {}
 const MAX_SEGMENTS = 50
 ```
 
+## Clean Code Guidelines
+
+Follow these principles to maintain code quality and long-term maintainability.
+
+### General Rules
+1. **Follow standard conventions** - Use established patterns from this document
+2. **Keep it simple** - Simpler is always better; reduce complexity
+3. **Boy Scout Rule** - Leave the codebase cleaner than you found it
+4. **Find root cause** - Always look for the root cause of a problem, not just symptoms
+
+### No Code Duplication (DRY)
+**Never duplicate utility functions.** Always import from shared locations:
+
+```typescript
+// ✅ CORRECT: Import from shared utilities
+import { parseLocalDate, formatDateRange } from "@/lib/utils/date";
+import { haversineDistance } from "@/lib/utils/geo";
+import { generateGradient } from "@/lib/utils/ui";
+import { formatDistance, formatElevation } from "@/lib/utils/units";
+
+// ❌ WRONG: Defining utilities locally in components
+function parseLocalDate(dateStr: string): Date {
+  // This should be imported, not redefined!
+}
+```
+
+**Shared utility locations:**
+| Utility | Location | Purpose |
+|---------|----------|---------|
+| `parseLocalDate` | `@/lib/utils/date` | Timezone-safe date parsing |
+| `formatDateRange` | `@/lib/utils/date` | Date range formatting |
+| `haversineDistance` | `@/lib/utils/geo` | GPS distance calculation |
+| `generateGradient` | `@/lib/utils/ui` | Consistent gradient generation |
+| `formatDistance` | `@/lib/utils/units` | Unit-aware distance formatting |
+| `formatElevation` | `@/lib/utils/units` | Unit-aware elevation formatting |
+
+### Named Constants (No Magic Numbers)
+**Replace all magic numbers with named constants:**
+
+```typescript
+// ✅ CORRECT: Named constants in lib/constants/
+export const CONVERSION = {
+  KM_TO_MILES: 0.621371,
+  METERS_TO_FEET: 3.28084,
+  MILES_TO_FEET: 5280,
+  MPS_TO_MPH: 2.237,
+} as const;
+
+export const GRADE_THRESHOLDS = {
+  CLIMBING: 2.0,    // >= 2% is climbing
+  FLAT_MIN: -2.0,   // -2% to 2% is flat
+  STEEP_CLIMB: 8.0, // >= 8% is steep
+} as const;
+
+export const TIME_THRESHOLDS = {
+  SHORT_RACE_MINUTES: 240,  // 4 hours
+  LONG_RACE_MINUTES: 480,   // 8 hours
+} as const;
+
+// ❌ WRONG: Magic numbers inline
+const grade = elevationFt * 3.28084;  // What is 3.28084?
+if (movingTimeMinutes < 240) { ... }  // Why 240?
+```
+
+### Function Rules
+1. **Small** - Functions should be short (ideally < 20 lines)
+2. **Do one thing** - Each function has a single responsibility
+3. **Descriptive names** - Name should describe what it does
+4. **Few arguments** - Prefer 0-2 arguments; use objects for more
+5. **No side effects** - Functions should be predictable
+6. **No flag arguments** - Split into separate functions instead
+
+```typescript
+// ✅ CORRECT: Small, focused functions
+function calculateClimbingPower(ftp: number, grade: number): number {
+  return ftp * getClimbingMultiplier(grade);
+}
+
+function calculateFlatPower(ftp: number): number {
+  return ftp * POWER_MULTIPLIERS.FLAT;
+}
+
+// ❌ WRONG: Flag argument
+function calculatePower(ftp: number, isClimbing: boolean): number {
+  if (isClimbing) { ... } else { ... }
+}
+```
+
+### Component Structure
+Components should follow single responsibility:
+
+```typescript
+// ✅ CORRECT: Split by concern
+// GearSection/index.tsx - orchestrates
+// GearSection/GearInventory.tsx - displays inventory
+// GearSection/GearSelector.tsx - handles selection
+// GearSection/CommunityGear.tsx - community features
+
+// ❌ WRONG: Monolithic component with 800+ lines
+// GearSection.tsx - does everything
+```
+
+### Understandability
+1. **Be consistent** - Do similar things the same way everywhere
+2. **Use explanatory variables** - Break complex expressions into named parts
+3. **Encapsulate boundary conditions** - Handle edge cases in one place
+4. **Avoid negative conditionals** - Prefer `if (isActive)` over `if (!isInactive)`
+
+```typescript
+// ✅ CORRECT: Explanatory variables
+const isRaceUpcoming = raceDate >= today;
+const hasValidProfile = profile?.ftp_watts && profile?.weight_kg;
+const canGeneratePlan = isRaceUpcoming && hasValidProfile;
+
+if (canGeneratePlan) { ... }
+
+// ❌ WRONG: Complex inline condition
+if (raceDate >= today && profile?.ftp_watts && profile?.weight_kg) { ... }
+```
+
+### Comments
+1. **Explain yourself in code** - Good names > comments
+2. **Don't be redundant** - Don't comment obvious code
+3. **Use for intent** - Explain *why*, not *what*
+4. **Use for warnings** - Document non-obvious consequences
+
+```typescript
+// ✅ CORRECT: Explains why
+// Haversine formula accounts for Earth's curvature - required for accurate
+// GPS distance over long courses where flat-earth math has >1% error
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number
+
+// ❌ WRONG: States the obvious
+// This function calculates distance
+function calculateDistance() { ... }
+```
+
+### State Management
+Minimize useState declarations per component:
+
+```typescript
+// ✅ CORRECT: Group related state or use reducer
+const [formState, setFormState] = useState<FormState>({
+  loading: false,
+  saving: false,
+  error: null,
+});
+
+// Or use useReducer for complex state
+const [state, dispatch] = useReducer(gearReducer, initialState);
+
+// ❌ WRONG: Many individual useState calls
+const [loading, setLoading] = useState(false);
+const [saving, setSaving] = useState(false);
+const [error, setError] = useState(null);
+const [data, setData] = useState(null);
+// ... 10 more useState calls
+```
+
+### Code Smells to Avoid
+1. **Rigidity** - Small changes cascade into many file changes
+2. **Fragility** - Changes break unrelated code
+3. **Immobility** - Code can't be reused elsewhere
+4. **Needless Complexity** - Over-engineering for hypothetical needs
+5. **Needless Repetition** - Copy-pasted code (see DRY above)
+6. **Opacity** - Code is hard to understand
+
 ## Recommended Open Source Libraries
 
 | Purpose | Library | Notes |

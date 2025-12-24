@@ -40,7 +40,7 @@ export const hydrationPackSchema = z.object({
 export const bagSchema = z.object({
   brand: z.string().min(1, "Brand is required").max(100),
   model: z.string().min(1, "Model is required").max(100),
-  bag_type: z.enum(["saddle", "frame", "handlebar", "top_tube", "stem", "feed"]),
+  bag_type: z.enum(["saddle", "frame", "handlebar", "top_tube", "stem", "feed", "travel_bag"]),
   capacity_liters: z.number().min(0.1).max(20).nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
 });

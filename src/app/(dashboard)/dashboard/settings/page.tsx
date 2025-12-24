@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { calculateAllPowerTargets } from "@/lib/calculations/power";
+import { updateUnitsCache } from "@/hooks";
 
 interface AthleteProfile {
   id: string;
@@ -329,6 +330,8 @@ export default function SettingsPage() {
       toast.error("Failed to save preferences");
       console.error(profileError || userError);
     } else {
+      // Update the units cache so other components reflect the new preference
+      updateUnitsCache(preferredUnits);
       toast.success("Preferences saved");
     }
     setSaving(null);

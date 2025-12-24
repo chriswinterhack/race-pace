@@ -19,8 +19,9 @@ import {
   Input,
   Skeleton,
 } from "@/components/ui";
-import { cn, formatDateWithYear } from "@/lib/utils";
+import { cn, formatDateWithYear, formatDistance, formatElevation } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useUnits } from "@/hooks";
 import { toast } from "sonner";
 
 interface RaceDistance {
@@ -62,6 +63,7 @@ interface AddRaceModalProps {
 
 export function AddRaceModal({ open, onClose, onRaceAdded }: AddRaceModalProps) {
   const router = useRouter();
+  const { units } = useUnits();
   const [distances, setDistances] = useState<RaceDistanceWithEdition[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -244,7 +246,7 @@ export function AddRaceModal({ open, onClose, onRaceAdded }: AddRaceModalProps) 
               {/* Distance options */}
               <div className="space-y-3">
                 {selectedRace.distances.map((distance) => {
-                  const displayName = distance.name || `${distance.distance_miles} mi`;
+                  const displayName = distance.name || formatDistance(distance.distance_miles, units);
 
                   return (
                     <button
@@ -262,7 +264,7 @@ export function AddRaceModal({ open, onClose, onRaceAdded }: AddRaceModalProps) 
                             {displayName}
                           </h4>
                           <p className="text-lg font-bold text-brand-navy-900">
-                            {distance.distance_miles} mi
+                            {formatDistance(distance.distance_miles, units)}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-3 text-sm text-brand-navy-600">
                             {distance.date && (
@@ -274,7 +276,7 @@ export function AddRaceModal({ open, onClose, onRaceAdded }: AddRaceModalProps) 
                             {distance.elevation_gain && (
                               <span className="flex items-center gap-1">
                                 <Mountain className="h-3.5 w-3.5" />
-                                {distance.elevation_gain.toLocaleString()} ft
+                                {formatElevation(distance.elevation_gain, units)}
                               </span>
                             )}
                           </div>
@@ -307,9 +309,11 @@ export function AddRaceModal({ open, onClose, onRaceAdded }: AddRaceModalProps) 
               {/* Race list */}
               <div className="space-y-3">
                 {filteredRaces.map((race) => {
+                  const minMiles = Math.min(...race.distances.map(d => d.distance_miles));
+                  const maxMiles = Math.max(...race.distances.map(d => d.distance_miles));
                   const distanceRange = race.distances.length > 1
-                    ? `${Math.min(...race.distances.map(d => d.distance_miles))}-${Math.max(...race.distances.map(d => d.distance_miles))} mi`
-                    : `${race.distances[0]?.distance_miles} mi`;
+                    ? `${formatDistance(minMiles, units, { includeUnit: false })}-${formatDistance(maxMiles, units)}`
+                    : formatDistance(race.distances[0]?.distance_miles ?? 0, units);
 
                   return (
                     <button
