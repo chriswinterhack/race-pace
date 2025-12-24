@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Search, Heart, X } from "lucide-react";
+import { Search, Heart, X, Coffee } from "lucide-react";
 import { Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { ProductCard } from "./ProductCard";
@@ -174,6 +174,20 @@ export function ProductPalette({ className }: ProductPaletteProps) {
           >
             <Heart className={cn("h-3 w-3", filters.favoritesOnly && "fill-current")} />
             Favorites
+          </button>
+
+          <button
+            onClick={() => setFilters({ caffeineOnly: !filters.caffeineOnly, caffeineeFree: false })}
+            className={cn(
+              "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium",
+              "transition-all duration-150",
+              filters.caffeineOnly
+                ? "bg-amber-100 text-amber-800"
+                : "bg-brand-navy-50 text-brand-navy-500 hover:bg-brand-navy-100"
+            )}
+          >
+            <Coffee className="h-3 w-3" />
+            Caffeinated
           </button>
 
           <button
