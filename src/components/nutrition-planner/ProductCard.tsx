@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { hasOptimalCarbMix } from "@/lib/calculations";
 import type { NutritionProduct } from "./types";
 import { CATEGORY_CONFIG } from "./types";
+import { CategoryIcon } from "./CategoryIcon";
 
 interface ProductCardProps {
   product: NutritionProduct;
@@ -112,10 +113,10 @@ export function ProductCard({
         )}
       >
         <div className={cn(
-          "w-8 h-8 rounded-lg flex items-center justify-center text-base",
+          "w-8 h-8 rounded-lg flex items-center justify-center",
           categoryConfig.color
         )}>
-          {categoryConfig.icon}
+          <CategoryIcon category={product.category} size="md" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-brand-navy-900 truncate">
@@ -181,7 +182,7 @@ export function ProductCard({
               categoryConfig.color
             )}
           >
-            <span className="text-sm">{categoryConfig.icon}</span>
+            <CategoryIcon category={product.category} size="sm" />
             {categoryConfig.label}
           </span>
 
@@ -322,10 +323,10 @@ export function ProductChip({
     >
       {/* Category icon */}
       <div className={cn(
-        "w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0",
+        "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
         categoryConfig.color
       )}>
-        {categoryConfig.icon}
+        <CategoryIcon category={product.category} size="lg" />
       </div>
 
       {/* Product info */}

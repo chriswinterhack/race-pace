@@ -5,6 +5,7 @@ import { Search, Heart, X, Coffee } from "lucide-react";
 import { Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { ProductCard } from "./ProductCard";
+import { CategoryIcon } from "./CategoryIcon";
 import { useNutritionPlannerStore, useFilteredProducts } from "@/stores/nutritionPlannerStore";
 import type { ProductCategory } from "./types";
 import { CATEGORY_CONFIG } from "./types";
@@ -150,7 +151,7 @@ export function ProductPalette({ className }: ProductPaletteProps) {
                     : "bg-brand-navy-50 text-brand-navy-400"
                 )}
               >
-                <span>{config.icon}</span>
+                <CategoryIcon category={category} size="sm" />
                 <span>{config.label}</span>
                 {count > 0 && (
                   <span className="ml-0.5 opacity-70">({count})</span>
@@ -239,7 +240,7 @@ export function ProductPalette({ className }: ProductPaletteProps) {
               return (
                 <div key={category}>
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-brand-navy-700 mb-2">
-                    <span>{config.icon}</span>
+                    <CategoryIcon category={category} size="md" />
                     {config.label}
                     <span className="text-brand-navy-400 font-normal">
                       ({products.length})

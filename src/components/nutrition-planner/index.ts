@@ -4,6 +4,7 @@ export { NutritionPlanner } from "./NutritionPlanner";
 // Product components
 export { ProductCard, ProductChip } from "./ProductCard";
 export { ProductPalette } from "./ProductPalette";
+export { CategoryIcon } from "./CategoryIcon";
 
 // Targets and progress
 export { NutritionTargets, NutritionProgress, NutritionWarnings } from "./NutritionTargets";

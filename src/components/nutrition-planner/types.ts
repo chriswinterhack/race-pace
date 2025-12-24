@@ -287,8 +287,15 @@ export interface PackingListGroup {
 /**
  * Category display configuration
  */
-export const CATEGORY_CONFIG: Record<ProductCategory, { label: string; icon: string; color: string }> = {
-  gel: { label: "Gels", icon: "💧", color: "bg-sky-100 text-sky-800" },
+export interface CategoryConfig {
+  label: string;
+  icon: string; // Emoji fallback
+  iconImage?: string; // Optional image path (e.g., "/icons/gel.png")
+  color: string;
+}
+
+export const CATEGORY_CONFIG: Record<ProductCategory, CategoryConfig> = {
+  gel: { label: "Gels", icon: "⚡", iconImage: "/icons/gel.png", color: "bg-sky-100 text-sky-800" },
   chew: { label: "Chews", icon: "🍬", color: "bg-pink-100 text-pink-800" },
   bar: { label: "Bars", icon: "🍫", color: "bg-amber-100 text-amber-800" },
   drink_mix: { label: "Drinks", icon: "🥤", color: "bg-blue-100 text-blue-800" },
