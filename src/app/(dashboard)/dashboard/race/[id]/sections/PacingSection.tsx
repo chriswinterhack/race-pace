@@ -15,7 +15,7 @@ import {
   BarChart3,
   List,
 } from "lucide-react";
-import { Button, ViewToggle, type ViewMode } from "@/components/ui";
+import { Button, ViewToggle, EditableTime, type ViewMode } from "@/components/ui";
 import { cn, formatDistance, formatElevation, haversineDistance } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUnits } from "@/hooks";
@@ -227,6 +227,26 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
     if (error) {
       toast.error("Failed to update split");
     } else {
+      onUpdate();
+    }
+  };
+
+  const handleTimeChange = async (segmentId: string, newTimeMinutes: number) => {
+    const segment = segments.find((s) => s.id === segmentId);
+    if (!segment || newTimeMinutes === segment.target_time_minutes) return;
+
+    const timeDiff = newTimeMinutes - segment.target_time_minutes;
+
+    const { error } = await supabase
+      .from("segments")
+      .update({ target_time_minutes: newTimeMinutes })
+      .eq("id", segmentId);
+
+    if (error) {
+      toast.error("Failed to update split time");
+    } else {
+      const action = timeDiff > 0 ? "added" : "saved";
+      toast.success(`Split time updated: ${Math.abs(timeDiff)} min ${action}`);
       onUpdate();
     }
   };
@@ -523,11 +543,13 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
 
                       {/* Time & Arrival */}
                       <div className="hidden sm:flex items-center gap-6">
-                        <div className="text-right">
+                        <div className="text-right" onClick={(e) => e.stopPropagation()}>
                           <p className="text-xs text-brand-navy-500 uppercase tracking-wide">Split Time</p>
-                          <p className="text-lg font-bold font-mono text-brand-navy-900">
-                            {formatDuration(segment.target_time_minutes)}
-                          </p>
+                          <EditableTime
+                            value={segment.target_time_minutes}
+                            onChange={(newTime) => handleTimeChange(segment.id, newTime)}
+                            className="text-lg text-brand-navy-900"
+                          />
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-brand-navy-500 uppercase tracking-wide">ETA</p>
@@ -563,11 +585,13 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
 
                     {/* Mobile Time Display */}
                     <div className="sm:hidden flex items-center justify-between px-4 pb-4 pt-0 border-t border-brand-navy-50 mt-0">
-                      <div>
+                      <div onClick={(e) => e.stopPropagation()}>
                         <p className="text-xs text-brand-navy-500">Split Time</p>
-                        <p className="text-lg font-bold font-mono text-brand-navy-900">
-                          {formatDuration(segment.target_time_minutes)}
-                        </p>
+                        <EditableTime
+                          value={segment.target_time_minutes}
+                          onChange={(newTime) => handleTimeChange(segment.id, newTime)}
+                          className="text-lg text-brand-navy-900"
+                        />
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-brand-navy-500">Arrival</p>
