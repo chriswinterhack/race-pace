@@ -182,19 +182,31 @@ export function TopTubeStickerPDF({
             const y = mileToY(cp.mile);
             const isFinish = cp.type === "finish" || i === checkpoints.length - 1;
             const markerX = profileRight - 28;
+            const profileX = elevToX(elevationData.find(p => Math.abs(p.mile - cp.mile) < 1)?.elevation || maxElev * 0.5);
 
             return (
               <React.Fragment key={`cp-${i}`}>
                 {/* Connector line from profile to marker */}
-                <Line
-                  x1={elevToX(elevationData.find(p => Math.abs(p.mile - cp.mile) < 1)?.elevation || maxElev * 0.5)}
-                  y1={y}
-                  x2={markerX - 5}
-                  y2={y}
-                  stroke={isFinish ? COLORS.green500 : COLORS.orange500}
-                  strokeWidth={1}
-                  strokeDasharray={isFinish ? "0" : "1,1"}
-                />
+                {isFinish ? (
+                  <Line
+                    x1={profileX}
+                    y1={y}
+                    x2={markerX - 5}
+                    y2={y}
+                    stroke={COLORS.green500}
+                    strokeWidth={1.5}
+                  />
+                ) : (
+                  <Line
+                    x1={profileX}
+                    y1={y}
+                    x2={markerX - 5}
+                    y2={y}
+                    stroke={COLORS.orange500}
+                    strokeWidth={1}
+                    strokeDasharray="2,2"
+                  />
+                )}
                 {/* Marker circle */}
                 <Circle
                   cx={markerX}
