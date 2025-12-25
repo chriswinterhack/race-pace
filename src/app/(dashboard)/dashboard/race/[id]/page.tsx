@@ -604,7 +604,10 @@ export default function RaceDashboardPage() {
               <ChecklistSection plan={plan as any} />
             )}
             {activeSection === "participants" && (
-              <ParticipantsSection plan={plan as any} />
+              <ParticipantsSection
+                plan={plan as any}
+                onNavigateToGear={() => setActiveSection("gear")}
+              />
             )}
             {activeSection === "community" && race && (
               <DiscussionsSection raceId={race.id} raceName={race.name} />
