@@ -39,9 +39,9 @@ interface TopTubeStickerButtonProps {
 type StickerSize = "standard" | "compact" | "extended";
 
 const SIZE_OPTIONS: { value: StickerSize; label: string; description: string; icon: React.ReactNode }[] = [
-  { value: "compact", label: "Compact", description: '1.25" × 7"', icon: <Minimize className="h-4 w-4" /> },
-  { value: "standard", label: "Standard", description: '1.5" × 9"', icon: <Square className="h-4 w-4" /> },
-  { value: "extended", label: "Extended", description: '1.75" × 11"', icon: <Maximize className="h-4 w-4" /> },
+  { value: "compact", label: "Compact", description: '1.5" × 7"', icon: <Minimize className="h-4 w-4" /> },
+  { value: "standard", label: "Standard", description: '1.75" × 9"', icon: <Square className="h-4 w-4" /> },
+  { value: "extended", label: "Extended", description: '2" × 11"', icon: <Maximize className="h-4 w-4" /> },
 ];
 
 function calculateArrivalTime(startTime: string, elapsedMinutes: number): string {
