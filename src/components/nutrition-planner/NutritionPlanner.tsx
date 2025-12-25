@@ -12,6 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { Clock, Apple, Target, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductPalette } from "./ProductPalette";
 import { NutritionTargets, NutritionProgress, NutritionWarnings } from "./NutritionTargets";
@@ -31,6 +32,8 @@ interface NutritionPlannerProps {
   humidity?: number;
   className?: string;
 }
+
+type MobileTab = "timeline" | "products" | "targets";
 
 export function NutritionPlanner({
   racePlanId,
@@ -54,6 +57,12 @@ export function NutritionPlanner({
   const hours = useNutritionPlannerStore((s) => s.hours);
   const products = useNutritionPlannerStore((s) => s.products);
   const reset = useNutritionPlannerStore((s) => s.reset);
+  const selectedHourIndex = useNutritionPlannerStore((s) => s.selectedHourIndex);
+  const selectHour = useNutritionPlannerStore((s) => s.selectHour);
+
+  // Mobile state
+  const [mobileTab, setMobileTab] = useState<MobileTab>("timeline");
+  const [showHourSelector, setShowHourSelector] = useState(false);
 
   // Track nutrition plan ID for saving
   const [nutritionPlanId, setNutritionPlanId] = useState<string | null>(null);
@@ -321,15 +330,15 @@ export function NutritionPlanner({
               if (product) {
                 const hourIndex = item.hour_number - 1;
                 if (hourIndex >= 0 && hourIndex < store.hours.length) {
-                  // Add product with saved quantity
-                  for (let i = 0; i < item.quantity; i++) {
-                    store.addProductToHour(hourIndex, product, item.source as any);
-                  }
-                  // Update quantity to match (since addProductToHour adds with qty=1)
-                  const hour = store.hours[hourIndex];
-                  if (hour && hour.products.length > 0) {
-                    const lastIdx = hour.products.length - 1;
-                    store.updateProductQuantity(hourIndex, lastIdx, item.quantity);
+                  // Add product once
+                  store.addProductToHour(hourIndex, product, item.source as any);
+                  // Then update quantity if > 1
+                  if (item.quantity > 1) {
+                    const hour = store.hours[hourIndex];
+                    if (hour && hour.products.length > 0) {
+                      const lastIdx = hour.products.length - 1;
+                      store.updateProductQuantity(hourIndex, lastIdx, item.quantity);
+                    }
                   }
                 }
               }
@@ -396,19 +405,32 @@ export function NutritionPlanner({
     }
   };
 
+  // Mobile: tap product to add to selected hour
+  const handleMobileProductTap = useCallback((product: NutritionProduct) => {
+    if (selectedHourIndex !== null) {
+      addProductToHour(selectedHourIndex, product);
+      // Brief haptic-like visual feedback could be added here
+    } else {
+      // No hour selected - show selector
+      setShowHourSelector(true);
+    }
+  }, [selectedHourIndex, addProductToHour]);
+
   if (isLoading) {
     return (
-      <div className={cn("flex items-center justify-center h-full bg-gradient-to-br from-brand-navy-50 to-white", className)}>
+      <div className={cn("flex items-center justify-center h-full bg-gradient-to-br from-brand-navy-900 to-brand-navy-950", className)}>
         <div className="text-center">
-          <div className="relative w-12 h-12 mx-auto mb-4">
-            <div className="absolute inset-0 rounded-full border-4 border-brand-navy-100" />
-            <div className="absolute inset-0 rounded-full border-4 border-brand-sky-500 border-t-transparent animate-spin" />
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-full border-4 border-brand-navy-700" />
+            <div className="absolute inset-0 rounded-full border-4 border-brand-sky-400 border-t-transparent animate-spin" />
           </div>
-          <p className="text-brand-navy-600 font-medium">Loading nutrition products...</p>
+          <p className="text-brand-navy-300 font-medium">Loading nutrition products...</p>
         </div>
       </div>
     );
   }
+
+  const selectedHour = selectedHourIndex !== null ? hours[selectedHourIndex] : null;
 
   return (
     <DndContext
@@ -417,7 +439,8 @@ export function NutritionPlanner({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className={cn("flex h-full", className)}>
+      {/* Desktop Layout */}
+      <div className={cn("hidden lg:flex h-full", className)}>
         <div className="w-80 flex-shrink-0 h-full overflow-hidden">
           <ProductPalette className="h-full" />
         </div>
@@ -430,6 +453,132 @@ export function NutritionPlanner({
         </div>
       </div>
 
+      {/* Mobile Layout */}
+      <div className={cn("lg:hidden flex flex-col h-full bg-brand-navy-950", className)}>
+        {/* Mobile Header - Selected Hour Indicator */}
+        {mobileTab === "products" && (
+          <div className="sticky top-0 z-30 bg-brand-navy-900/95 backdrop-blur-xl border-b border-brand-navy-800">
+            <button
+              onClick={() => setShowHourSelector(!showHourSelector)}
+              className="w-full px-4 py-3 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg",
+                  selectedHourIndex !== null
+                    ? "bg-brand-sky-500 text-white"
+                    : "bg-brand-navy-800 text-brand-navy-400"
+                )}>
+                  {selectedHourIndex !== null ? selectedHourIndex + 1 : "?"}
+                </div>
+                <div className="text-left">
+                  <p className="text-white font-semibold">
+                    {selectedHourIndex !== null ? `Hour ${selectedHourIndex + 1}` : "Select an hour"}
+                  </p>
+                  <p className="text-brand-navy-400 text-sm">
+                    {selectedHour
+                      ? `${selectedHour.totals.carbs}g carbs · ${selectedHour.totals.fluid}ml fluid`
+                      : "Tap to choose where to add products"
+                    }
+                  </p>
+                </div>
+              </div>
+              <ChevronUp className={cn(
+                "h-5 w-5 text-brand-navy-400 transition-transform duration-200",
+                showHourSelector && "rotate-180"
+              )} />
+            </button>
+
+            {/* Hour Selector Dropdown */}
+            {showHourSelector && (
+              <div className="px-4 pb-4 animate-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-6 gap-2">
+                  {hours.map((hour, index) => (
+                    <button
+                      key={hour.hourNumber}
+                      onClick={() => {
+                        selectHour(index);
+                        setShowHourSelector(false);
+                      }}
+                      className={cn(
+                        "aspect-square rounded-xl flex flex-col items-center justify-center",
+                        "font-semibold text-sm transition-all duration-150",
+                        selectedHourIndex === index
+                          ? "bg-brand-sky-500 text-white scale-105 shadow-lg shadow-brand-sky-500/30"
+                          : hour.products.length > 0
+                            ? "bg-brand-navy-700 text-white"
+                            : "bg-brand-navy-800 text-brand-navy-400"
+                      )}
+                    >
+                      <span className="text-lg">{hour.hourNumber}</span>
+                      {hour.products.length > 0 && (
+                        <span className="text-[10px] opacity-70">{hour.totals.carbs}g</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mobile Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          {mobileTab === "timeline" && (
+            <div className="p-4 space-y-4">
+              <NutritionTargets variant="mobile" />
+              <NutritionWarnings />
+              <NutritionTimeline variant="mobile" onHourSelect={(index) => {
+                selectHour(index);
+                setMobileTab("products");
+              }} />
+            </div>
+          )}
+
+          {mobileTab === "products" && (
+            <ProductPalette
+              variant="mobile"
+              onProductTap={handleMobileProductTap}
+              selectedHourIndex={selectedHourIndex}
+              className="h-full"
+            />
+          )}
+
+          {mobileTab === "targets" && (
+            <div className="p-4 space-y-4">
+              <NutritionTargets variant="mobile-full" />
+              <NutritionProgress variant="mobile" />
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="sticky bottom-0 z-40 bg-brand-navy-900/95 backdrop-blur-xl border-t border-brand-navy-800 safe-area-pb">
+          <div className="flex items-center justify-around py-2">
+            <MobileTabButton
+              icon={Clock}
+              label="Timeline"
+              isActive={mobileTab === "timeline"}
+              onClick={() => setMobileTab("timeline")}
+            />
+            <MobileTabButton
+              icon={Apple}
+              label="Products"
+              isActive={mobileTab === "products"}
+              onClick={() => setMobileTab("products")}
+              badge={selectedHourIndex !== null ? `H${selectedHourIndex + 1}` : undefined}
+            />
+            <MobileTabButton
+              icon={Target}
+              label="Targets"
+              isActive={mobileTab === "targets"}
+              onClick={() => setMobileTab("targets")}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Drag Overlay (Desktop only) */}
       <DragOverlay dropAnimation={null}>
         {activeProduct && (
           <div className="opacity-95 scale-105 rotate-2">
@@ -443,5 +592,53 @@ export function NutritionPlanner({
         )}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+// Mobile tab button component
+function MobileTabButton({
+  icon: Icon,
+  label,
+  isActive,
+  onClick,
+  badge,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  badge?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "relative flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-all duration-200",
+        isActive
+          ? "text-brand-sky-400"
+          : "text-brand-navy-500 active:scale-95"
+      )}
+    >
+      <div className="relative">
+        <Icon className={cn(
+          "h-6 w-6 transition-transform duration-200",
+          isActive && "scale-110"
+        )} />
+        {badge && (
+          <span className="absolute -top-1 -right-2 px-1.5 py-0.5 rounded-full bg-brand-sky-500 text-white text-[10px] font-bold">
+            {badge}
+          </span>
+        )}
+      </div>
+      <span className={cn(
+        "text-xs font-medium transition-colors",
+        isActive ? "text-brand-sky-400" : "text-brand-navy-500"
+      )}>
+        {label}
+      </span>
+      {isActive && (
+        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand-sky-400" />
+      )}
+    </button>
   );
 }

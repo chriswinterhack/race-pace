@@ -98,6 +98,7 @@ interface NutritionPlannerState {
   moveProduct: (fromHour: number, fromIndex: number, toHour: number) => void;
 
   setHourWater: (hourIndex: number, waterMl: number, source?: ProductSource) => void;
+  clearHour: (hourIndex: number) => void;
 
   selectHour: (index: number | null) => void;
   setDragging: (isDragging: boolean) => void;
@@ -499,6 +500,25 @@ export const useNutritionPlannerStore = create<NutritionPlannerState>((set, get)
       waterMl,
       waterSource: source ?? hour.waterSource,
       totals: calculateHourTotals(hour.products, waterMl),
+    };
+
+    const updatedHours = [...hours];
+    updatedHours[hourIndex] = updatedHour;
+
+    set({ hours: updatedHours });
+  },
+
+  clearHour: (hourIndex) => {
+    const { hours } = get();
+    const hour = hours[hourIndex];
+    if (!hour) return;
+
+    const updatedHour: TimelineHour = {
+      ...hour,
+      products: [],
+      waterMl: 0,
+      waterSource: null,
+      totals: calculateHourTotals([], 0),
     };
 
     const updatedHours = [...hours];

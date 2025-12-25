@@ -1,7 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
-import { Clock, Droplets, Plus, Minus, AlertTriangle, CheckCircle2, TrendingUp } from "lucide-react";
+import { Clock, Droplets, Plus, Minus, AlertTriangle, CheckCircle2, TrendingUp, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { validateHourlyIntake, type HourlyTargets } from "@/lib/calculations";
 import { ProductChip } from "./ProductCard";
@@ -54,6 +54,7 @@ export function TimelineHourRow({
   const updateProductQuantity = useNutritionPlannerStore((s) => s.updateProductQuantity);
   const updateProductFluid = useNutritionPlannerStore((s) => s.updateProductFluid);
   const setHourWater = useNutritionPlannerStore((s) => s.setHourWater);
+  const clearHour = useNutritionPlannerStore((s) => s.clearHour);
 
   const { isOver, setNodeRef } = useDroppable({
     id: `hour-${hour.hourNumber}`,
@@ -198,24 +199,42 @@ export function TimelineHourRow({
             </span>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {hour.products.map((item, idx) => (
-              <ProductChip
-                key={item.id}
-                product={item.product}
-                quantity={item.quantity}
-                fluidMl={item.fluidMl ?? undefined}
-                onQuantityChange={(qty) => updateProductQuantity(hourIndex, idx, qty)}
-                onFluidChange={(ml) => updateProductFluid(hourIndex, idx, ml)}
-                onRemove={() => removeProductFromHour(hourIndex, idx)}
-              />
-            ))}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {hour.products.map((item, idx) => (
+                <ProductChip
+                  key={item.id}
+                  product={item.product}
+                  quantity={item.quantity}
+                  fluidMl={item.fluidMl ?? undefined}
+                  onQuantityChange={(qty) => updateProductQuantity(hourIndex, idx, qty)}
+                  onFluidChange={(ml) => updateProductFluid(hourIndex, idx, ml)}
+                  onRemove={() => removeProductFromHour(hourIndex, idx)}
+                />
+              ))}
 
-            {hour.waterMl > 0 && (
-              <WaterChip
-                waterMl={hour.waterMl}
-                onChange={(ml) => setHourWater(hourIndex, ml)}
-              />
+              {hour.waterMl > 0 && (
+                <WaterChip
+                  waterMl={hour.waterMl}
+                  onChange={(ml) => setHourWater(hourIndex, ml)}
+                />
+              )}
+            </div>
+
+            {/* Clear all button - shows when there are many products */}
+            {hour.products.length > 3 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`Clear all ${hour.products.length} products from Hour ${hour.hourNumber}?`)) {
+                    clearHour(hourIndex);
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Clear all ({hour.products.length} items)
+              </button>
             )}
           </div>
         )}

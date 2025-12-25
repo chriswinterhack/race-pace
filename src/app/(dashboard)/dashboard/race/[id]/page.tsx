@@ -269,18 +269,65 @@ export default function RaceDashboardPage() {
 
   async function handleDelete() {
     setDeleting(true);
-    const { error } = await supabase
-      .from("race_plans")
-      .delete()
-      .eq("id", id);
 
-    if (error) {
-      console.error("Error deleting plan:", error);
+    try {
+      // First, get the nutrition plan ID if it exists
+      const { data: nutritionPlan } = await supabase
+        .from("race_nutrition_plans")
+        .select("id")
+        .eq("race_plan_id", id)
+        .single();
+
+      if (nutritionPlan) {
+        // Delete nutrition plan items first (there could be thousands)
+        const { error: itemsError } = await supabase
+          .from("race_nutrition_plan_items")
+          .delete()
+          .eq("nutrition_plan_id", nutritionPlan.id);
+
+        if (itemsError) {
+          console.error("Error deleting nutrition items:", itemsError);
+        }
+
+        // Delete nutrition plan water entries
+        const { error: waterError } = await supabase
+          .from("race_nutrition_plan_water")
+          .delete()
+          .eq("nutrition_plan_id", nutritionPlan.id);
+
+        if (waterError) {
+          console.error("Error deleting water entries:", waterError);
+        }
+
+        // Delete the nutrition plan itself
+        const { error: planError } = await supabase
+          .from("race_nutrition_plans")
+          .delete()
+          .eq("id", nutritionPlan.id);
+
+        if (planError) {
+          console.error("Error deleting nutrition plan:", planError);
+        }
+      }
+
+      // Now delete the race plan
+      const { error } = await supabase
+        .from("race_plans")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error deleting plan:", error);
+        toast.error("Failed to delete race plan");
+      } else {
+        toast.success("Race plan deleted");
+        router.push("/dashboard");
+      }
+    } catch (err) {
+      console.error("Error during deletion:", err);
       toast.error("Failed to delete race plan");
-    } else {
-      toast.success("Race plan deleted");
-      router.push("/dashboard");
     }
+
     setDeleting(false);
   }
 

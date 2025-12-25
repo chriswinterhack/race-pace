@@ -14,7 +14,9 @@ import {
   Zap,
   Target,
   Settings,
-  Compass,
+  Sparkles,
+  ArrowRight,
+  Users,
 } from "lucide-react";
 import {
   Card,
@@ -57,9 +59,32 @@ interface AthleteProfile {
   weight_kg: number | null;
 }
 
+interface FeaturedRace {
+  id: string;
+  name: string;
+  slug: string;
+  location: string | null;
+  hero_image_url: string | null;
+  race_subtype: string | null;
+  race_type: string;
+  race_editions: Array<{
+    id: string;
+    year: number;
+    race_distances: Array<{
+      id: string;
+      name: string | null;
+      distance_miles: number;
+      date: string | null;
+      elevation_gain: number | null;
+    }>;
+  }>;
+  participant_count?: number;
+}
+
 export default function DashboardPage() {
   const [racePlans, setRacePlans] = useState<RacePlan[]>([]);
   const [athleteProfile, setAthleteProfile] = useState<AthleteProfile | null>(null);
+  const [featuredRaces, setFeaturedRaces] = useState<FeaturedRace[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddRace, setShowAddRace] = useState(false);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -114,6 +139,91 @@ export default function DashboardPage() {
 
     if (profile) {
       setAthleteProfile(profile);
+    }
+
+    // Fetch featured/available races for discovery
+    const { data: races } = await supabase
+      .from("races")
+      .select(`
+        id,
+        name,
+        slug,
+        location,
+        hero_image_url,
+        race_subtype,
+        race_type,
+        race_editions (
+          id,
+          year,
+          race_distances (
+            id,
+            name,
+            distance_miles,
+            date,
+            elevation_gain
+          )
+        )
+      `)
+      .eq("is_active", true)
+      .order("name");
+
+    if (races) {
+      // Filter to only races with upcoming dates and get participant counts
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const upcomingRaces = races.filter((race: FeaturedRace) => {
+        const hasUpcomingEdition = race.race_editions?.some(edition =>
+          edition.race_distances?.some(dist => {
+            if (!dist.date) return true; // Include races without dates
+            const raceDate = parseLocalDate(dist.date);
+            return raceDate >= today;
+          })
+        );
+        return hasUpcomingEdition;
+      });
+
+      // Get participant counts
+      const { data: counts } = await supabase
+        .from("race_plans")
+        .select("race_distance:race_distances(race_edition:race_editions(race_id))")
+        .not("race_distance", "is", null);
+
+      const countMap = new Map<string, number>();
+      counts?.forEach((plan: any) => {
+        const raceId = plan.race_distance?.race_edition?.race_id;
+        if (raceId) {
+          countMap.set(raceId, (countMap.get(raceId) || 0) + 1);
+        }
+      });
+
+      const racesWithCounts = upcomingRaces.map((race: FeaturedRace) => ({
+        ...race,
+        participant_count: countMap.get(race.id) || 0,
+      }));
+
+      // Sort by participant count (most popular first), then by date
+      racesWithCounts.sort((a: FeaturedRace, b: FeaturedRace) => {
+        if ((b.participant_count || 0) !== (a.participant_count || 0)) {
+          return (b.participant_count || 0) - (a.participant_count || 0);
+        }
+        // Then by earliest date
+        const getEarliestDate = (race: FeaturedRace) => {
+          let earliest = Infinity;
+          race.race_editions?.forEach(ed => {
+            ed.race_distances?.forEach(dist => {
+              if (dist.date) {
+                const d = parseLocalDate(dist.date).getTime();
+                if (d < earliest) earliest = d;
+              }
+            });
+          });
+          return earliest;
+        };
+        return getEarliestDate(a) - getEarliestDate(b);
+      });
+
+      setFeaturedRaces(racesWithCounts);
     }
 
     setLoading(false);
@@ -215,71 +325,237 @@ export default function DashboardPage() {
     );
   }
 
-  // Empty state - no races
-  if (racePlans.length === 0) {
-    return (
-      <div className="min-h-[80vh] flex flex-col">
-        {/* Dramatic Empty State - Full viewport width */}
-        <div className="flex-1 flex items-center justify-center -mt-6 lg:-mt-8 ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen relative overflow-hidden">
-          {/* Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-brand-navy-900 via-brand-navy-800 to-brand-sky-900">
-            <div
-              className="absolute inset-0 opacity-5"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-              }}
-            />
-          </div>
+  // Get races the user hasn't added yet
+  const userRaceIds = new Set(
+    racePlans.map(p => p.race_distance?.race_edition?.race?.id).filter(Boolean)
+  );
+  const discoverableRaces = featuredRaces.filter(r => !userRaceIds.has(r.id));
 
-          {/* Content */}
-          <div className="relative z-10 text-center px-6 py-16 max-w-2xl mx-auto">
-            {/* Animated Icon */}
-            <div className="relative inline-flex mb-8">
-              <div className="absolute inset-0 bg-brand-sky-500/20 rounded-full blur-2xl animate-pulse" />
-              <div className="relative p-6 rounded-full bg-gradient-to-br from-brand-sky-500 to-brand-sky-600 shadow-2xl shadow-brand-sky-500/30">
-                <Compass className="h-12 w-12 text-white" />
+  // Empty state - no races OR sparse state (only 1 race)
+  if (racePlans.length <= 1) {
+    return (
+      <div className="space-y-8 pb-8">
+        {/* If user has 1 race, show it first */}
+        {nextRace && (
+          <div className="relative -mt-6 lg:-mt-8 ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen overflow-hidden">
+            <div className="relative h-[320px] sm:h-[280px]">
+              {nextRace.race_distance.race_edition.race.hero_image_url ? (
+                <Image
+                  src={nextRace.race_distance.race_edition.race.hero_image_url}
+                  alt={nextRace.race_distance.race_edition.race.name}
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              ) : (
+                <div className={cn(
+                  "absolute inset-0 bg-gradient-to-br",
+                  generateGradient(nextRace.race_distance.race_edition.race.name)
+                )} />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
+              <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8">
+                <div className="max-w-6xl mx-auto w-full">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-brand-sky-400">Your Race</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white/80">
+                      {countdown.days} days to go
+                    </span>
+                  </div>
+                  <Link href={`/dashboard/race/${nextRace.id}`} className="group">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-heading font-bold text-white tracking-tight group-hover:text-brand-sky-200 transition-colors">
+                      {nextRace.race_distance.race_edition.race.name}
+                      <ChevronRight className="inline-block h-6 w-6 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </h1>
+                  </Link>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-white/70 text-sm">
+                    {nextRace.race_distance.race_edition.race.location && (
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {nextRace.race_distance.race_edition.race.location}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1.5">
+                      <Route className="h-3.5 w-3.5" />
+                      {formatDistance(nextRace.race_distance.distance_miles, units)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
+        )}
 
-            <h1 className="text-4xl sm:text-5xl font-heading font-bold text-white mb-4 tracking-tight">
-              Your Race HQ Awaits
-            </h1>
-            <p className="text-xl text-brand-sky-200 mb-8 leading-relaxed">
-              Add your first race to unlock personalized pacing, power targets, and nutrition strategies.
-            </p>
+        {/* Hero Discovery Section */}
+        {racePlans.length === 0 && (
+          <div className="relative -mt-6 lg:-mt-8 ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen overflow-hidden">
+            <div className="relative bg-gradient-to-br from-brand-navy-900 via-brand-navy-800 to-brand-navy-900 py-16 px-6">
+              {/* Decorative Elements */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute -top-24 -right-24 w-96 h-96 bg-brand-sky-500/10 rounded-full blur-3xl" />
+                <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-brand-sky-600/10 rounded-full blur-3xl" />
+                <div
+                  className="absolute inset-0 opacity-[0.03]"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                  }}
+                />
+              </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                onClick={() => setShowAddRace(true)}
-                size="lg"
-                className="gap-2 bg-white text-brand-navy-900 hover:bg-brand-sky-50 font-semibold px-8 py-6 text-lg shadow-xl"
-              >
-                <Plus className="h-5 w-5" />
-                Add Your First Race
-              </Button>
+              <div className="relative max-w-4xl mx-auto text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-sky-500/10 border border-brand-sky-500/20 text-brand-sky-400 text-sm font-medium mb-6">
+                  <Sparkles className="h-4 w-4" />
+                  Race Planning Made Easy
+                </div>
+
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-white mb-4 tracking-tight">
+                  Find Your Next
+                  <span className="block text-transparent bg-clip-text bg-gradient-to-r from-brand-sky-400 to-brand-sky-300">
+                    Adventure
+                  </span>
+                </h1>
+
+                <p className="text-lg sm:text-xl text-brand-navy-300 mb-8 max-w-2xl mx-auto">
+                  Choose from premier gravel and mountain bike events. Get personalized pacing, nutrition plans, and race-day strategies.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Button
+                    onClick={() => setShowAddRace(true)}
+                    size="lg"
+                    className="gap-2 bg-brand-sky-500 hover:bg-brand-sky-600 text-white font-semibold px-8 h-14 text-lg shadow-xl shadow-brand-sky-500/25"
+                  >
+                    <Plus className="h-5 w-5" />
+                    Add a Race
+                  </Button>
+                  <Link href="/dashboard/races">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="gap-2 border-brand-navy-600 text-white hover:bg-brand-navy-800 px-8 h-14 text-lg"
+                    >
+                      Browse All Races
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Profile Setup CTA */}
+        {athleteProfile && (!athleteProfile.ftp_watts || !athleteProfile.weight_kg) && (
+          <Card className="border-brand-sky-200 bg-gradient-to-r from-brand-sky-50 to-brand-navy-50 overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center gap-4 p-4">
+                <div className="p-3 rounded-xl bg-brand-sky-100">
+                  <TrendingUp className="h-6 w-6 text-brand-sky-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-brand-navy-900">Complete your athlete profile</p>
+                  <p className="text-sm text-brand-navy-600">
+                    Add your FTP and weight for personalized power targets
+                  </p>
+                </div>
+                <Link href="/dashboard/settings">
+                  <Button className="gap-2">
+                    <Settings className="h-4 w-4" />
+                    Set Up
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Featured Races Section */}
+        {discoverableRaces.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-heading font-bold text-brand-navy-900">
+                  {racePlans.length === 0 ? "Popular Races" : "Add Another Race"}
+                </h2>
+                <p className="text-sm text-brand-navy-500 mt-1">
+                  {racePlans.length === 0
+                    ? "Start planning with one of these top events"
+                    : "Expand your race calendar"
+                  }
+                </p>
+              </div>
               <Link href="/dashboard/races">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="gap-2 border-white/30 text-white hover:bg-white/10 px-8 py-6 text-lg"
-                >
-                  <Route className="h-5 w-5" />
-                  Browse Races
+                <Button variant="ghost" className="gap-2 text-brand-navy-600 hover:text-brand-navy-900">
+                  View all
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
             </div>
 
-            {/* Quick Setup Reminder */}
-            {athleteProfile && (!athleteProfile.ftp_watts || !athleteProfile.weight_kg) && (
-              <div className="mt-12 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 inline-flex items-center gap-3">
-                <TrendingUp className="h-5 w-5 text-brand-sky-300" />
-                <span className="text-brand-sky-100">
-                  Set up your <Link href="/dashboard/settings" className="text-white font-medium underline underline-offset-2">athlete profile</Link> for personalized targets
-                </span>
+            {/* Featured Race Cards - Horizontal scroll on mobile, grid on desktop */}
+            <div className="relative -mx-6 px-6 lg:mx-0 lg:px-0">
+              <div className="flex lg:grid lg:grid-cols-3 gap-4 overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 snap-x snap-mandatory lg:snap-none scrollbar-hide">
+                {discoverableRaces.slice(0, 6).map((race, index) => (
+                  <FeaturedRaceCard
+                    key={race.id}
+                    race={race}
+                    index={index}
+                    units={units}
+                    onAddClick={() => setShowAddRace(true)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {discoverableRaces.length > 6 && (
+              <div className="text-center">
+                <Link href="/dashboard/races">
+                  <Button variant="outline" className="gap-2">
+                    See {discoverableRaces.length - 6} more races
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
               </div>
             )}
           </div>
-        </div>
+        )}
+
+        {/* Quick Stats - Only show if user has 1 race */}
+        {racePlans.length === 1 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <QuickStatPill
+              icon={Route}
+              label="Upcoming"
+              value={upcomingRaces.length.toString()}
+              color="sky"
+            />
+            <QuickStatPill
+              icon={Zap}
+              label="FTP"
+              value={athleteProfile?.ftp_watts?.toString() || "—"}
+              suffix="w"
+              color="amber"
+              href="/dashboard/settings"
+            />
+            <QuickStatPill
+              icon={TrendingUp}
+              label="W/kg"
+              value={
+                athleteProfile?.ftp_watts && athleteProfile?.weight_kg
+                  ? (athleteProfile.ftp_watts / athleteProfile.weight_kg).toFixed(2)
+                  : "—"
+              }
+              color="emerald"
+              href="/dashboard/settings"
+            />
+            <QuickStatPill
+              icon={Calendar}
+              label="Completed"
+              value={pastRaces.length.toString()}
+              color="purple"
+            />
+          </div>
+        )}
 
         <AddRaceModal
           open={showAddRace}
@@ -688,4 +964,165 @@ function QuickStatPill({
   }
 
   return content;
+}
+
+// Featured Race Card Component
+function FeaturedRaceCard({
+  race,
+  index,
+  units,
+  onAddClick,
+}: {
+  race: FeaturedRace;
+  index: number;
+  units: "imperial" | "metric";
+  onAddClick: () => void;
+}) {
+  // Get the latest edition and earliest upcoming distance
+  const latestEdition = race.race_editions?.[0];
+  const distances = latestEdition?.race_distances || [];
+
+  // Get the primary distance (first one, typically the main event)
+  const primaryDistance = distances[0];
+
+  // Format date
+  const raceDate = primaryDistance?.date ? parseLocalDate(primaryDistance.date) : null;
+  const formattedDate = raceDate?.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  // Days until race
+  const daysUntil = raceDate
+    ? Math.ceil((raceDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  return (
+    <Link
+      href={`/dashboard/races/${race.slug}`}
+      className={cn(
+        "group relative flex-shrink-0 w-[280px] lg:w-auto snap-start",
+        "rounded-2xl overflow-hidden bg-white border border-brand-navy-100",
+        "shadow-sm hover:shadow-xl transition-all duration-300",
+        "hover:border-brand-sky-200 hover:-translate-y-1"
+      )}
+      style={{
+        animationDelay: `${index * 100}ms`,
+      }}
+    >
+      {/* Image */}
+      <div className="relative h-36 overflow-hidden">
+        {race.hero_image_url ? (
+          <Image
+            src={race.hero_image_url}
+            alt={race.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className={cn(
+            "absolute inset-0 bg-gradient-to-br",
+            generateGradient(race.name)
+          )}>
+            <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10" />
+          </div>
+        )}
+
+        {/* Overlay gradient */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+        {/* Badge */}
+        {race.race_subtype && (
+          <div className="absolute top-3 left-3">
+            <span className="px-2 py-1 rounded-md text-xs font-medium bg-white/90 text-brand-navy-700 backdrop-blur-sm">
+              {race.race_subtype}
+            </span>
+          </div>
+        )}
+
+        {/* Days until badge */}
+        {daysUntil !== null && daysUntil > 0 && (
+          <div className="absolute top-3 right-3">
+            <span className="px-2 py-1 rounded-md text-xs font-bold bg-brand-sky-500 text-white">
+              {daysUntil}d
+            </span>
+          </div>
+        )}
+
+        {/* Location overlay */}
+        {race.location && (
+          <div className="absolute bottom-3 left-3 right-3">
+            <div className="flex items-center gap-1.5 text-white/90 text-sm">
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="truncate">{race.location}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        <h3 className="font-heading font-bold text-brand-navy-900 group-hover:text-brand-sky-600 transition-colors line-clamp-1">
+          {race.name}
+        </h3>
+
+        {/* Stats row */}
+        <div className="mt-2 flex items-center gap-3 text-sm text-brand-navy-500">
+          {primaryDistance && (
+            <span className="flex items-center gap-1">
+              <Route className="h-3.5 w-3.5" />
+              {formatDistance(primaryDistance.distance_miles, units)}
+            </span>
+          )}
+          {primaryDistance?.elevation_gain && (
+            <span className="flex items-center gap-1">
+              <Mountain className="h-3.5 w-3.5" />
+              {formatElevation(primaryDistance.elevation_gain, units)}
+            </span>
+          )}
+        </div>
+
+        {/* Date and participants */}
+        <div className="mt-3 flex items-center justify-between">
+          {formattedDate && (
+            <span className="flex items-center gap-1.5 text-sm text-brand-navy-600">
+              <Calendar className="h-3.5 w-3.5" />
+              {formattedDate}
+            </span>
+          )}
+          {(race.participant_count || 0) > 0 && (
+            <span className="flex items-center gap-1 text-xs text-brand-navy-400">
+              <Users className="h-3 w-3" />
+              {race.participant_count} planning
+            </span>
+          )}
+        </div>
+
+        {/* Distance options */}
+        {distances.length > 1 && (
+          <div className="mt-3 pt-3 border-t border-brand-navy-100">
+            <p className="text-xs text-brand-navy-400">
+              {distances.length} distance options available
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Hover action */}
+      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-white via-white to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          size="sm"
+          className="w-full gap-2 bg-brand-sky-500 hover:bg-brand-sky-600"
+          onClick={(e) => {
+            e.preventDefault();
+            onAddClick();
+          }}
+        >
+          <Plus className="h-4 w-4" />
+          Add to My Races
+        </Button>
+      </div>
+    </Link>
+  );
 }
