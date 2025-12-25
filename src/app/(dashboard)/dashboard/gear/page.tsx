@@ -57,15 +57,24 @@ export default function GearPage() {
 
   async function fetchInventory() {
     setLoading(true);
+
+    // CRITICAL: Get current user and filter by user_id explicitly
+    // Do NOT rely solely on RLS as public gear sharing policies can leak data
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const [bikesRes, tiresRes, shoesRes, hydrationRes, bagsRes, repairRes, clothingRes] =
       await Promise.all([
-        supabase.from("user_bikes").select("*").order("created_at", { ascending: false }),
-        supabase.from("user_tires").select("*").order("created_at", { ascending: false }),
-        supabase.from("user_shoes").select("*").order("created_at", { ascending: false }),
-        supabase.from("user_hydration_packs").select("*").order("created_at", { ascending: false }),
-        supabase.from("user_bags").select("*").order("created_at", { ascending: false }),
-        supabase.from("user_repair_kits").select("*").order("created_at", { ascending: false }),
-        supabase.from("user_clothing").select("*").order("created_at", { ascending: false }),
+        supabase.from("user_bikes").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("user_tires").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("user_shoes").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("user_hydration_packs").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("user_bags").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("user_repair_kits").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("user_clothing").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       ]);
 
     setBikes(bikesRes.data || []);

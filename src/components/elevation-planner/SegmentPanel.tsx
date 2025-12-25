@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useEffect, useState } from "react";
+import { useCallback, useMemo, useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, Zap, Clock, Mountain, TrendingUp, ChevronUp, ChevronDown, Minus } from "lucide-react";
+import { X, Zap, Clock, Mountain, TrendingUp, ChevronUp, ChevronDown, Minus, Pencil, Check } from "lucide-react";
 import { useElevationPlannerStore } from "@/stores/elevationPlannerStore";
 import { EFFORT_COLORS, PACE_MULTIPLIERS, type PlannerSegment } from "./types";
 import type { EffortLevel } from "@/types";
@@ -28,12 +28,50 @@ export function SegmentPanel({
   const { updateSegmentEffort, updateSegmentTime, elevationData } = useElevationPlannerStore();
   const { units } = useUnits();
   const [mounted, setMounted] = useState(false);
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [editHours, setEditHours] = useState(Math.floor(segment.target_time_minutes / 60));
+  const [editMinutes, setEditMinutes] = useState(segment.target_time_minutes % 60);
+  const hoursInputRef = useRef<HTMLInputElement>(null);
 
   // Track mount state for portal (SSR safety)
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
+
+  // Sync edit state when segment changes
+  useEffect(() => {
+    setEditHours(Math.floor(segment.target_time_minutes / 60));
+    setEditMinutes(segment.target_time_minutes % 60);
+    setIsEditingTime(false);
+  }, [segment.id, segment.target_time_minutes]);
+
+  // Focus hours input when editing starts
+  useEffect(() => {
+    if (isEditingTime && hoursInputRef.current) {
+      hoursInputRef.current.focus();
+      hoursInputRef.current.select();
+    }
+  }, [isEditingTime]);
+
+  // Save edited time
+  const handleSaveTime = useCallback(() => {
+    const newTime = Math.max(1, editHours * 60 + editMinutes);
+    updateSegmentTime(segment.id, newTime);
+    onSave?.({ ...segment, target_time_minutes: newTime });
+    setIsEditingTime(false);
+  }, [editHours, editMinutes, segment, updateSegmentTime, onSave]);
+
+  // Handle Enter key in time inputs
+  const handleTimeKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveTime();
+    } else if (e.key === "Escape") {
+      setEditHours(Math.floor(segment.target_time_minutes / 60));
+      setEditMinutes(segment.target_time_minutes % 60);
+      setIsEditingTime(false);
+    }
+  }, [handleSaveTime, segment.target_time_minutes]);
 
   // Handle escape key to close
   useEffect(() => {
@@ -252,39 +290,123 @@ export function SegmentPanel({
 
           {/* Time Allocation */}
           <div>
-            <label className="text-sm text-brand-navy-400 mb-3 block">
-              Target Time
+            <label className="text-sm text-brand-navy-400 mb-3 block flex items-center justify-between">
+              <span>Target Split Time</span>
+              {!isEditingTime && (
+                <button
+                  onClick={() => setIsEditingTime(true)}
+                  className="flex items-center gap-1 text-xs text-brand-sky-400 hover:text-brand-sky-300"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </button>
+              )}
             </label>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => adjustTime(-5)}
-                className={cn(
-                  "h-12 w-12 rounded-xl flex items-center justify-center",
-                  "bg-white/10 border border-white/20",
-                  "text-white hover:bg-white/20 transition-colors"
-                )}
-              >
-                <Minus className="h-5 w-5" />
-              </button>
-              <div className="flex-1 text-center">
-                <div className="text-3xl font-bold text-white tabular-nums">
-                  {formatTime(segment.target_time_minutes)}
+
+            {isEditingTime ? (
+              /* Direct time input mode */
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="flex flex-col items-center">
+                    <input
+                      ref={hoursInputRef}
+                      type="number"
+                      min={0}
+                      max={24}
+                      value={editHours}
+                      onChange={(e) => setEditHours(Math.max(0, parseInt(e.target.value) || 0))}
+                      onKeyDown={handleTimeKeyDown}
+                      className={cn(
+                        "w-16 h-14 text-center text-2xl font-bold tabular-nums",
+                        "bg-white/10 border border-brand-sky-500/50 rounded-xl",
+                        "text-white focus:outline-none focus:border-brand-sky-400"
+                      )}
+                    />
+                    <span className="text-xs text-brand-navy-500 mt-1">hours</span>
+                  </div>
+                  <span className="text-2xl font-bold text-brand-navy-400 pb-5">:</span>
+                  <div className="flex flex-col items-center">
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={editMinutes.toString().padStart(2, "0")}
+                      onChange={(e) => setEditMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                      onKeyDown={handleTimeKeyDown}
+                      className={cn(
+                        "w-16 h-14 text-center text-2xl font-bold tabular-nums",
+                        "bg-white/10 border border-brand-sky-500/50 rounded-xl",
+                        "text-white focus:outline-none focus:border-brand-sky-400"
+                      )}
+                    />
+                    <span className="text-xs text-brand-navy-500 mt-1">minutes</span>
+                  </div>
                 </div>
-                <div className="text-sm text-brand-navy-400 mt-1">
-                  {pace.toFixed(1)} min/mi
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setEditHours(Math.floor(segment.target_time_minutes / 60));
+                      setEditMinutes(segment.target_time_minutes % 60);
+                      setIsEditingTime(false);
+                    }}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-sm font-medium",
+                      "bg-white/5 border border-white/10 text-brand-navy-300",
+                      "hover:bg-white/10 transition-colors"
+                    )}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveTime}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-sm font-medium",
+                      "bg-brand-sky-500 text-white",
+                      "hover:bg-brand-sky-600 transition-colors",
+                      "flex items-center justify-center gap-1"
+                    )}
+                  >
+                    <Check className="h-4 w-4" />
+                    Save
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => adjustTime(5)}
-                className={cn(
-                  "h-12 w-12 rounded-xl flex items-center justify-center",
-                  "bg-white/10 border border-white/20",
-                  "text-white hover:bg-white/20 transition-colors"
-                )}
-              >
-                <span className="text-xl font-medium">+</span>
-              </button>
-            </div>
+            ) : (
+              /* Quick adjust mode */
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => adjustTime(-5)}
+                  className={cn(
+                    "h-12 w-12 rounded-xl flex items-center justify-center",
+                    "bg-white/10 border border-white/20",
+                    "text-white hover:bg-white/20 transition-colors"
+                  )}
+                >
+                  <Minus className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setIsEditingTime(true)}
+                  className="flex-1 text-center group cursor-pointer"
+                >
+                  <div className="text-3xl font-bold text-white tabular-nums group-hover:text-brand-sky-400 transition-colors">
+                    {formatTime(segment.target_time_minutes)}
+                  </div>
+                  <div className="text-sm text-brand-navy-400 mt-1">
+                    {pace.toFixed(1)} min/mi · click to edit
+                  </div>
+                </button>
+                <button
+                  onClick={() => adjustTime(5)}
+                  className={cn(
+                    "h-12 w-12 rounded-xl flex items-center justify-center",
+                    "bg-white/10 border border-white/20",
+                    "text-white hover:bg-white/20 transition-colors"
+                  )}
+                >
+                  <span className="text-xl font-medium">+</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Power Targets */}

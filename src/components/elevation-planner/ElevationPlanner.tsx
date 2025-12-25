@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useCallback, useState } from "react";
-import { Mountain, Loader2, Eye, EyeOff } from "lucide-react";
+import { Mountain, Loader2, Eye, EyeOff, Keyboard } from "lucide-react";
 import { useElevationPlannerStore } from "@/stores/elevationPlannerStore";
 import { useElevationData } from "./hooks/useElevationData";
 import { ElevationChart } from "./ElevationChart";
@@ -208,6 +208,68 @@ export function ElevationPlanner({
     });
   }, [showAnnotations, setAnnotations]);
 
+  // Keyboard shortcuts for effort levels
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if a segment is selected and not in an input
+      if (!selectedSegmentId) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      const segment = segments.find((s) => s.id === selectedSegmentId);
+      if (!segment) return;
+
+      let newEffort: "safe" | "tempo" | "pushing" | null = null;
+
+      switch (e.key) {
+        case "1":
+          newEffort = "safe";
+          break;
+        case "2":
+          newEffort = "tempo";
+          break;
+        case "3":
+          newEffort = "pushing";
+          break;
+        case "Escape":
+          selectSegment(null);
+          return;
+        default:
+          return;
+      }
+
+      if (newEffort && newEffort !== segment.effort_level) {
+        // Update via store
+        const { updateSegmentEffort } = useElevationPlannerStore.getState();
+        updateSegmentEffort(segment.id, newEffort);
+
+        // Notify parent with recalculated power targets
+        const IF = { safe: 0.67, tempo: 0.70, pushing: 0.73 }[newEffort];
+        const targetNP = athleteFTP * IF;
+        const updatedSegment: Segment = {
+          id: segment.id,
+          race_plan_id: segment.race_plan_id,
+          segment_order: segment.segment_order,
+          start_mile: segment.start_mile,
+          end_mile: segment.end_mile,
+          start_name: segment.start_name,
+          end_name: segment.end_name,
+          target_time_minutes: segment.target_time_minutes,
+          effort_level: newEffort,
+          power_target_low: Math.round(targetNP * 0.95),
+          power_target_high: Math.round(targetNP * 1.05),
+          nutrition_notes: segment.nutrition_notes,
+          hydration_notes: segment.hydration_notes,
+          terrain_notes: segment.terrain_notes,
+          strategy_notes: segment.strategy_notes,
+        };
+        onSegmentUpdate?.(updatedSegment);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedSegmentId, segments, athleteFTP, selectSegment, onSegmentUpdate]);
+
   // Loading state
   if (loading) {
     return (
@@ -279,6 +341,15 @@ export function ElevationPlanner({
           <EffortPresets onApplyPreset={handleApplyPreset} />
         </div>
         <div className="flex items-center gap-2">
+          {/* Keyboard shortcuts hint */}
+          {selectedSegmentId && (
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-brand-navy-400">
+              <Keyboard className="h-3.5 w-3.5" />
+              <span className="font-medium">1</span>=Safe
+              <span className="font-medium ml-1">2</span>=Tempo
+              <span className="font-medium ml-1">3</span>=Push
+            </div>
+          )}
           <Button
             variant="outline"
             size="sm"

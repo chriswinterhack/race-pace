@@ -42,7 +42,7 @@ export async function GET(
       last_activity_at,
       created_at,
       user_id,
-      user:users!race_discussions_user_id_fkey (
+      user:users!race_discussions_user_id_fkey_public (
         id,
         full_name,
         avatar_url
@@ -68,7 +68,7 @@ export async function GET(
       body,
       created_at,
       user_id,
-      user:users!race_discussion_replies_user_id_fkey (
+      user:users!race_discussion_replies_user_id_fkey_public (
         id,
         full_name,
         avatar_url

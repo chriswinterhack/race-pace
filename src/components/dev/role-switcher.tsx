@@ -15,7 +15,13 @@ const roles: { value: UserRole; label: string; icon: typeof Shield }[] = [
 export function DevRoleSwitcher() {
   const { role, setRole } = useDevRole();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const currentRole = roles.find((r) => r.value === role) ?? roles[0]!;
   const Icon = currentRole.icon;
@@ -31,8 +37,8 @@ export function DevRoleSwitcher() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Only show in development
-  if (process.env.NODE_ENV !== "development") {
+  // Only show in development and after hydration
+  if (process.env.NODE_ENV !== "development" || !mounted) {
     return null;
   }
 

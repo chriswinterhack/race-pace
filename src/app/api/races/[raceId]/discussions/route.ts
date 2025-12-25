@@ -50,7 +50,7 @@ export async function GET(
       reply_count,
       last_activity_at,
       created_at,
-      user:users!race_discussions_user_id_fkey (
+      user:users!race_discussions_user_id_fkey_public (
         id,
         full_name,
         avatar_url
@@ -163,7 +163,7 @@ export async function POST(
       reply_count,
       last_activity_at,
       created_at,
-      user:users!race_discussions_user_id_fkey (
+      user:users!race_discussions_user_id_fkey_public (
         id,
         full_name,
         avatar_url

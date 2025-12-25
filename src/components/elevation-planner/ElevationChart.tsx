@@ -13,6 +13,7 @@ import { useElevationPlannerStore } from "@/stores/elevationPlannerStore";
 import { CHART_THEME, EFFORT_COLORS, type TooltipData } from "./types";
 import { SegmentOverlay } from "./SegmentOverlay";
 import { AidStationMarkers } from "./AidStationMarkers";
+import { SegmentAnnotations } from "./SegmentAnnotations";
 import { cn, getDistanceUnit, getElevationUnit, formatElevation, getDisplayDistance, getDisplayElevation } from "@/lib/utils";
 import { useUnits } from "@/hooks";
 
@@ -233,6 +234,13 @@ export function ElevationChart({ className, raceStartTime = "06:00", onSegmentCl
       <SegmentOverlay
         containerRef={containerRef}
         onSegmentClick={onSegmentClick}
+      />
+
+      {/* Segment annotations (power badges, split times) */}
+      <SegmentAnnotations
+        containerRef={containerRef}
+        showPower={true}
+        showTime={true}
       />
 
       {/* Aid station markers with arrival times */}

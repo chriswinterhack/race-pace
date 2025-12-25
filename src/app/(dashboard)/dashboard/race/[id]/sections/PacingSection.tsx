@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Timer,
   Loader2,
@@ -135,9 +135,22 @@ const VIEW_OPTIONS = [
 export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
   const [generating, setGenerating] = useState(false);
   const [expandedSegment, setExpandedSegment] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [viewMode, setViewModeState] = useState<ViewMode>("table");
   const supabase = createClient();
   const { units } = useUnits();
+
+  // Persist view mode in localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("pacing-view-mode");
+    if (saved === "visual" || saved === "table") {
+      setViewModeState(saved);
+    }
+  }, []);
+
+  const setViewMode = (mode: ViewMode) => {
+    setViewModeState(mode);
+    localStorage.setItem("pacing-view-mode", mode);
+  };
 
   const effectiveDistance = plan.race_distance.gpx_distance_miles ?? plan.race_distance.distance_miles;
 

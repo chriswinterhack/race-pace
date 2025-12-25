@@ -4,6 +4,7 @@ export { ElevationPlanner } from "./ElevationPlanner";
 // Sub-components
 export { ElevationChart } from "./ElevationChart";
 export { SegmentOverlay } from "./SegmentOverlay";
+export { SegmentAnnotations } from "./SegmentAnnotations";
 export { SegmentHandle, SegmentHandles } from "./SegmentHandle";
 export { AidStationMarkers } from "./AidStationMarkers";
 export { SegmentPanel } from "./SegmentPanel";

@@ -65,7 +65,7 @@ export async function POST(
       body,
       created_at,
       user_id,
-      user:users!race_discussion_replies_user_id_fkey (
+      user:users!race_discussion_replies_user_id_fkey_public (
         id,
         full_name,
         avatar_url
