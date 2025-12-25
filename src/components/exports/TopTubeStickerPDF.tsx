@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Document, Page, View, Text, StyleSheet, Svg, Path, Rect, Circle, Line, G } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Svg, Path, Rect, Circle, Line, Image } from "@react-pdf/renderer";
 
 // Wider stickers for better readability
 const SIZES = {
@@ -10,10 +10,10 @@ const SIZES = {
   extended: { width: 180, height: 792 },  // 2.5" x 11"
 };
 
-// Brand colors
+// Brand colors - matching the logo background
 const COLORS = {
   navy900: "#102a43",
-  navy800: "#1a3a52",
+  navy800: "#1a365d",
   navy700: "#334e68",
   navy600: "#486581",
   navy500: "#627d98",
@@ -53,7 +53,6 @@ export interface StickerCheckpoint {
 
 export interface TopTubeStickerProps {
   raceName: string;
-  raceDate?: string;
   totalDistance: number;
   totalElevationGain: number;
   goalTime?: string;
@@ -62,31 +61,9 @@ export interface TopTubeStickerProps {
   size?: "standard" | "compact" | "extended";
 }
 
-// FinalClimb mountain logo - matches the brand
-function MountainLogo({ x, y, size }: { x: number; y: number; size: number }) {
-  const scale = size / 32;
-  return (
-    <G transform={`translate(${x}, ${y}) scale(${scale})`}>
-      {/* Back mountain - outline only */}
-      <Path
-        d="M8 28 L18 8 L28 28"
-        fill="none"
-        stroke={COLORS.sky400}
-        strokeWidth={2.5}
-        strokeLinejoin="round"
-      />
-      {/* Front mountain - filled */}
-      <Path
-        d="M0 28 L12 6 L24 28 Z"
-        fill={COLORS.sky400}
-      />
-    </G>
-  );
-}
 
 export function TopTubeStickerPDF({
   raceName,
-  raceDate,
   totalDistance,
   totalElevationGain,
   goalTime,
@@ -97,9 +74,15 @@ export function TopTubeStickerPDF({
   const dim = SIZES[size];
   const fontScale = size === "compact" ? 0.9 : size === "extended" ? 1.1 : 1;
 
-  // Layout
-  const headerHeight = 55 * fontScale;
-  const footerHeight = 50 * fontScale;
+  // Separate finish from other checkpoints
+  const finishCheckpoint = checkpoints.find(cp => cp.type === "finish") || checkpoints[checkpoints.length - 1];
+  const aidStationCheckpoints = checkpoints.filter((cp, i) =>
+    cp.type !== "finish" && i !== checkpoints.length - 1
+  );
+
+  // Layout - compact header, larger footer for finish + branding
+  const headerHeight = 42 * fontScale;
+  const footerHeight = 75 * fontScale;
   const sidePadding = 4;
 
   const profileTop = headerHeight;
@@ -186,44 +169,28 @@ export function TopTubeStickerPDF({
           <Path d={profilePath} fill={COLORS.sky300} />
           <Path d={profilePath} fill="none" stroke={COLORS.sky500} strokeWidth={1.5} />
 
-          {/* Checkpoint connector lines and markers */}
-          {checkpoints.map((cp, i) => {
+          {/* Aid station checkpoint markers (not finish) */}
+          {aidStationCheckpoints.map((cp, i) => {
             const y = mileToY(cp.mile);
-            const isFinish = cp.type === "finish" || i === checkpoints.length - 1;
-
-            // Find elevation at checkpoint
             const cpElev = elevationData.find(p => Math.abs(p.mile - cp.mile) < 1)?.elevation;
             const profileX = cpElev ? elevToX(cpElev) : profileLeft + profileWidth * 0.5;
 
             return (
               <React.Fragment key={`cp-${i}`}>
-                {/* Horizontal connector line */}
-                {isFinish ? (
-                  <Line
-                    x1={profileX}
-                    y1={y}
-                    x2={labelLeft - 2}
-                    y2={y}
-                    stroke={COLORS.green500}
-                    strokeWidth={1.5}
-                  />
-                ) : (
-                  <Line
-                    x1={profileX}
-                    y1={y}
-                    x2={labelLeft - 2}
-                    y2={y}
-                    stroke={COLORS.orange500}
-                    strokeWidth={1}
-                    strokeDasharray="3,2"
-                  />
-                )}
-                {/* Marker dot */}
+                <Line
+                  x1={profileX}
+                  y1={y}
+                  x2={labelLeft - 2}
+                  y2={y}
+                  stroke={COLORS.orange500}
+                  strokeWidth={1}
+                  strokeDasharray="3,2"
+                />
                 <Circle
                   cx={labelLeft - 6}
                   cy={y}
                   r={4}
-                  fill={isFinish ? COLORS.green500 : COLORS.orange500}
+                  fill={COLORS.orange500}
                   stroke={COLORS.white}
                   strokeWidth={1}
                 />
@@ -231,47 +198,31 @@ export function TopTubeStickerPDF({
             );
           })}
 
-          {/* Footer background */}
+          {/* Footer background - dark navy like the logo */}
           <Rect x={0} y={dim.height - footerHeight} width={dim.width} height={footerHeight} fill={COLORS.navy900} />
           <Rect x={0} y={dim.height - footerHeight} width={dim.width} height={2} fill={COLORS.sky400} />
 
-          {/* Mountain logo in footer */}
-          <MountainLogo
-            x={dim.width / 2 - 38}
-            y={dim.height - 26}
-            size={18}
-          />
         </Svg>
 
         {/* Text overlay */}
         <View style={{ position: "absolute", top: 0, left: 0, width: dim.width, height: dim.height }}>
           {/* Header */}
-          <View style={{ height: headerHeight, paddingHorizontal: 8, paddingTop: 8, paddingBottom: 4 }}>
+          <View style={{ height: headerHeight, paddingHorizontal: 6, paddingTop: 6, paddingBottom: 4 }}>
             <Text style={{
-              fontSize: 11 * fontScale,
+              fontSize: 10 * fontScale,
               fontFamily: "Helvetica-Bold",
               color: COLORS.white,
               textAlign: "center",
-              marginBottom: 2,
+              marginBottom: 3,
             }}>
               {raceName}
             </Text>
-            {raceDate && (
-              <Text style={{
-                fontSize: 7 * fontScale,
-                color: COLORS.sky300,
-                textAlign: "center",
-                marginBottom: 3,
-              }}>
-                {raceDate}
-              </Text>
-            )}
             <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ fontSize: 9 * fontScale, fontFamily: "Helvetica-Bold", color: COLORS.sky400 }}>
+              <Text style={{ fontSize: 8 * fontScale, fontFamily: "Helvetica-Bold", color: COLORS.sky400 }}>
                 {totalDistance.toFixed(0)} mi
               </Text>
-              <Text style={{ fontSize: 9 * fontScale, color: COLORS.sky300, marginHorizontal: 8 }}>•</Text>
-              <Text style={{ fontSize: 9 * fontScale, fontFamily: "Helvetica-Bold", color: COLORS.sky400 }}>
+              <Text style={{ fontSize: 8 * fontScale, color: COLORS.sky300, marginHorizontal: 6 }}>•</Text>
+              <Text style={{ fontSize: 8 * fontScale, fontFamily: "Helvetica-Bold", color: COLORS.sky400 }}>
                 +{Math.round(totalElevationGain).toLocaleString()} ft
               </Text>
             </View>
@@ -299,42 +250,38 @@ export function TopTubeStickerPDF({
             </View>
           ))}
 
-          {/* Checkpoint labels on right - FULL names */}
-          {checkpoints.map((cp, i) => {
+          {/* Aid station checkpoint labels (not finish) */}
+          {aidStationCheckpoints.map((cp, i) => {
             const y = mileToY(cp.mile);
-            const isFinish = cp.type === "finish" || i === checkpoints.length - 1;
 
             return (
               <View
                 key={`label-${i}`}
                 style={{
                   position: "absolute",
-                  top: y - 16,
+                  top: y - 18,
                   left: labelLeft,
                   width: labelWidth,
                 }}
               >
-                {/* Mile number - prominent */}
                 <Text style={{
                   fontSize: 11 * fontScale,
                   fontFamily: "Helvetica-Bold",
-                  color: isFinish ? COLORS.green500 : COLORS.sky600,
+                  color: COLORS.sky600,
                 }}>
                   {cp.mile.toFixed(1)}
                 </Text>
-                {/* Checkpoint name - FULL, slightly smaller */}
                 <Text style={{
-                  fontSize: 7 * fontScale,
+                  fontSize: 6.5 * fontScale,
                   color: COLORS.navy700,
                   marginTop: 1,
                 }}>
                   {cp.name}
                 </Text>
-                {/* Arrival time - bold and clear */}
                 <Text style={{
                   fontSize: 9 * fontScale,
                   fontFamily: "Helvetica-Bold",
-                  color: isFinish ? COLORS.green600 : COLORS.navy900,
+                  color: COLORS.navy900,
                   marginTop: 1,
                 }}>
                   {cp.arrivalTime}
@@ -343,57 +290,46 @@ export function TopTubeStickerPDF({
             );
           })}
 
-          {/* Footer */}
+          {/* Footer with FINISH info and branding */}
           <View style={{
             position: "absolute",
             bottom: 0,
             left: 0,
             width: dim.width,
             height: footerHeight,
-            paddingHorizontal: 8,
+            paddingHorizontal: 6,
             paddingTop: 6,
-            paddingBottom: 4,
           }}>
-            {/* Goal time - clean and prominent */}
+            {/* Finish row - centered finish info with goal time */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green500, marginRight: 4 }} />
+                <Text style={{ fontSize: 9 * fontScale, fontFamily: "Helvetica-Bold", color: COLORS.green500 }}>
+                  FINISH {finishCheckpoint?.mile.toFixed(1)}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 11 * fontScale, fontFamily: "Helvetica-Bold", color: COLORS.white }}>
+                {finishCheckpoint?.arrivalTime}
+              </Text>
+            </View>
+
+            {/* Goal time row */}
             {goalTime && (
-              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "baseline", marginBottom: 6 }}>
-                <Text style={{ fontSize: 8 * fontScale, color: COLORS.sky300, marginRight: 6 }}>GOAL</Text>
-                <Text style={{
-                  fontSize: 14 * fontScale,
-                  fontFamily: "Helvetica-Bold",
-                  color: COLORS.green500,
-                }}>
+              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 8 }}>
+                <Text style={{ fontSize: 7 * fontScale, color: COLORS.sky300, marginRight: 6 }}>GOAL</Text>
+                <Text style={{ fontSize: 12 * fontScale, fontFamily: "Helvetica-Bold", color: COLORS.green500 }}>
                   {goalTime}
                 </Text>
               </View>
             )}
-            {/* FinalClimb branding - matching the logo */}
-            <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
-              {/* Space for mountain icon */}
-              <View style={{ width: 20 }} />
-              <Text style={{
-                fontSize: 10 * fontScale,
-                fontFamily: "Helvetica-Bold",
-                color: COLORS.white,
-              }}>
-                Final
-              </Text>
-              <Text style={{
-                fontSize: 10 * fontScale,
-                fontFamily: "Helvetica-Bold",
-                color: COLORS.sky400,
-              }}>
-                Climb
-              </Text>
+
+            {/* FinalClimb logo - correct aspect ratio 292:70 (~4.17:1) */}
+            <View style={{ alignItems: "center" }}>
+              <Image
+                src="/images/finalclimb-logo.png"
+                style={{ width: 100 * fontScale, height: 24 * fontScale }}
+              />
             </View>
-            <Text style={{
-              fontSize: 6 * fontScale,
-              color: COLORS.navy400,
-              textAlign: "center",
-              marginTop: 2,
-            }}>
-              finalclimbapp.com
-            </Text>
           </View>
         </View>
       </Page>

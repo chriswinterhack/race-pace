@@ -26,7 +26,6 @@ interface Segment {
 
 interface TopTubeStickerButtonProps {
   raceName: string;
-  raceDate?: string;
   goalTime?: string;
   segments: Segment[];
   startTime: string;
@@ -56,8 +55,13 @@ function calculateArrivalTime(startTime: string, elapsedMinutes: number): string
   return `${displayHour}:${minutes.toString().padStart(2, "0")} ${period}`;
 }
 
-// Parse GPX to extract elevation points (simplified version)
-async function fetchElevationData(gpxUrl: string): Promise<ElevationDataPoint[]> {
+interface GpxData {
+  points: ElevationDataPoint[];
+  totalElevationGain: number;
+}
+
+// Parse GPX to extract elevation points and calculate total elevation gain
+async function fetchElevationData(gpxUrl: string): Promise<GpxData> {
   try {
     const response = await fetch(gpxUrl);
     if (!response.ok) throw new Error("Failed to fetch GPX");
@@ -69,8 +73,10 @@ async function fetchElevationData(gpxUrl: string): Promise<ElevationDataPoint[]>
 
     const points: ElevationDataPoint[] = [];
     let totalDistance = 0;
+    let totalElevationGain = 0;
     let prevLat: number | null = null;
     let prevLon: number | null = null;
+    let prevElevation: number | null = null;
 
     trackPoints.forEach((point) => {
       const lat = parseFloat(point.getAttribute("lat") || "0");
@@ -84,6 +90,11 @@ async function fetchElevationData(gpxUrl: string): Promise<ElevationDataPoint[]>
         totalDistance += distanceKm * 0.621371;
       }
 
+      // Calculate elevation gain
+      if (prevElevation !== null && elevationFt > prevElevation) {
+        totalElevationGain += elevationFt - prevElevation;
+      }
+
       const lastPoint = points[points.length - 1];
       // Sample every 0.5 miles for a smaller dataset
       if (points.length === 0 || (lastPoint && totalDistance - lastPoint.mile >= 0.5)) {
@@ -95,18 +106,18 @@ async function fetchElevationData(gpxUrl: string): Promise<ElevationDataPoint[]>
 
       prevLat = lat;
       prevLon = lon;
+      prevElevation = elevationFt;
     });
 
-    return points;
+    return { points, totalElevationGain: Math.round(totalElevationGain) };
   } catch (error) {
     console.warn("Could not fetch elevation data:", error);
-    return [];
+    return { points: [], totalElevationGain: 0 };
   }
 }
 
 export function TopTubeStickerButton({
   raceName,
-  raceDate,
   goalTime,
   segments,
   startTime,
@@ -123,10 +134,15 @@ export function TopTubeStickerButton({
     setGenerating(true);
 
     try {
-      // Fetch elevation data if GPX is available
+      // Fetch elevation data and calculate gain from GPX
       let elevationData: ElevationDataPoint[] = [];
+      let gpxElevationGain = totalElevationGain; // Fallback to passed value
       if (gpxFileUrl) {
-        elevationData = await fetchElevationData(gpxFileUrl);
+        const gpxData = await fetchElevationData(gpxFileUrl);
+        elevationData = gpxData.points;
+        if (gpxData.totalElevationGain > 0) {
+          gpxElevationGain = gpxData.totalElevationGain;
+        }
       }
 
       // Convert segments to checkpoints with arrival times
@@ -146,10 +162,9 @@ export function TopTubeStickerButton({
       const doc = (
         <TopTubeStickerPDF
           raceName={raceName}
-          raceDate={raceDate}
           goalTime={goalTime}
           totalDistance={totalDistance}
-          totalElevationGain={totalElevationGain}
+          totalElevationGain={gpxElevationGain}
           checkpoints={checkpoints}
           elevationData={elevationData}
           size={size}
@@ -204,7 +219,6 @@ export function TopTubeStickerButton({
             {/* Race Info Preview */}
             <div className="p-4 bg-brand-navy-50 rounded-xl space-y-2">
               <h4 className="font-semibold text-brand-navy-900">{raceName}</h4>
-              {raceDate && <p className="text-sm text-brand-navy-600">{raceDate}</p>}
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-brand-navy-500 flex items-center gap-1">
                   <Mountain className="h-3 w-3" />

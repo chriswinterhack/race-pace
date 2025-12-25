@@ -344,7 +344,6 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
           {segments.length > 0 && (
             <TopTubeStickerButton
               raceName={plan.race_distance.race_edition?.race?.name || "Race"}
-              raceDate={plan.race_distance.date || undefined}
               goalTime={plan.goal_time_minutes ? formatDuration(plan.goal_time_minutes) : undefined}
               segments={segments}
               startTime={startTime}
