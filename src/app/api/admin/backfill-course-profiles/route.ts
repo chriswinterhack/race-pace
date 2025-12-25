@@ -89,12 +89,16 @@ function parseGPXCourseProfile(gpxText: string): CourseProfileResult | null {
 
     const totalDistanceMeters = climbingDistance + flatDistance + descentDistance;
 
+    // Note: For accurate avgClimbGrade, re-upload the GPX via the admin panel.
+    // The GPX upload route uses distance-weighted average (totalGain/climbingDistance)
+    // which is more accurate than segment grade averaging.
+    // For backfill, we use 5% default which is typical for gravel/MTB courses.
     return {
       climbingPct: totalDistanceMeters > 0 ? Math.round((climbingDistance / totalDistanceMeters) * 100) : 0,
       flatPct: totalDistanceMeters > 0 ? Math.round((flatDistance / totalDistanceMeters) * 100) : 0,
       descentPct: totalDistanceMeters > 0 ? Math.round((descentDistance / totalDistanceMeters) * 100) : 0,
-      avgClimbGrade: climbingSegments > 0 ? Math.round((climbingGradeSum / climbingSegments) * 10) / 10 : 0,
-      avgDescentGrade: descentSegments > 0 ? Math.round((descentGradeSum / descentSegments) * 10) / 10 : 0,
+      avgClimbGrade: 5, // Default - re-upload GPX for accurate value
+      avgDescentGrade: -5, // Default - re-upload GPX for accurate value
       elevationLoss: Math.round(totalLoss),
     };
   } catch (err) {

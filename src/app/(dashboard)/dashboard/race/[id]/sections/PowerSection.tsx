@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Zap, Mountain, Minus, Lock, Pencil, Check, X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useUnits } from "@/hooks";
 import {
   calculateAllPowerTargets,
   calculateRequiredPowerAdvanced,
@@ -70,6 +71,7 @@ export function PowerSection({ plan }: PowerSectionProps) {
     altitude_adjustment_factor: 0.20,
   });
   const supabase = createClient();
+  const { units } = useUnits();
 
   useEffect(() => {
     fetchProfile();
@@ -542,7 +544,7 @@ export function PowerSection({ plan }: PowerSectionProps) {
                 <p className="text-xs text-brand-navy-400">Default gravel</p>
               )}
               <p className="text-xs text-brand-navy-400 mt-1">
-                Crr: {(timeEstimate.effectiveCrr * 1000).toFixed(1)}
+                Crr: {timeEstimate.effectiveCrr.toFixed(4)}
               </p>
             </div>
             {/* Course Profile */}
@@ -599,10 +601,14 @@ export function PowerSection({ plan }: PowerSectionProps) {
             <div>
               <p className="text-xs text-brand-navy-500 mb-1">Avg Speed</p>
               <p className="text-lg font-bold font-mono text-brand-navy-900">
-                {timeEstimate.avgSpeedKph.toFixed(1)} km/h
+                {units === "metric"
+                  ? `${timeEstimate.avgSpeedKph.toFixed(1)} km/h`
+                  : `${(timeEstimate.avgSpeedKph * 0.621371).toFixed(1)} mph`}
               </p>
               <p className="text-xs text-brand-navy-400">
-                {(timeEstimate.avgSpeedKph * 0.621371).toFixed(1)} mph
+                {units === "metric"
+                  ? `${(timeEstimate.avgSpeedKph * 0.621371).toFixed(1)} mph`
+                  : `${timeEstimate.avgSpeedKph.toFixed(1)} km/h`}
               </p>
             </div>
           </div>

@@ -140,12 +140,18 @@ function parseGPXStats(gpxText: string): {
 
     // Calculate course profile percentages
     const totalDistanceMeters = climbingDistance + flatDistance + descentDistance;
+
+    // Use distance-weighted average grade = totalElevationChange / totalClimbingDistance
+    // This is more accurate than averaging segment grades (which over-weights short steep sections)
+    const totalGainMeters = totalGain * 0.3048;
+    const totalLossMeters = totalLoss * 0.3048;
+
     const courseProfile: CourseProfileResult = {
       climbingPct: totalDistanceMeters > 0 ? Math.round((climbingDistance / totalDistanceMeters) * 100) : 0,
       flatPct: totalDistanceMeters > 0 ? Math.round((flatDistance / totalDistanceMeters) * 100) : 0,
       descentPct: totalDistanceMeters > 0 ? Math.round((descentDistance / totalDistanceMeters) * 100) : 0,
-      avgClimbGrade: climbingSegments > 0 ? Math.round((climbingGradeSum / climbingSegments) * 10) / 10 : 0,
-      avgDescentGrade: descentSegments > 0 ? Math.round((descentGradeSum / descentSegments) * 10) / 10 : 0,
+      avgClimbGrade: climbingDistance > 0 ? Math.round((totalGainMeters / climbingDistance) * 1000) / 10 : 0,
+      avgDescentGrade: descentDistance > 0 ? Math.round((totalLossMeters / descentDistance) * -1000) / 10 : 0,
     };
 
     return {
