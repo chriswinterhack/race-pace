@@ -1,2 +1,8 @@
-export { TopTubeStickerPDF, type StickerSegment, type TopTubeStickerProps } from "./TopTubeStickerPDF";
+export {
+  TopTubeStickerPDF,
+  type StickerCheckpoint,
+  type ElevationDataPoint,
+  type TopTubeStickerProps,
+  type StickerSegment,
+} from "./TopTubeStickerPDF";
 export { TopTubeStickerButton } from "./TopTubeStickerButton";

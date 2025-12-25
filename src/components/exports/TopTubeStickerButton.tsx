@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Printer, Download, Loader2, FileText, Maximize, Minimize, Square } from "lucide-react";
+import { Printer, Download, Loader2, FileText, Maximize, Minimize, Square, Mountain } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import {
   Button,
@@ -11,8 +11,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui";
-import { TopTubeStickerPDF, type StickerSegment } from "./TopTubeStickerPDF";
-import { cn } from "@/lib/utils";
+import { TopTubeStickerPDF, type StickerCheckpoint, type ElevationDataPoint } from "./TopTubeStickerPDF";
+import { cn, haversineDistance } from "@/lib/utils";
 
 interface Segment {
   id: string;
@@ -21,6 +21,7 @@ interface Segment {
   start_name: string | null;
   end_name: string | null;
   target_time_minutes: number;
+  elevation_gain?: number | null;
 }
 
 interface TopTubeStickerButtonProps {
@@ -29,25 +30,19 @@ interface TopTubeStickerButtonProps {
   goalTime?: string;
   segments: Segment[];
   startTime: string;
+  totalDistance: number;
+  totalElevationGain: number;
+  gpxFileUrl?: string | null;
   className?: string;
 }
 
 type StickerSize = "standard" | "compact" | "extended";
 
 const SIZE_OPTIONS: { value: StickerSize; label: string; description: string; icon: React.ReactNode }[] = [
-  { value: "compact", label: "Compact", description: '1.5" × 6"', icon: <Minimize className="h-4 w-4" /> },
-  { value: "standard", label: "Standard", description: '2" × 8"', icon: <Square className="h-4 w-4" /> },
-  { value: "extended", label: "Extended", description: '2.5" × 10"', icon: <Maximize className="h-4 w-4" /> },
+  { value: "compact", label: "Compact", description: '1.25" × 7"', icon: <Minimize className="h-4 w-4" /> },
+  { value: "standard", label: "Standard", description: '1.5" × 9"', icon: <Square className="h-4 w-4" /> },
+  { value: "extended", label: "Extended", description: '1.75" × 11"', icon: <Maximize className="h-4 w-4" /> },
 ];
-
-function formatDuration(minutes: number): string {
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hrs > 0) {
-    return `${hrs}:${mins.toString().padStart(2, "0")}`;
-  }
-  return `${mins}m`;
-}
 
 function calculateArrivalTime(startTime: string, elapsedMinutes: number): string {
   const parts = startTime.split(":").map(Number);
@@ -61,12 +56,63 @@ function calculateArrivalTime(startTime: string, elapsedMinutes: number): string
   return `${displayHour}:${minutes.toString().padStart(2, "0")} ${period}`;
 }
 
+// Parse GPX to extract elevation points (simplified version)
+async function fetchElevationData(gpxUrl: string): Promise<ElevationDataPoint[]> {
+  try {
+    const response = await fetch(gpxUrl);
+    if (!response.ok) throw new Error("Failed to fetch GPX");
+
+    const gpxText = await response.text();
+    const parser = new DOMParser();
+    const gpxDoc = parser.parseFromString(gpxText, "text/xml");
+    const trackPoints = gpxDoc.querySelectorAll("trkpt");
+
+    const points: ElevationDataPoint[] = [];
+    let totalDistance = 0;
+    let prevLat: number | null = null;
+    let prevLon: number | null = null;
+
+    trackPoints.forEach((point) => {
+      const lat = parseFloat(point.getAttribute("lat") || "0");
+      const lon = parseFloat(point.getAttribute("lon") || "0");
+      const eleElement = point.querySelector("ele");
+      const elevation = eleElement ? parseFloat(eleElement.textContent || "0") : 0;
+      const elevationFt = elevation * 3.28084;
+
+      if (prevLat !== null && prevLon !== null) {
+        const distanceKm = haversineDistance(prevLat, prevLon, lat, lon);
+        totalDistance += distanceKm * 0.621371;
+      }
+
+      const lastPoint = points[points.length - 1];
+      // Sample every 0.5 miles for a smaller dataset
+      if (points.length === 0 || (lastPoint && totalDistance - lastPoint.mile >= 0.5)) {
+        points.push({
+          mile: Math.round(totalDistance * 10) / 10,
+          elevation: Math.round(elevationFt),
+        });
+      }
+
+      prevLat = lat;
+      prevLon = lon;
+    });
+
+    return points;
+  } catch (error) {
+    console.warn("Could not fetch elevation data:", error);
+    return [];
+  }
+}
+
 export function TopTubeStickerButton({
   raceName,
   raceDate,
   goalTime,
   segments,
   startTime,
+  totalDistance,
+  totalElevationGain,
+  gpxFileUrl,
   className,
 }: TopTubeStickerButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -77,15 +123,22 @@ export function TopTubeStickerButton({
     setGenerating(true);
 
     try {
-      // Convert segments to sticker format
+      // Fetch elevation data if GPX is available
+      let elevationData: ElevationDataPoint[] = [];
+      if (gpxFileUrl) {
+        elevationData = await fetchElevationData(gpxFileUrl);
+      }
+
+      // Convert segments to checkpoints with arrival times
       let elapsedMinutes = 0;
-      const stickerSegments: StickerSegment[] = segments.map((segment) => {
+      const checkpoints: StickerCheckpoint[] = segments.map((segment, index) => {
         elapsedMinutes += segment.target_time_minutes;
+        const isLast = index === segments.length - 1;
         return {
           name: segment.end_name || `Mile ${segment.end_mile}`,
           mile: segment.end_mile,
-          splitTime: formatDuration(segment.target_time_minutes),
           arrivalTime: calculateArrivalTime(startTime, elapsedMinutes),
+          type: isLast ? "finish" : "aid_station",
         };
       });
 
@@ -95,7 +148,10 @@ export function TopTubeStickerButton({
           raceName={raceName}
           raceDate={raceDate}
           goalTime={goalTime}
-          segments={stickerSegments}
+          totalDistance={totalDistance}
+          totalElevationGain={totalElevationGain}
+          checkpoints={checkpoints}
+          elevationData={elevationData}
           size={size}
         />
       );
@@ -140,7 +196,7 @@ export function TopTubeStickerButton({
               Generate Top Tube Sticker
             </DialogTitle>
             <DialogDescription>
-              Create a printable sticker with your race splits to attach to your bike&apos;s top tube.
+              Create a vertical sticker with your race splits to attach to your bike&apos;s top tube.
             </DialogDescription>
           </DialogHeader>
 
@@ -150,15 +206,22 @@ export function TopTubeStickerButton({
               <h4 className="font-semibold text-brand-navy-900">{raceName}</h4>
               {raceDate && <p className="text-sm text-brand-navy-600">{raceDate}</p>}
               <div className="flex items-center gap-4 text-sm">
+                <span className="text-brand-navy-500 flex items-center gap-1">
+                  <Mountain className="h-3 w-3" />
+                  {totalDistance.toFixed(1)} mi
+                </span>
+                <span className="text-brand-navy-500">
+                  +{totalElevationGain.toLocaleString()} ft
+                </span>
                 <span className="text-brand-navy-500">
                   {segments.length} splits
                 </span>
-                {goalTime && (
-                  <span className="text-brand-sky-600 font-medium">
-                    Goal: {goalTime}
-                  </span>
-                )}
               </div>
+              {goalTime && (
+                <p className="text-sm text-brand-sky-600 font-medium">
+                  Goal: {goalTime}
+                </p>
+              )}
             </div>
 
             {/* Size Selector */}
@@ -184,6 +247,23 @@ export function TopTubeStickerButton({
               </div>
             </div>
 
+            {/* Sticker Preview */}
+            <div className="flex justify-center">
+              <div
+                className={cn(
+                  "bg-white border-2 border-brand-navy-200 rounded shadow-sm",
+                  "flex flex-col items-center justify-center text-brand-navy-400 text-xs",
+                  size === "compact" && "w-12 h-56",
+                  size === "standard" && "w-14 h-72",
+                  size === "extended" && "w-16 h-80"
+                )}
+              >
+                <span className="writing-vertical-rl rotate-180 text-center">
+                  Preview
+                </span>
+              </div>
+            </div>
+
             {/* Info */}
             <div className="text-sm text-brand-navy-500 bg-brand-navy-50 rounded-lg p-3">
               <p className="font-medium text-brand-navy-700 mb-1">Print Tips:</p>
@@ -191,6 +271,7 @@ export function TopTubeStickerButton({
                 <li>• Use waterproof label paper for durability</li>
                 <li>• Print at 100% scale (no scaling)</li>
                 <li>• Apply clear packing tape over the sticker for protection</li>
+                <li>• Vertical orientation fits naturally on top tube</li>
               </ul>
             </div>
           </div>

@@ -348,6 +348,9 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
               goalTime={plan.goal_time_minutes ? formatDuration(plan.goal_time_minutes) : undefined}
               segments={segments}
               startTime={startTime}
+              totalDistance={effectiveDistance}
+              totalElevationGain={totalElevationGain}
+              gpxFileUrl={plan.race_distance.gpx_file_url}
             />
           )}
           {aidStations.length > 0 && (
