@@ -55,13 +55,8 @@ function calculateArrivalTime(startTime: string, elapsedMinutes: number): string
   return `${displayHour}:${minutes.toString().padStart(2, "0")} ${period}`;
 }
 
-interface GpxData {
-  points: ElevationDataPoint[];
-  totalElevationGain: number;
-}
-
-// Parse GPX to extract elevation points and calculate total elevation gain
-async function fetchElevationData(gpxUrl: string): Promise<GpxData> {
+// Parse GPX to extract elevation points for profile visualization
+async function fetchElevationData(gpxUrl: string): Promise<ElevationDataPoint[]> {
   try {
     const response = await fetch(gpxUrl);
     if (!response.ok) throw new Error("Failed to fetch GPX");
@@ -73,10 +68,8 @@ async function fetchElevationData(gpxUrl: string): Promise<GpxData> {
 
     const points: ElevationDataPoint[] = [];
     let totalDistance = 0;
-    let totalElevationGain = 0;
     let prevLat: number | null = null;
     let prevLon: number | null = null;
-    let prevElevation: number | null = null;
 
     trackPoints.forEach((point) => {
       const lat = parseFloat(point.getAttribute("lat") || "0");
@@ -90,13 +83,8 @@ async function fetchElevationData(gpxUrl: string): Promise<GpxData> {
         totalDistance += distanceKm * 0.621371;
       }
 
-      // Calculate elevation gain
-      if (prevElevation !== null && elevationFt > prevElevation) {
-        totalElevationGain += elevationFt - prevElevation;
-      }
-
       const lastPoint = points[points.length - 1];
-      // Sample every 0.5 miles for a smaller dataset
+      // Sample every 0.5 miles for display
       if (points.length === 0 || (lastPoint && totalDistance - lastPoint.mile >= 0.5)) {
         points.push({
           mile: Math.round(totalDistance * 10) / 10,
@@ -106,13 +94,12 @@ async function fetchElevationData(gpxUrl: string): Promise<GpxData> {
 
       prevLat = lat;
       prevLon = lon;
-      prevElevation = elevationFt;
     });
 
-    return { points, totalElevationGain: Math.round(totalElevationGain) };
+    return points;
   } catch (error) {
     console.warn("Could not fetch elevation data:", error);
-    return { points: [], totalElevationGain: 0 };
+    return [];
   }
 }
 
@@ -134,15 +121,11 @@ export function TopTubeStickerButton({
     setGenerating(true);
 
     try {
-      // Fetch elevation data and calculate gain from GPX
+      // Fetch elevation data from GPX for profile visualization
+      // Use database totalElevationGain for the number (matches official race stats)
       let elevationData: ElevationDataPoint[] = [];
-      let gpxElevationGain = totalElevationGain; // Fallback to passed value
       if (gpxFileUrl) {
-        const gpxData = await fetchElevationData(gpxFileUrl);
-        elevationData = gpxData.points;
-        if (gpxData.totalElevationGain > 0) {
-          gpxElevationGain = gpxData.totalElevationGain;
-        }
+        elevationData = await fetchElevationData(gpxFileUrl);
       }
 
       // Convert segments to checkpoints with arrival times
@@ -164,7 +147,7 @@ export function TopTubeStickerButton({
           raceName={raceName}
           goalTime={goalTime}
           totalDistance={totalDistance}
-          totalElevationGain={gpxElevationGain}
+          totalElevationGain={totalElevationGain}
           checkpoints={checkpoints}
           elevationData={elevationData}
           size={size}

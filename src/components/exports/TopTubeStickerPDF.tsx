@@ -169,11 +169,13 @@ export function TopTubeStickerPDF({
           <Path d={profilePath} fill={COLORS.sky300} />
           <Path d={profilePath} fill="none" stroke={COLORS.sky500} strokeWidth={1.5} />
 
-          {/* Aid station checkpoint markers (not finish) */}
+          {/* Checkpoint markers (not finish) - different icons for aid stations vs checkpoints */}
           {aidStationCheckpoints.map((cp, i) => {
             const y = mileToY(cp.mile);
             const cpElev = elevationData.find(p => Math.abs(p.mile - cp.mile) < 1)?.elevation;
             const profileX = cpElev ? elevToX(cpElev) : profileLeft + profileWidth * 0.5;
+            const isAidStation = cp.type === "aid_station";
+            const iconX = labelLeft - 6;
 
             return (
               <React.Fragment key={`cp-${i}`}>
@@ -182,18 +184,60 @@ export function TopTubeStickerPDF({
                   y1={y}
                   x2={labelLeft - 2}
                   y2={y}
-                  stroke={COLORS.orange500}
+                  stroke={isAidStation ? COLORS.sky500 : COLORS.orange500}
                   strokeWidth={1}
                   strokeDasharray="3,2"
                 />
-                <Circle
-                  cx={labelLeft - 6}
-                  cy={y}
-                  r={4}
-                  fill={COLORS.orange500}
-                  stroke={COLORS.white}
-                  strokeWidth={1}
-                />
+                {isAidStation ? (
+                  // Aid station: Cross/plus icon (for supplies/water)
+                  <>
+                    <Circle
+                      cx={iconX}
+                      cy={y}
+                      r={5}
+                      fill={COLORS.sky500}
+                    />
+                    {/* Horizontal bar of cross */}
+                    <Rect
+                      x={iconX - 3}
+                      y={y - 1}
+                      width={6}
+                      height={2}
+                      fill={COLORS.white}
+                    />
+                    {/* Vertical bar of cross */}
+                    <Rect
+                      x={iconX - 1}
+                      y={y - 3}
+                      width={2}
+                      height={6}
+                      fill={COLORS.white}
+                    />
+                  </>
+                ) : (
+                  // Checkpoint: Flag icon
+                  <>
+                    <Circle
+                      cx={iconX}
+                      cy={y}
+                      r={5}
+                      fill={COLORS.orange500}
+                    />
+                    {/* Flag pole */}
+                    <Rect
+                      x={iconX - 2}
+                      y={y - 3}
+                      width={1}
+                      height={6}
+                      fill={COLORS.white}
+                    />
+                    {/* Flag */}
+                    <Path
+                      d={`M ${iconX - 1} ${y - 3} L ${iconX + 3} ${y - 1} L ${iconX - 1} ${y + 1} Z`}
+                      fill={COLORS.white}
+                    />
+                  </>
+                )}
               </React.Fragment>
             );
           })}
