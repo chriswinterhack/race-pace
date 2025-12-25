@@ -300,7 +300,7 @@ export const CATEGORY_CONFIG: Record<ProductCategory, CategoryConfig> = {
   bar: { label: "Bars", icon: "🍫", color: "bg-amber-100 text-amber-800" },
   drink_mix: { label: "Drinks", icon: "🥤", iconImage: "/icons/drinks.png", color: "bg-blue-100 text-blue-800" },
   real_food: { label: "Real Food", icon: "🍌", color: "bg-green-100 text-green-800" },
-  electrolyte: { label: "Electrolytes", icon: "⚡", color: "bg-yellow-100 text-yellow-800" },
+  electrolyte: { label: "Electrolytes", icon: "⚡", iconImage: "/icons/electrolytes.png", color: "bg-yellow-100 text-yellow-800" },
   other: { label: "Other", icon: "📦", color: "bg-gray-100 text-gray-800" },
 };
 
