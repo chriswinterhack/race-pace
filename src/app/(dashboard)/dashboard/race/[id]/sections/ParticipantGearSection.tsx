@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Bike, Circle, Wrench, Package, Loader2, Save, Plus, X, Users,
-  TrendingUp, Eye, EyeOff, Sparkles, Award
+  TrendingUp, Eye, EyeOff, Sparkles, Award, ChevronDown, ChevronUp, Share2, Footprints, Maximize2
 } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,9 +12,45 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BikeCard, BikeForm } from "@/components/gear/inventory";
 import { TireCard, TireForm } from "@/components/gear/inventory";
-import { BagCard, BagForm } from "@/components/gear/inventory";
 import { RepairKitCard, RepairKitForm } from "@/components/gear/inventory";
-import type { UserBike, UserTire, UserGearInventory } from "@/types/gear";
+import { ShoeCard, ShoeForm } from "@/components/gear/inventory";
+import type { UserBike, UserTire, UserShoe, UserGearInventory } from "@/types/gear";
+
+interface RacePlan {
+  id: string;
+  user_id: string;
+  race_distance: {
+    id: string;
+    name: string | null;
+    distance_miles: number;
+    race_edition: {
+      id: string;
+      year: number;
+      race: {
+        id: string;
+        name: string;
+      };
+    };
+  };
+}
+
+interface ParticipantGearSectionProps {
+  plan: RacePlan;
+}
+
+interface ParticipantGear {
+  id: string;
+  userId: string;
+  displayName: string;
+  isPublic: boolean;
+  bike: { brand: string; model: string; year?: number; imageUrl?: string } | null;
+  frontTire: { brand: string; model: string; width?: string } | null;
+  rearTire: { brand: string; model: string; width?: string } | null;
+  shoes: { brand: string; model: string } | null;
+  repairKit: { name: string; items: string[] } | null;
+}
+
+type ShowAllCategory = "bikes" | "tires" | "shoes" | null;
 
 interface GearAggregation {
   brand: string;
@@ -25,49 +61,38 @@ interface GearAggregation {
 }
 
 interface CommunityStats {
-  totalParticipants: number;
-  sharingGear: number;
+  totalWithGear: number;
+  publicCount: number;
   bikes: GearAggregation[];
   tires: GearAggregation[];
+  shoes: GearAggregation[];
   repairKitItems: { item: string; count: number }[];
 }
 
-interface RacePlan {
-  id: string;
-  race_distance: {
-    id: string;
-    name: string | null;
-    race_edition: {
-      race: {
-        id: string;
-        name: string;
-      };
-    };
-  };
-}
+type GearPickerType = "bike" | "front_tire" | "rear_tire" | "shoes" | "repair_kit" | null;
 
-interface GearSectionProps {
-  plan: RacePlan;
-}
-
-type GearPickerType = "bike" | "front_tire" | "rear_tire" | "bags" | "repair_kit" | null;
-
-export function GearSection({ plan }: GearSectionProps) {
+export function ParticipantGearSection({ plan }: ParticipantGearSectionProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inventory, setInventory] = useState<UserGearInventory | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Selection state
+  // Selection state (current user's gear)
   const [selectedBikeId, setSelectedBikeId] = useState<string | null>(null);
   const [selectedFrontTireId, setSelectedFrontTireId] = useState<string | null>(null);
   const [selectedRearTireId, setSelectedRearTireId] = useState<string | null>(null);
-  const [selectedBagIds, setSelectedBagIds] = useState<string[]>([]);
+  const [selectedShoeId, setSelectedShoeId] = useState<string | null>(null);
   const [selectedRepairKitId, setSelectedRepairKitId] = useState<string | null>(null);
   const [isPublic, setIsPublic] = useState(true);
+  const [hasExistingSelection, setHasExistingSelection] = useState(false);
 
-  // Community stats
+  // Community data
+  const [participants, setParticipants] = useState<ParticipantGear[]>([]);
   const [communityStats, setCommunityStats] = useState<CommunityStats | null>(null);
+  const [showAllParticipants, setShowAllParticipants] = useState(false);
+
+  // Current user
+  const [, setCurrentUserId] = useState<string | null>(null);
 
   // Picker dialog state
   const [pickerType, setPickerType] = useState<GearPickerType>(null);
@@ -75,8 +100,11 @@ export function GearSection({ plan }: GearSectionProps) {
   // Add new gear dialogs
   const [addingBike, setAddingBike] = useState(false);
   const [addingTire, setAddingTire] = useState(false);
-  const [addingBag, setAddingBag] = useState(false);
+  const [addingShoe, setAddingShoe] = useState(false);
   const [addingRepairKit, setAddingRepairKit] = useState(false);
+
+  // Show All modal state - tracks which category to show (null = closed)
+  const [showAllCategory, setShowAllCategory] = useState<ShowAllCategory>(null);
 
   const supabase = createClient();
   const raceDistanceId = plan.race_distance.id;
@@ -89,34 +117,41 @@ export function GearSection({ plan }: GearSectionProps) {
 
   async function fetchAllData() {
     setLoading(true);
-    await Promise.all([fetchInventoryAndSelection(), fetchCommunityStats()]);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+    await Promise.all([
+      fetchInventoryAndSelection(),
+      fetchCommunityGear()
+    ]);
     setLoading(false);
   }
 
   async function fetchInventoryAndSelection() {
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Fetch inventory
-    const [bikesRes, tiresRes, bagsRes, repairKitsRes] = await Promise.all([
-      supabase.from("user_bikes").select("*").order("created_at", { ascending: false }),
-      supabase.from("user_tires").select("*").order("created_at", { ascending: false }),
-      supabase.from("user_bags").select("*").order("created_at", { ascending: false }),
-      supabase.from("user_repair_kits").select("*").order("created_at", { ascending: false }),
+    // Fetch user's gear inventory
+    const [bikesRes, tiresRes, shoesRes, bagsRes, repairKitsRes] = await Promise.all([
+      supabase.from("user_bikes").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("user_tires").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("user_shoes").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("user_bags").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("user_repair_kits").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
     ]);
 
     setInventory({
       bikes: bikesRes.data || [],
       tires: tiresRes.data || [],
-      shoes: [],
+      shoes: shoesRes.data || [],
       hydration_packs: [],
       bags: bagsRes.data || [],
       repair_kits: repairKitsRes.data || [],
       clothing: [],
     });
 
-    // Fetch existing selection - FILTER BY USER ID
+    // Fetch existing selection for THIS user and THIS race
     const { data: existingSelection } = await supabase
       .from("race_gear_selections")
       .select("*")
@@ -125,51 +160,123 @@ export function GearSection({ plan }: GearSectionProps) {
       .single();
 
     if (existingSelection) {
+      setHasExistingSelection(true);
       setSelectedBikeId(existingSelection.bike_id);
       setSelectedFrontTireId(existingSelection.front_tire_id);
       setSelectedRearTireId(existingSelection.rear_tire_id);
+      setSelectedShoeId(existingSelection.shoe_id);
       setSelectedRepairKitId(existingSelection.repair_kit_id);
       setIsPublic(existingSelection.is_public);
 
-      const { data: bagData } = await supabase
-        .from("race_gear_bags")
-        .select("bag_id")
-        .eq("race_gear_selection_id", existingSelection.id);
-
-      if (bagData) {
-        setSelectedBagIds(bagData.map((b) => b.bag_id));
-      }
+    } else {
+      setHasExistingSelection(false);
     }
   }
 
-  async function fetchCommunityStats() {
+  async function fetchCommunityGear() {
     try {
-      // Fetch all public gear selections for this race
-      const { data: gearSelections } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Fetch ALL gear selections for this race (not just public for counting)
+      const { data: allSelections } = await supabase
         .from("race_gear_selections")
         .select(`
           id,
           user_id,
           is_public,
-          bike:user_bikes!race_gear_selections_bike_id_fkey (brand, model),
+          bike:user_bikes!race_gear_selections_bike_id_fkey (brand, model, year, image_url),
           front_tire:user_tires!race_gear_selections_front_tire_id_fkey (brand, model, width_value, width_unit),
           rear_tire:user_tires!race_gear_selections_rear_tire_id_fkey (brand, model, width_value, width_unit),
-          repair_kit:user_repair_kits!race_gear_selections_repair_kit_id_fkey (items)
+          shoe:user_shoes!race_gear_selections_shoe_id_fkey (brand, model),
+          repair_kit:user_repair_kits!race_gear_selections_repair_kit_id_fkey (name, items)
         `)
-        .eq("race_id", raceId)
-        .eq("is_public", true);
+        .eq("race_id", raceId);
 
-      // Count total participants
-      const { count: totalPlans } = await supabase
-        .from("race_plans")
-        .select("*", { count: "exact", head: true })
-        .eq("race_distance_id", raceDistanceId);
+      if (!allSelections || allSelections.length === 0) {
+        setCommunityStats({
+          totalWithGear: 0,
+          publicCount: 0,
+          bikes: [],
+          tires: [],
+          shoes: [],
+          repairKitItems: [],
+        });
+        setParticipants([]);
+        return;
+      }
 
-      const publicGear = gearSelections || [];
+      // Fetch display names for all users with gear
+      const userIds = [...new Set(allSelections.map(s => s.user_id))];
+      const { data: profiles } = await supabase
+        .from("athlete_profiles")
+        .select("user_id, display_name")
+        .in("user_id", userIds);
 
-      // Aggregate bikes
+      // Also fetch from users table as fallback
+      const { data: users } = await supabase
+        .from("users")
+        .select("id, name, email")
+        .in("id", userIds);
+
+      // Build name lookup
+      const nameMap = new Map<string, string>();
+      users?.forEach(u => {
+        nameMap.set(u.id, u.name || u.email?.split("@")[0] || "Athlete");
+      });
+      profiles?.forEach(p => {
+        if (p.display_name) {
+          nameMap.set(p.user_id, p.display_name);
+        }
+      });
+
+      // Filter to public selections for display (exclude current user)
+      const publicSelections = allSelections.filter(s =>
+        s.is_public && s.user_id !== user?.id
+      );
+
+      // Build participant list
+      const participantList: ParticipantGear[] = publicSelections.map(s => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bike = s.bike as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const frontTire = s.front_tire as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rearTire = s.rear_tire as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const shoe = s.shoe as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const repairKit = s.repair_kit as any;
+
+        return {
+          id: s.id,
+          userId: s.user_id,
+          displayName: nameMap.get(s.user_id) || "Athlete",
+          isPublic: s.is_public,
+          bike: bike?.brand ? { brand: bike.brand, model: bike.model, year: bike.year, imageUrl: bike.image_url } : null,
+          frontTire: frontTire?.brand ? {
+            brand: frontTire.brand,
+            model: frontTire.model,
+            width: frontTire.width_value ? `${frontTire.width_value}${frontTire.width_unit === "in" ? '"' : 'mm'}` : undefined
+          } : null,
+          rearTire: rearTire?.brand ? {
+            brand: rearTire.brand,
+            model: rearTire.model,
+            width: rearTire.width_value ? `${rearTire.width_value}${rearTire.width_unit === "in" ? '"' : 'mm'}` : undefined
+          } : null,
+          shoes: shoe?.brand ? { brand: shoe.brand, model: shoe.model } : null,
+          repairKit: repairKit?.name ? { name: repairKit.name, items: repairKit.items || [] } : null,
+        };
+      });
+
+      setParticipants(participantList);
+
+      // Calculate stats from public selections only
+      const totalWithGear = allSelections.length;
+      const publicCount = allSelections.filter(s => s.is_public).length;
+
+      // Aggregate bikes (from public selections)
       const bikeMap = new Map<string, number>();
-      publicGear.forEach(s => {
+      publicSelections.forEach(s => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const bike = s.bike as any;
         if (bike?.brand && bike?.model) {
@@ -181,13 +288,13 @@ export function GearSection({ plan }: GearSectionProps) {
       const bikes: GearAggregation[] = Array.from(bikeMap.entries())
         .map(([key, count]) => {
           const [brand, model] = key.split("|");
-          return { brand: brand!, model: model!, count, percentage: Math.round((count / Math.max(publicGear.length, 1)) * 100) };
+          return { brand: brand!, model: model!, count, percentage: Math.round((count / Math.max(publicCount, 1)) * 100) };
         })
         .sort((a, b) => b.count - a.count);
 
       // Aggregate tires
       const tireMap = new Map<string, number>();
-      publicGear.forEach(s => {
+      publicSelections.forEach(s => {
         [s.front_tire, s.rear_tire].forEach(tire => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const t = tire as any;
@@ -202,17 +309,33 @@ export function GearSection({ plan }: GearSectionProps) {
       const tires: GearAggregation[] = Array.from(tireMap.entries())
         .map(([key, count]) => {
           const [brand, model, width] = key.split("|");
-          return { brand: brand!, model: model!, width: width || undefined, count, percentage: Math.round((count / Math.max(publicGear.length, 1)) * 100) };
+          return { brand: brand!, model: model!, width: width || undefined, count, percentage: Math.round((count / Math.max(publicCount, 1)) * 100) };
+        })
+        .sort((a, b) => b.count - a.count);
+
+      // Aggregate shoes
+      const shoeMap = new Map<string, number>();
+      publicSelections.forEach(s => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const shoe = s.shoe as any;
+        if (shoe?.brand && shoe?.model) {
+          const key = `${shoe.brand}|${shoe.model}`;
+          shoeMap.set(key, (shoeMap.get(key) || 0) + 1);
+        }
+      });
+
+      const shoes: GearAggregation[] = Array.from(shoeMap.entries())
+        .map(([key, count]) => {
+          const [brand, model] = key.split("|");
+          return { brand: brand!, model: model!, count, percentage: Math.round((count / Math.max(publicCount, 1)) * 100) };
         })
         .sort((a, b) => b.count - a.count);
 
       // Aggregate repair kit items
       const repairItemMap = new Map<string, number>();
-      publicGear.forEach(s => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const kit = s.repair_kit as any;
-        const items = kit?.items as string[] | undefined;
-        items?.forEach(item => {
+      publicSelections.forEach(s => {
+        const kit = s.repair_kit as { items?: string[] } | null;
+        kit?.items?.forEach(item => {
           repairItemMap.set(item, (repairItemMap.get(item) || 0) + 1);
         });
       });
@@ -222,14 +345,16 @@ export function GearSection({ plan }: GearSectionProps) {
         .sort((a, b) => b.count - a.count);
 
       setCommunityStats({
-        totalParticipants: totalPlans || 0,
-        sharingGear: publicGear.length,
+        totalWithGear,
+        publicCount,
         bikes,
         tires,
+        shoes,
         repairKitItems,
       });
+
     } catch (error) {
-      console.error("Failed to fetch community stats:", error);
+      console.error("Failed to fetch community gear:", error);
     }
   }
 
@@ -245,8 +370,8 @@ export function GearSection({ plan }: GearSectionProps) {
           bike_id: selectedBikeId,
           front_tire_id: selectedFrontTireId,
           rear_tire_id: selectedRearTireId,
+          shoe_id: selectedShoeId,
           repair_kit_id: selectedRepairKitId,
-          bag_ids: selectedBagIds,
           is_public: isPublic,
         }),
       });
@@ -257,8 +382,9 @@ export function GearSection({ plan }: GearSectionProps) {
       } else {
         toast.success("Gear selection saved!");
         setHasChanges(false);
+        setHasExistingSelection(true);
         // Refresh community stats to include our new data
-        fetchCommunityStats();
+        fetchCommunityGear();
       }
     } catch {
       toast.error("Failed to save gear selection");
@@ -270,7 +396,7 @@ export function GearSection({ plan }: GearSectionProps) {
   const selectedBike = inventory?.bikes.find(b => b.id === selectedBikeId);
   const selectedFrontTire = inventory?.tires.find(t => t.id === selectedFrontTireId);
   const selectedRearTire = inventory?.tires.find(t => t.id === selectedRearTireId);
-  const selectedBags = inventory?.bags.filter(b => selectedBagIds.includes(b.id)) || [];
+  const selectedShoe = inventory?.shoes.find(s => s.id === selectedShoeId);
   const selectedRepairKit = inventory?.repair_kits.find(k => k.id === selectedRepairKitId);
 
   // Community insights for selected items
@@ -278,14 +404,10 @@ export function GearSection({ plan }: GearSectionProps) {
     b => b.brand === selectedBike.brand && b.model === selectedBike.model
   ) : null;
 
-  const frontTirePopularity = selectedFrontTire ? communityStats?.tires.find(
-    t => t.brand === selectedFrontTire.brand && t.model === selectedFrontTire.model
-  ) : null;
-
   const handleGearAdded = () => {
     setAddingBike(false);
     setAddingTire(false);
-    setAddingBag(false);
+    setAddingShoe(false);
     setAddingRepairKit(false);
     fetchInventoryAndSelection();
   };
@@ -295,9 +417,12 @@ export function GearSection({ plan }: GearSectionProps) {
   };
 
   // Gear completion percentage
-  const gearSlots = [selectedBike, selectedFrontTire, selectedRearTire, selectedRepairKit];
+  const gearSlots = [selectedBike, selectedFrontTire, selectedRearTire, selectedShoe, selectedRepairKit];
   const filledSlots = gearSlots.filter(Boolean).length;
   const completionPercent = Math.round((filledSlots / gearSlots.length) * 100);
+
+  // Displayed participants (limited to 4 unless expanded)
+  const displayedParticipants = showAllParticipants ? participants : participants.slice(0, 4);
 
   if (loading) {
     return <GearSectionSkeleton />;
@@ -307,30 +432,33 @@ export function GearSection({ plan }: GearSectionProps) {
     <div className="space-y-8">
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-navy-900 via-brand-navy-800 to-brand-sky-900 p-6 sm:p-8 text-white">
-        {/* Decorative elements */}
         <div className="absolute top-0 right-0 -mt-16 -mr-16 h-64 w-64 rounded-full bg-brand-sky-500/10 blur-3xl" />
         <div className="absolute bottom-0 left-0 -mb-16 -ml-16 h-48 w-48 rounded-full bg-brand-sky-400/10 blur-2xl" />
 
         <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div>
-            <h2 className="text-2xl font-bold text-white">Gear Setup</h2>
+            <h2 className="text-2xl font-bold text-white">Participant Gear</h2>
             <p className="mt-1 text-brand-sky-100/80">
-              Configure your race day equipment for {raceName}
+              Your race setup & community insights for {raceName}
             </p>
 
             {/* Community stats */}
-            {communityStats && communityStats.sharingGear > 0 && (
+            {communityStats && communityStats.publicCount > 0 && (
               <div className="mt-4 flex items-center gap-4">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
                   <Users className="h-4 w-4 text-brand-sky-300" />
                   <span className="text-sm font-medium">
-                    {communityStats.sharingGear} rider{communityStats.sharingGear !== 1 ? "s" : ""} sharing gear
+                    {communityStats.publicCount} rider{communityStats.publicCount !== 1 ? "s" : ""} sharing gear
                   </span>
                 </div>
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
-                  <TrendingUp className="h-4 w-4 text-green-400" />
-                  <span className="text-sm font-medium">See what they're running</span>
-                </div>
+                {communityStats.totalWithGear > communityStats.publicCount && (
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
+                    <EyeOff className="h-4 w-4 text-white/60" />
+                    <span className="text-sm font-medium text-white/60">
+                      {communityStats.totalWithGear - communityStats.publicCount} private
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -391,6 +519,8 @@ export function GearSection({ plan }: GearSectionProps) {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Your Setup - 2 columns */}
         <div className="lg:col-span-2 space-y-6">
+          <h3 className="text-lg font-semibold text-brand-navy-900">Your Race Setup</h3>
+
           {/* Bike */}
           <GearSlotCard
             icon={Bike}
@@ -419,7 +549,6 @@ export function GearSection({ plan }: GearSectionProps) {
               label="Front Tire"
               description="Leading grip"
               isEmpty={!selectedFrontTire}
-              popularity={frontTirePopularity}
               onAdd={() => setPickerType("front_tire")}
               onRemove={() => { setSelectedFrontTireId(null); handleSelectionChange(); }}
               compact
@@ -454,40 +583,20 @@ export function GearSection({ plan }: GearSectionProps) {
             </GearSlotCard>
           </div>
 
-          {/* On Bike Storage */}
+          {/* Shoes */}
           <GearSlotCard
-            icon={Package}
-            label="On Bike Storage"
-            description="Bags and packs"
-            isEmpty={selectedBags.length === 0}
-            onAdd={() => setPickerType("bags")}
-            onRemove={() => { setSelectedBagIds([]); handleSelectionChange(); }}
-            multiSelect
+            icon={Footprints}
+            label="Shoes"
+            description="Race day footwear"
+            isEmpty={!selectedShoe}
+            onAdd={() => setPickerType("shoes")}
+            onRemove={() => { setSelectedShoeId(null); handleSelectionChange(); }}
           >
-            {selectedBags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedBags.map(bag => (
-                  <div
-                    key={bag.id}
-                    className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-brand-navy-100 to-brand-navy-50 rounded-xl border border-brand-navy-200"
-                  >
-                    <Package className="h-4 w-4 text-brand-navy-500" />
-                    <span className="text-sm font-medium text-brand-navy-700">
-                      {bag.brand} {bag.model}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedBagIds(selectedBagIds.filter(id => id !== bag.id));
-                        handleSelectionChange();
-                      }}
-                      className="ml-1 text-brand-navy-400 hover:text-red-500 transition-colors"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+            {selectedShoe && (
+              <SelectedGearDisplay
+                title={`${selectedShoe.brand} ${selectedShoe.model}`}
+                icon={Footprints}
+              />
             )}
           </GearSlotCard>
 
@@ -526,9 +635,85 @@ export function GearSection({ plan }: GearSectionProps) {
 
         {/* Community Insights Sidebar */}
         <div className="space-y-6">
-          <CommunityInsightsPanel stats={communityStats} />
+          <CommunityInsightsPanel
+            stats={communityStats}
+            onShowAllBikes={() => setShowAllCategory("bikes")}
+            onShowAllTires={() => setShowAllCategory("tires")}
+            onShowAllShoes={() => setShowAllCategory("shoes")}
+          />
         </div>
       </div>
+
+      {/* Participant Gear Cards */}
+      {participants.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-brand-navy-900">
+            Rider Setups ({participants.length})
+          </h3>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {displayedParticipants.map((participant) => (
+              <ParticipantGearCard key={participant.id} participant={participant} />
+            ))}
+          </div>
+
+          {participants.length > 4 && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowAllParticipants(!showAllParticipants)}
+            >
+              {showAllParticipants ? (
+                <>
+                  <ChevronUp className="h-4 w-4 mr-2" />
+                  Show Less
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                  Show All {participants.length} Riders
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Empty Community State */}
+      {participants.length === 0 && hasExistingSelection && isPublic && (
+        <div className="text-center py-8 px-6 bg-gradient-to-b from-brand-navy-50 to-white rounded-2xl border border-brand-navy-100">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center mb-4">
+            <Share2 className="h-8 w-8 text-green-600" />
+          </div>
+          <h4 className="text-lg font-semibold text-brand-navy-900">You're a Trailblazer!</h4>
+          <p className="mt-2 text-sm text-brand-navy-600 max-w-sm mx-auto">
+            You're the first to share your gear for this race. As more riders join, you'll see their setups here.
+          </p>
+        </div>
+      )}
+
+      {/* Share nudge for users with gear set to private */}
+      {hasExistingSelection && !isPublic && participants.length > 0 && (
+        <div className="flex items-center justify-between px-5 py-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-100">
+              <EyeOff className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-medium text-amber-900">Your gear is private</p>
+              <p className="text-sm text-amber-700">Share your setup to help others decide what to bring</p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setIsPublic(true); handleSelectionChange(); }}
+            className="border-amber-300 text-amber-700 hover:bg-amber-100"
+          >
+            Make Public
+          </Button>
+        </div>
+      )}
 
       {/* Gear Picker Dialog */}
       <Dialog open={pickerType !== null} onOpenChange={(open) => !open && setPickerType(null)}>
@@ -538,7 +723,7 @@ export function GearSection({ plan }: GearSectionProps) {
               {pickerType === "bike" && <><Bike className="h-5 w-5 text-brand-sky-500" /> Select Bike</>}
               {pickerType === "front_tire" && <><Circle className="h-5 w-5 text-amber-500" /> Select Front Tire</>}
               {pickerType === "rear_tire" && <><Circle className="h-5 w-5 text-amber-500" /> Select Rear Tire</>}
-              {pickerType === "bags" && <><Package className="h-5 w-5 text-brand-navy-500" /> Select Storage Bags</>}
+              {pickerType === "shoes" && <><Footprints className="h-5 w-5 text-emerald-500" /> Select Shoes</>}
               {pickerType === "repair_kit" && <><Wrench className="h-5 w-5 text-purple-500" /> Select Repair Kit</>}
             </DialogTitle>
           </DialogHeader>
@@ -636,43 +821,35 @@ export function GearSection({ plan }: GearSectionProps) {
             />
           )}
 
-          {/* Bags Picker */}
-          {pickerType === "bags" && (
-            <div className="space-y-4">
-              {(inventory?.bags || []).length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(inventory?.bags || []).map((bag) => (
-                    <BagCard
-                      key={bag.id}
-                      bag={bag}
-                      selectable
-                      selected={selectedBagIds.includes(bag.id)}
-                      onSelect={() => {
-                        if (selectedBagIds.includes(bag.id)) {
-                          setSelectedBagIds(selectedBagIds.filter(id => id !== bag.id));
-                        } else {
-                          setSelectedBagIds([...selectedBagIds, bag.id]);
-                        }
-                        handleSelectionChange();
-                      }}
-                      onEdit={() => {}}
-                      onDelete={() => {}}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyInventoryState onAdd={() => { setPickerType(null); setAddingBag(true); }} />
+          {/* Shoes Picker */}
+          {pickerType === "shoes" && (
+            <GearPickerWithInsights
+              items={inventory?.shoes || []}
+              communityItems={communityStats?.shoes || []}
+              selectedId={selectedShoeId}
+              onSelect={(id) => {
+                setSelectedShoeId(id);
+                setPickerType(null);
+                handleSelectionChange();
+              }}
+              onAddNew={() => { setPickerType(null); setAddingShoe(true); }}
+              renderItem={(shoe: UserShoe) => (
+                <ShoeCard
+                  shoe={shoe}
+                  selectable
+                  selected={selectedShoeId === shoe.id}
+                  onSelect={() => {
+                    setSelectedShoeId(shoe.id);
+                    setPickerType(null);
+                    handleSelectionChange();
+                  }}
+                  onEdit={() => {}}
+                  onDelete={() => {}}
+                />
               )}
-              {(inventory?.bags || []).length > 0 && (
-                <div className="flex justify-between pt-4 border-t">
-                  <Button variant="outline" onClick={() => { setPickerType(null); setAddingBag(true); }}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add New Bag
-                  </Button>
-                  <Button onClick={() => setPickerType(null)}>Done</Button>
-                </div>
-              )}
-            </div>
+              getItemKey={(shoe) => `${shoe.brand}|${shoe.model}`}
+              emptyMessage="No shoes in your inventory"
+            />
           )}
 
           {/* Repair Kit Picker */}
@@ -680,7 +857,6 @@ export function GearSection({ plan }: GearSectionProps) {
             <div className="space-y-4">
               {(inventory?.repair_kits || []).length > 0 ? (
                 <>
-                  {/* Popular repair items banner */}
                   {communityStats && communityStats.repairKitItems.length > 0 && (
                     <div className="px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg">
                       <p className="text-sm font-medium text-purple-800 mb-2">Most common repair items:</p>
@@ -740,10 +916,10 @@ export function GearSection({ plan }: GearSectionProps) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={addingBag} onOpenChange={setAddingBag}>
+      <Dialog open={addingShoe} onOpenChange={setAddingShoe}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Add Bag to Inventory</DialogTitle></DialogHeader>
-          <BagForm onSave={handleGearAdded} onCancel={() => setAddingBag(false)} />
+          <DialogHeader><DialogTitle>Add Shoes to Inventory</DialogTitle></DialogHeader>
+          <ShoeForm onSave={handleGearAdded} onCancel={() => setAddingShoe(false)} />
         </DialogContent>
       </Dialog>
 
@@ -751,6 +927,133 @@ export function GearSection({ plan }: GearSectionProps) {
         <DialogContent>
           <DialogHeader><DialogTitle>Add Repair Kit to Inventory</DialogTitle></DialogHeader>
           <RepairKitForm onSave={handleGearAdded} onCancel={() => setAddingRepairKit(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Show All Gear Modal - Category Specific */}
+      <Dialog open={showAllCategory !== null} onOpenChange={(open) => !open && setShowAllCategory(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {showAllCategory === "bikes" && <><Bike className="h-5 w-5 text-brand-sky-500" /> All Bikes for {raceName}</>}
+              {showAllCategory === "tires" && <><Circle className="h-5 w-5 text-amber-500" /> All Tires for {raceName}</>}
+              {showAllCategory === "shoes" && <><Footprints className="h-5 w-5 text-emerald-500" /> All Shoes for {raceName}</>}
+            </DialogTitle>
+          </DialogHeader>
+
+          {communityStats && (
+            <div className="pt-4">
+              {/* All Bikes */}
+              {showAllCategory === "bikes" && communityStats.bikes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-brand-navy-500 mb-4">
+                    {communityStats.bikes.reduce((sum, b) => sum + b.count, 0)} total selections from {communityStats.publicCount} riders
+                  </p>
+                  {communityStats.bikes.map((bike, i) => (
+                    <div
+                      key={`${bike.brand}-${bike.model}-${i}`}
+                      className="flex items-center justify-between px-4 py-3 rounded-lg bg-brand-sky-50 border border-brand-sky-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-brand-sky-100 flex items-center justify-center">
+                          <Bike className="h-5 w-5 text-brand-sky-600" />
+                        </div>
+                        <span className="font-medium text-brand-navy-900">
+                          {bike.brand} {bike.model}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-sky-200/50">
+                          <Users className="h-4 w-4 text-brand-sky-700" />
+                          <span className="text-sm font-bold text-brand-sky-700">
+                            {bike.count}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium text-brand-navy-500 w-12 text-right">
+                          {bike.percentage}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* All Tires */}
+              {showAllCategory === "tires" && communityStats.tires.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-brand-navy-500 mb-4">
+                    {communityStats.tires.reduce((sum, t) => sum + t.count, 0)} total selections (front + rear)
+                  </p>
+                  {communityStats.tires.map((tire, i) => (
+                    <div
+                      key={`${tire.brand}-${tire.model}-${tire.width || ""}-${i}`}
+                      className="flex items-center justify-between px-4 py-3 rounded-lg bg-amber-50 border border-amber-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                          <Circle className="h-5 w-5 text-amber-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium text-brand-navy-900">
+                            {tire.brand} {tire.model}
+                          </span>
+                          {tire.width && (
+                            <span className="text-brand-navy-500 ml-2">({tire.width})</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-200/50">
+                          <Users className="h-4 w-4 text-amber-700" />
+                          <span className="text-sm font-bold text-amber-700">
+                            {tire.count}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium text-brand-navy-500 w-12 text-right">
+                          {tire.percentage}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* All Shoes */}
+              {showAllCategory === "shoes" && communityStats.shoes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-brand-navy-500 mb-4">
+                    {communityStats.shoes.reduce((sum, s) => sum + s.count, 0)} total selections from {communityStats.publicCount} riders
+                  </p>
+                  {communityStats.shoes.map((shoe, i) => (
+                    <div
+                      key={`${shoe.brand}-${shoe.model}-${i}`}
+                      className="flex items-center justify-between px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                          <Footprints className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <span className="font-medium text-brand-navy-900">
+                          {shoe.brand} {shoe.model}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-200/50">
+                          <Users className="h-4 w-4 text-emerald-700" />
+                          <span className="text-sm font-bold text-emerald-700">
+                            {shoe.count}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium text-brand-navy-500 w-12 text-right">
+                          {shoe.percentage}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -778,6 +1081,164 @@ function GearSectionSkeleton() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Participant Gear Card
+function ParticipantGearCard({ participant }: { participant: ParticipantGear }) {
+  const [showBikeImage, setShowBikeImage] = useState(false);
+  const hasBike = participant.bike !== null;
+  const hasTires = participant.frontTire !== null || participant.rearTire !== null;
+  const hasShoes = participant.shoes !== null;
+  const hasRepairKit = participant.repairKit !== null;
+
+  return (
+    <>
+      <div className="rounded-xl border border-brand-navy-200 bg-white overflow-hidden hover:shadow-md transition-shadow">
+        <div className="px-4 py-3 bg-gradient-to-r from-brand-navy-50 to-brand-sky-50 border-b border-brand-navy-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-sky-400 to-brand-sky-600 flex items-center justify-center text-white font-bold text-sm">
+              {participant.displayName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="font-semibold text-brand-navy-900">{participant.displayName}</p>
+              <p className="text-xs text-brand-navy-500">
+                {[hasBike && "Bike", hasTires && "Tires", hasShoes && "Shoes", hasRepairKit && "Repair Kit"].filter(Boolean).join(" · ") || "Setup"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {participant.bike && (
+            <div className="flex items-start gap-3">
+              {participant.bike.imageUrl ? (
+                <button
+                  onClick={() => setShowBikeImage(true)}
+                  className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-brand-navy-100 group cursor-pointer"
+                >
+                  <img
+                    src={participant.bike.imageUrl}
+                    alt={`${participant.bike.brand} ${participant.bike.model}`}
+                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <Maximize2 className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
+              ) : (
+                <div className="p-1.5 rounded-md bg-brand-sky-100">
+                  <Bike className="h-4 w-4 text-brand-sky-600" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-brand-navy-900">
+                  {participant.bike.brand} {participant.bike.model}
+                </p>
+                {participant.bike.year && (
+                  <p className="text-xs text-brand-navy-500">{participant.bike.year}</p>
+                )}
+                {participant.bike.imageUrl && (
+                  <button
+                    onClick={() => setShowBikeImage(true)}
+                    className="text-xs text-brand-sky-600 hover:text-brand-sky-700 mt-0.5"
+                  >
+                    View photo
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+        {(participant.frontTire || participant.rearTire) && (
+          <div className="flex items-start gap-3">
+            <div className="p-1.5 rounded-md bg-amber-100">
+              <Circle className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="min-w-0">
+              {participant.frontTire && (
+                <p className="text-sm font-medium text-brand-navy-900">
+                  {participant.frontTire.brand} {participant.frontTire.model}
+                  {participant.frontTire.width && (
+                    <span className="text-brand-navy-400 ml-1">({participant.frontTire.width})</span>
+                  )}
+                  {participant.rearTire && participant.frontTire.model !== participant.rearTire.model && (
+                    <span className="text-xs text-brand-navy-400 ml-1">F</span>
+                  )}
+                </p>
+              )}
+              {participant.rearTire && participant.rearTire.model !== participant.frontTire?.model && (
+                <p className="text-sm font-medium text-brand-navy-900">
+                  {participant.rearTire.brand} {participant.rearTire.model}
+                  {participant.rearTire.width && (
+                    <span className="text-brand-navy-400 ml-1">({participant.rearTire.width})</span>
+                  )}
+                  <span className="text-xs text-brand-navy-400 ml-1">R</span>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {participant.shoes && (
+          <div className="flex items-start gap-3">
+            <div className="p-1.5 rounded-md bg-emerald-100">
+              <Footprints className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-brand-navy-900">
+                {participant.shoes.brand} {participant.shoes.model}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {participant.repairKit && (
+          <div className="flex items-start gap-3">
+            <div className="p-1.5 rounded-md bg-purple-100">
+              <Wrench className="h-4 w-4 text-purple-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-brand-navy-900">{participant.repairKit.name}</p>
+              {participant.repairKit.items.length > 0 && (
+                <p className="text-xs text-brand-navy-500 truncate">
+                  {participant.repairKit.items.slice(0, 3).join(", ")}
+                  {participant.repairKit.items.length > 3 && ` +${participant.repairKit.items.length - 3} more`}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!hasBike && !hasTires && !hasShoes && !hasRepairKit && (
+          <p className="text-sm text-brand-navy-400 italic">No gear details shared</p>
+        )}
+        </div>
+      </div>
+
+      {/* Bike Image Modal */}
+      {participant.bike?.imageUrl && (
+        <Dialog open={showBikeImage} onOpenChange={setShowBikeImage}>
+          <DialogContent className="max-w-2xl p-0 overflow-hidden bg-brand-navy-900 border-brand-navy-700 [&>button]:bg-black/50 [&>button]:text-white [&>button]:border-0 [&>button]:hover:bg-black/70">
+            <div className="relative">
+              <img
+                src={participant.bike.imageUrl}
+                alt={`${participant.bike.brand} ${participant.bike.model}`}
+                className="w-full h-auto max-h-[70vh] object-contain bg-brand-navy-900"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                <p className="text-white font-semibold text-lg">
+                  {participant.bike.brand} {participant.bike.model}
+                </p>
+                <p className="text-white/70 text-sm">
+                  {participant.displayName}'s race bike{participant.bike.year ? ` • ${participant.bike.year}` : ''}
+                </p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
 
@@ -810,7 +1271,6 @@ function GearSlotCard({
       "relative rounded-xl border bg-white overflow-hidden transition-all",
       isEmpty ? "border-dashed border-brand-navy-300 hover:border-brand-sky-400" : "border-brand-navy-200 shadow-sm"
     )}>
-      {/* Header */}
       <div className={cn(
         "flex items-center justify-between px-4",
         compact ? "py-3" : "py-4",
@@ -854,7 +1314,6 @@ function GearSlotCard({
         )}
       </div>
 
-      {/* Content */}
       <div className={cn("px-4", compact ? "py-3" : "py-4")}>
         {isEmpty ? (
           <button
@@ -923,8 +1382,18 @@ function SelectedGearDisplay({
 }
 
 // Community Insights Panel
-function CommunityInsightsPanel({ stats }: { stats: CommunityStats | null }) {
-  if (!stats || stats.sharingGear === 0) {
+function CommunityInsightsPanel({
+  stats,
+  onShowAllBikes,
+  onShowAllTires,
+  onShowAllShoes,
+}: {
+  stats: CommunityStats | null;
+  onShowAllBikes?: () => void;
+  onShowAllTires?: () => void;
+  onShowAllShoes?: () => void;
+}) {
+  if (!stats || stats.publicCount === 0) {
     return (
       <div className="rounded-xl border border-brand-navy-200 bg-gradient-to-b from-brand-navy-50 to-white p-6 text-center">
         <div className="mx-auto w-14 h-14 rounded-2xl bg-brand-navy-100 flex items-center justify-center mb-4">
@@ -940,13 +1409,25 @@ function CommunityInsightsPanel({ stats }: { stats: CommunityStats | null }) {
 
   return (
     <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-brand-navy-900">Popular Choices</h3>
+
       {/* Popular Bikes */}
       {stats.bikes.length > 0 && (
         <div className="rounded-xl border border-brand-navy-200 overflow-hidden">
           <div className="px-4 py-3 bg-brand-sky-50 border-b border-brand-sky-100">
-            <div className="flex items-center gap-2">
-              <Bike className="h-4 w-4 text-brand-sky-600" />
-              <h4 className="font-semibold text-brand-sky-900 text-sm">Popular Bikes</h4>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bike className="h-4 w-4 text-brand-sky-600" />
+                <h4 className="font-semibold text-brand-sky-900 text-sm">Bikes</h4>
+              </div>
+              {onShowAllBikes && stats.bikes.length > 3 && (
+                <button
+                  onClick={onShowAllBikes}
+                  className="text-xs font-medium text-brand-sky-600 hover:text-brand-sky-700"
+                >
+                  Show All ({stats.bikes.length})
+                </button>
+              )}
             </div>
           </div>
           <div className="p-4 space-y-3">
@@ -968,9 +1449,19 @@ function CommunityInsightsPanel({ stats }: { stats: CommunityStats | null }) {
       {stats.tires.length > 0 && (
         <div className="rounded-xl border border-brand-navy-200 overflow-hidden">
           <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
-            <div className="flex items-center gap-2">
-              <Circle className="h-4 w-4 text-amber-600" />
-              <h4 className="font-semibold text-amber-900 text-sm">Popular Tires</h4>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Circle className="h-4 w-4 text-amber-600" />
+                <h4 className="font-semibold text-amber-900 text-sm">Tires</h4>
+              </div>
+              {onShowAllTires && stats.tires.length > 3 && (
+                <button
+                  onClick={onShowAllTires}
+                  className="text-xs font-medium text-amber-600 hover:text-amber-700"
+                >
+                  Show All ({stats.tires.length})
+                </button>
+              )}
             </div>
           </div>
           <div className="p-4 space-y-3">
@@ -982,6 +1473,40 @@ function CommunityInsightsPanel({ stats }: { stats: CommunityStats | null }) {
                 </span>
                 <span className="flex-shrink-0 ml-2 text-xs font-medium text-brand-navy-500">
                   {tire.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Popular Shoes */}
+      {stats.shoes.length > 0 && (
+        <div className="rounded-xl border border-brand-navy-200 overflow-hidden">
+          <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Footprints className="h-4 w-4 text-emerald-600" />
+                <h4 className="font-semibold text-emerald-900 text-sm">Shoes</h4>
+              </div>
+              {onShowAllShoes && stats.shoes.length > 3 && (
+                <button
+                  onClick={onShowAllShoes}
+                  className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+                >
+                  Show All ({stats.shoes.length})
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="p-4 space-y-3">
+            {stats.shoes.slice(0, 3).map((shoe, i) => (
+              <div key={`${shoe.brand}-${shoe.model}-${i}`} className="flex items-center justify-between">
+                <span className="text-sm font-medium text-brand-navy-800 truncate">
+                  {shoe.brand} {shoe.model}
+                </span>
+                <span className="flex-shrink-0 ml-2 text-xs font-medium text-brand-navy-500">
+                  {shoe.count} rider{shoe.count !== 1 ? "s" : ""}
                 </span>
               </div>
             ))}
@@ -1034,7 +1559,6 @@ function GearPickerWithInsights<T extends { id: string; brand: string; model: st
   getItemKey: (item: T) => string;
   emptyMessage: string;
 }) {
-  // Find community popularity for each item
   const getPopularity = (item: T) => {
     const key = getItemKey(item);
     return communityItems.find(c => `${c.brand}|${c.model}` === key);
@@ -1044,7 +1568,6 @@ function GearPickerWithInsights<T extends { id: string; brand: string; model: st
     return <EmptyInventoryState onAdd={onAddNew} />;
   }
 
-  // Sort items by popularity
   const sortedItems = [...items].sort((a, b) => {
     const popA = getPopularity(a);
     const popB = getPopularity(b);
@@ -1053,7 +1576,6 @@ function GearPickerWithInsights<T extends { id: string; brand: string; model: st
 
   return (
     <div className="space-y-4">
-      {/* Popular picks banner */}
       {communityItems.length > 0 && (
         <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
           <TrendingUp className="h-4 w-4 text-green-600" />

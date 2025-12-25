@@ -20,7 +20,6 @@ import {
   Route,
   MessageSquare,
   LayoutDashboard,
-  Dumbbell,
   Download,
 } from "lucide-react";
 import {
@@ -44,9 +43,8 @@ import { GoalSection } from "./sections/GoalSection";
 import { PacingSection } from "./sections/PacingSection";
 import { PowerSection } from "./sections/PowerSection";
 import { NutritionSection } from "./sections/NutritionSection";
-import { GearSection } from "./sections/GearSection";
+import { ParticipantGearSection } from "./sections/ParticipantGearSection";
 import { ChecklistSection } from "./sections/ChecklistSection";
-import { ParticipantsSection } from "./sections/ParticipantsSection";
 import { ExportSection } from "./sections/ExportSection";
 import { DiscussionsSection } from "@/components/discussions";
 
@@ -116,7 +114,7 @@ interface RacePlan {
   }>;
 }
 
-type SectionId = "overview" | "course" | "goal" | "pacing" | "power" | "nutrition" | "gear" | "checklist" | "participants" | "community" | "export";
+type SectionId = "overview" | "course" | "goal" | "pacing" | "power" | "nutrition" | "gear" | "checklist" | "community" | "export";
 
 interface Section {
   id: SectionId;
@@ -134,7 +132,6 @@ const sections: Section[] = [
   { id: "nutrition", label: "Nutrition", icon: Utensils, category: "strategy" },
   { id: "gear", label: "Gear", icon: Bike, category: "prep" },
   { id: "checklist", label: "Checklist", icon: CheckSquare, category: "prep" },
-  { id: "participants", label: "Athletes", icon: Dumbbell, category: "social" },
   { id: "community", label: "Discuss", icon: MessageSquare, category: "social" },
   { id: "export", label: "Export", icon: Download, category: "prep" },
 ];
@@ -598,16 +595,10 @@ export default function RaceDashboardPage() {
               <NutritionSection plan={plan as any} />
             )}
             {activeSection === "gear" && (
-              <GearSection plan={plan as any} />
+              <ParticipantGearSection plan={plan as any} />
             )}
             {activeSection === "checklist" && (
               <ChecklistSection plan={plan as any} />
-            )}
-            {activeSection === "participants" && (
-              <ParticipantsSection
-                plan={plan as any}
-                onNavigateToGear={() => setActiveSection("gear")}
-              />
             )}
             {activeSection === "community" && race && (
               <DiscussionsSection raceId={race.id} raceName={race.name} />

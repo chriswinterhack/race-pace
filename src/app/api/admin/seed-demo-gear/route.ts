@@ -216,7 +216,6 @@ export async function POST(request: Request) {
           user_id: userId,
           brand: demoTire.brand,
           model: demoTire.model,
-          width_mm: Math.round(demoTire.widthValue * 25.4),
           width_value: demoTire.widthValue,
           width_unit: demoTire.widthUnit,
           tire_type: "tubeless",
