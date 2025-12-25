@@ -189,7 +189,7 @@ export function TopTubeStickerButton({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-brand-sky-500" />
@@ -200,7 +200,7 @@ export function TopTubeStickerButton({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
+          <div className="space-y-4 py-2">
             {/* Race Info Preview */}
             <div className="p-4 bg-brand-navy-50 rounded-xl space-y-2">
               <h4 className="font-semibold text-brand-navy-900">{raceName}</h4>
@@ -247,37 +247,31 @@ export function TopTubeStickerButton({
               </div>
             </div>
 
-            {/* Sticker Preview */}
+            {/* Sticker Preview - Scaled down */}
             <div className="flex justify-center">
               <div
                 className={cn(
                   "bg-white border-2 border-brand-navy-200 rounded shadow-sm",
                   "flex flex-col items-center justify-center text-brand-navy-400 text-xs",
-                  size === "compact" && "w-12 h-56",
-                  size === "standard" && "w-14 h-72",
-                  size === "extended" && "w-16 h-80"
+                  size === "compact" && "w-8 h-28",
+                  size === "standard" && "w-9 h-36",
+                  size === "extended" && "w-10 h-40"
                 )}
               >
-                <span className="writing-vertical-rl rotate-180 text-center">
-                  Preview
+                <span className="text-[8px] writing-vertical-rl rotate-180 text-center">
+                  {size}
                 </span>
               </div>
             </div>
 
             {/* Info */}
-            <div className="text-sm text-brand-navy-500 bg-brand-navy-50 rounded-lg p-3">
-              <p className="font-medium text-brand-navy-700 mb-1">Print Tips:</p>
-              <ul className="space-y-1 text-xs">
-                <li>• Use waterproof label paper for durability</li>
-                <li>• Print at 100% scale (no scaling)</li>
-                <li>• Apply clear packing tape over the sticker for protection</li>
-                <li>• Vertical orientation fits naturally on top tube</li>
-              </ul>
-            </div>
+            <p className="text-xs text-brand-navy-500">
+              Print at 100% scale on waterproof label paper. Apply clear tape for protection.
+            </p>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
               onClick={() => setIsOpen(false)}
