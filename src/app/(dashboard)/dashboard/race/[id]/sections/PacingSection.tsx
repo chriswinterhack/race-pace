@@ -27,6 +27,7 @@ import {
 } from "@/lib/calculations";
 import type { ElevationPoint } from "@/lib/calculations";
 import { ElevationPlanner } from "@/components/elevation-planner";
+import { TopTubeStickerButton } from "@/components/exports";
 
 interface Segment {
   id: string;
@@ -52,7 +53,13 @@ interface RacePlan {
     gpx_distance_miles: number | null;
     gpx_file_url: string | null;
     start_time: string | null;
+    date: string | null;
     aid_stations: Array<{ name: string; mile: number; type?: "aid_station" | "checkpoint" }> | null;
+    race_edition?: {
+      race?: {
+        name: string;
+      };
+    };
   };
   segments: Segment[];
 }
@@ -333,6 +340,16 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
             value={viewMode}
             onChange={setViewMode}
           />
+          {/* Top Tube Sticker Export */}
+          {segments.length > 0 && (
+            <TopTubeStickerButton
+              raceName={plan.race_distance.race_edition?.race?.name || "Race"}
+              raceDate={plan.race_distance.date || undefined}
+              goalTime={plan.goal_time_minutes ? formatDuration(plan.goal_time_minutes) : undefined}
+              segments={segments}
+              startTime={startTime}
+            />
+          )}
           {aidStations.length > 0 && (
             <Button
               onClick={handleGenerateFromAidStations}
