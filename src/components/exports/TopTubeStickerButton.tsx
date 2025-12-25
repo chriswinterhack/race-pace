@@ -24,10 +24,17 @@ interface Segment {
   elevation_gain?: number | null;
 }
 
+interface Station {
+  name: string;
+  mile: number;
+  type?: "aid_station" | "checkpoint";
+}
+
 interface TopTubeStickerButtonProps {
   raceName: string;
   goalTime?: string;
   segments: Segment[];
+  stations?: Station[];
   startTime: string;
   totalDistance: number;
   totalElevationGain: number;
@@ -107,6 +114,7 @@ export function TopTubeStickerButton({
   raceName,
   goalTime,
   segments,
+  stations = [],
   startTime,
   totalDistance,
   totalElevationGain,
@@ -128,18 +136,81 @@ export function TopTubeStickerButton({
         elevationData = await fetchElevationData(gpxFileUrl);
       }
 
-      // Convert segments to checkpoints with arrival times
-      let elapsedMinutes = 0;
-      const checkpoints: StickerCheckpoint[] = segments.map((segment, index) => {
-        elapsedMinutes += segment.target_time_minutes;
-        const isLast = index === segments.length - 1;
-        return {
-          name: segment.end_name || `Mile ${segment.end_mile}`,
-          mile: segment.end_mile,
-          arrivalTime: calculateArrivalTime(startTime, elapsedMinutes),
-          type: isLast ? "finish" : "aid_station",
-        };
-      });
+      // Build cumulative time data from segments for interpolation
+      const segmentTimes: { mile: number; elapsedMinutes: number }[] = [{ mile: 0, elapsedMinutes: 0 }];
+      let cumulativeMinutes = 0;
+      for (const segment of segments) {
+        cumulativeMinutes += segment.target_time_minutes;
+        segmentTimes.push({ mile: segment.end_mile, elapsedMinutes: cumulativeMinutes });
+      }
+
+      // Interpolate arrival time for any mile marker
+      const getArrivalTimeAtMile = (mile: number): string => {
+        // Find surrounding segment times
+        for (let i = 1; i < segmentTimes.length; i++) {
+          const prev = segmentTimes[i - 1]!;
+          const curr = segmentTimes[i]!;
+          if (mile <= curr.mile) {
+            // Interpolate between prev and curr
+            const mileRange = curr.mile - prev.mile;
+            if (mileRange === 0) return calculateArrivalTime(startTime, prev.elapsedMinutes);
+            const segmentProgress = (mile - prev.mile) / mileRange;
+            const interpolatedMinutes = prev.elapsedMinutes +
+              segmentProgress * (curr.elapsedMinutes - prev.elapsedMinutes);
+            return calculateArrivalTime(startTime, interpolatedMinutes);
+          }
+        }
+        // Past all segments, use final time
+        return calculateArrivalTime(startTime, cumulativeMinutes);
+      };
+
+      // Use stations data if available, otherwise fall back to segment endpoints
+      let checkpoints: StickerCheckpoint[];
+
+      if (stations.length > 0) {
+        // Use stations with their actual types
+        checkpoints = stations
+          .sort((a, b) => a.mile - b.mile)
+          .map((station) => ({
+            name: station.name,
+            mile: station.mile,
+            arrivalTime: getArrivalTimeAtMile(station.mile),
+            type: station.type || "aid_station",
+          }));
+
+        // Add finish if not already included
+        const lastSegment = segments[segments.length - 1];
+        if (lastSegment) {
+          const hasFinish = checkpoints.some(cp =>
+            Math.abs(cp.mile - lastSegment.end_mile) < 0.5
+          );
+          if (!hasFinish) {
+            checkpoints.push({
+              name: lastSegment.end_name || "Finish",
+              mile: lastSegment.end_mile,
+              arrivalTime: calculateArrivalTime(startTime, cumulativeMinutes),
+              type: "finish",
+            });
+          } else {
+            // Mark the last checkpoint as finish
+            const lastCp = checkpoints[checkpoints.length - 1];
+            if (lastCp && Math.abs(lastCp.mile - lastSegment.end_mile) < 0.5) {
+              lastCp.type = "finish";
+            }
+          }
+        }
+      } else {
+        // Fall back to segment endpoints
+        checkpoints = segments.map((segment, index) => {
+          const isLast = index === segments.length - 1;
+          return {
+            name: segment.end_name || `Mile ${segment.end_mile}`,
+            mile: segment.end_mile,
+            arrivalTime: getArrivalTimeAtMile(segment.end_mile),
+            type: isLast ? "finish" : "aid_station",
+          };
+        });
+      }
 
       // Generate PDF
       const doc = (

@@ -161,7 +161,11 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
 
   const effectiveDistance = plan.race_distance.gpx_distance_miles ?? plan.race_distance.distance_miles;
 
-  const aidStations = (plan.race_distance.aid_stations ?? []).filter(
+  // All stations including checkpoints (for display)
+  const allStations = plan.race_distance.aid_stations ?? [];
+
+  // Only aid stations (for segment generation - checkpoints don't have supplies)
+  const aidStations = allStations.filter(
     (s) => !s.type || s.type === "aid_station"
   );
 
@@ -346,6 +350,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
               raceName={plan.race_distance.race_edition?.race?.name || "Race"}
               goalTime={plan.goal_time_minutes ? formatDuration(plan.goal_time_minutes) : undefined}
               segments={segments}
+              stations={allStations}
               startTime={startTime}
               totalDistance={effectiveDistance}
               totalElevationGain={totalElevationGain}
