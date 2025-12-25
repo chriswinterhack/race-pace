@@ -296,7 +296,7 @@ export interface CategoryConfig {
 
 export const CATEGORY_CONFIG: Record<ProductCategory, CategoryConfig> = {
   gel: { label: "Gels", icon: "⚡", iconImage: "/icons/gel.png", color: "bg-sky-100 text-sky-800" },
-  chew: { label: "Chews", icon: "🍬", color: "bg-pink-100 text-pink-800" },
+  chew: { label: "Chews", icon: "🍬", iconImage: "/icons/chews.png", color: "bg-pink-100 text-pink-800" },
   bar: { label: "Bars", icon: "🍫", iconImage: "/icons/bars.png", color: "bg-amber-100 text-amber-800" },
   drink_mix: { label: "Drinks", icon: "🥤", iconImage: "/icons/drinks.png", color: "bg-blue-100 text-blue-800" },
   real_food: { label: "Real Food", icon: "🍌", color: "bg-green-100 text-green-800" },
