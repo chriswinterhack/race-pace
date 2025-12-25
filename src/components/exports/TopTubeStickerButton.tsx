@@ -54,9 +54,9 @@ function calculateArrivalTime(startTime: string, elapsedMinutes: number): string
   const parts = startTime.split(":").map(Number);
   const startHour = parts[0] ?? 6;
   const startMinute = parts[1] ?? 0;
-  const totalMinutes = startHour * 60 + startMinute + elapsedMinutes;
+  const totalMinutes = startHour * 60 + startMinute + Math.round(elapsedMinutes);
   const hours = Math.floor(totalMinutes / 60) % 24;
-  const minutes = totalMinutes % 60;
+  const minutes = Math.round(totalMinutes % 60);
   const period = hours >= 12 ? "PM" : "AM";
   const displayHour = hours % 12 || 12;
   return `${displayHour}:${minutes.toString().padStart(2, "0")} ${period}`;
