@@ -1,22 +1,15 @@
 "use client";
 
-import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 
-// Register fonts for better typography
-Font.register({
-  family: "Inter",
-  fonts: [
-    { src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff2", fontWeight: 400 },
-    { src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hjp-Ek-_EeA.woff2", fontWeight: 600 },
-    { src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hjp-Ek-_EeA.woff2", fontWeight: 700 },
-  ],
-});
+// Using built-in Helvetica font family for reliable PDF generation
+// Available weights: Helvetica, Helvetica-Bold, Helvetica-Oblique, Helvetica-BoldOblique
 
 const styles = StyleSheet.create({
   page: {
     padding: 8,
     backgroundColor: "#ffffff",
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
   },
   // Standard sticker: roughly 2" x 8" (144 x 576 points)
   stickerStandard: {
@@ -44,7 +37,7 @@ const styles = StyleSheet.create({
   },
   raceName: {
     fontSize: 11,
-    fontWeight: 700,
+    fontFamily: "Helvetica-Bold",
     color: "#102a43",
   },
   raceDate: {
@@ -53,7 +46,7 @@ const styles = StyleSheet.create({
   },
   goalTime: {
     fontSize: 10,
-    fontWeight: 600,
+    fontFamily: "Helvetica-Bold",
     color: "#0284c7",
   },
   splitRow: {
@@ -73,7 +66,7 @@ const styles = StyleSheet.create({
   checkpointName: {
     flex: 3,
     fontSize: 8,
-    fontWeight: 600,
+    fontFamily: "Helvetica-Bold",
     color: "#102a43",
   },
   splitMile: {
@@ -85,14 +78,14 @@ const styles = StyleSheet.create({
   splitTime: {
     flex: 1.5,
     fontSize: 9,
-    fontWeight: 700,
+    fontFamily: "Helvetica-Bold",
     color: "#102a43",
     textAlign: "center",
   },
   arrivalTime: {
     flex: 1.5,
     fontSize: 9,
-    fontWeight: 600,
+    fontFamily: "Helvetica-Bold",
     color: "#0284c7",
     textAlign: "right",
   },
@@ -109,7 +102,7 @@ const styles = StyleSheet.create({
   },
   totalTime: {
     fontSize: 10,
-    fontWeight: 700,
+    fontFamily: "Helvetica-Bold",
     color: "#102a43",
   },
   columnHeader: {
@@ -119,7 +112,7 @@ const styles = StyleSheet.create({
   },
   columnHeaderText: {
     fontSize: 6,
-    fontWeight: 600,
+    fontFamily: "Helvetica-Bold",
     color: "#94a3b8",
     textTransform: "uppercase",
     letterSpacing: 0.5,
