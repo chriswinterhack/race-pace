@@ -313,6 +313,42 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
     };
   });
 
+  // Build cumulative time data for interpolation
+  const segmentTimes: { mile: number; elapsedMinutes: number }[] = [{ mile: 0, elapsedMinutes: 0 }];
+  let cumulativeMinutes = 0;
+  for (const segment of segments) {
+    cumulativeMinutes += segment.target_time_minutes;
+    segmentTimes.push({ mile: segment.end_mile, elapsedMinutes: cumulativeMinutes });
+  }
+
+  // Interpolate arrival time for any mile marker
+  const getArrivalTimeAtMile = (mile: number): string => {
+    for (let i = 1; i < segmentTimes.length; i++) {
+      const prev = segmentTimes[i - 1]!;
+      const curr = segmentTimes[i]!;
+      if (mile <= curr.mile) {
+        const mileRange = curr.mile - prev.mile;
+        if (mileRange === 0) return calculateArrivalTime(startTime, prev.elapsedMinutes);
+        const segmentProgress = (mile - prev.mile) / mileRange;
+        const interpolatedMinutes = prev.elapsedMinutes +
+          segmentProgress * (curr.elapsedMinutes - prev.elapsedMinutes);
+        return calculateArrivalTime(startTime, Math.round(interpolatedMinutes));
+      }
+    }
+    return calculateArrivalTime(startTime, cumulativeMinutes);
+  };
+
+  // Find checkpoints that fall within segments (not at boundaries)
+  const internalCheckpoints = allStations.filter((station) => {
+    // Check if this station is NOT a segment boundary
+    const isSegmentBoundary = segments.some(
+      (seg) =>
+        Math.abs(seg.start_mile - station.mile) < 0.5 ||
+        Math.abs(seg.end_mile - station.mile) < 0.5
+    );
+    return !isSegmentBoundary && station.mile > 0;
+  });
+
   const totalTime = segments.reduce((sum, s) => sum + s.target_time_minutes, 0);
   const totalElevationGain = segments.reduce((sum, s) => sum + (s.elevation_gain || 0), 0);
   const totalElevationLoss = segments.reduce((sum, s) => sum + (s.elevation_loss || 0), 0);
@@ -503,12 +539,59 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
                 const isFirst = index === 0;
                 const isLast = index === segments.length - 1;
 
+                // Find checkpoints within this segment (not at boundaries)
+                const checkpointsInSegment = internalCheckpoints.filter(
+                  (cp) => cp.mile > segment.start_mile && cp.mile < segment.end_mile
+                );
+
                 return (
-                  <div
-                    key={segment.id}
-                    className={cn(
-                      "group relative bg-white rounded-xl border transition-all duration-200",
-                      isExpanded
+                  <div key={segment.id} className="space-y-3">
+                    {/* Checkpoint rows that fall within this segment */}
+                    {checkpointsInSegment.map((checkpoint) => (
+                      <div
+                        key={`checkpoint-${checkpoint.mile}`}
+                        className="relative bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200 p-4"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Checkpoint Icon */}
+                          <div className="relative flex-shrink-0">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center">
+                              <Flag className="h-5 w-5" />
+                            </div>
+                            <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-white hidden sm:block" />
+                          </div>
+
+                          {/* Checkpoint Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-orange-600 bg-orange-100 px-2 py-0.5 rounded">
+                                Checkpoint
+                              </span>
+                            </div>
+                            <h4 className="font-semibold text-brand-navy-900">
+                              {checkpoint.name}
+                            </h4>
+                            <p className="text-sm text-brand-navy-500">
+                              Mile {checkpoint.mile.toFixed(1)}
+                            </p>
+                          </div>
+
+                          {/* Arrival Time */}
+                          <div className="text-right">
+                            <p className="text-xs text-brand-navy-500 uppercase tracking-wide">ETA</p>
+                            <p className="text-lg font-bold text-orange-600">
+                              {getArrivalTimeAtMile(checkpoint.mile)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Segment Row */}
+                    <div
+                      className={cn(
+                        "group relative bg-white rounded-xl border transition-all duration-200",
+                        isExpanded
                         ? "border-brand-sky-300 shadow-lg shadow-brand-sky-500/10"
                         : "border-brand-navy-100 hover:border-brand-navy-200 hover:shadow-md"
                     )}
@@ -675,7 +758,8 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
                           </div>
                         </div>
                       </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })}

@@ -29,6 +29,7 @@ export function SegmentAnnotations({
     segments,
     selectedSegmentId,
     annotations,
+    aidStations,
   } = useElevationPlannerStore();
 
   // Track container dimensions
@@ -110,22 +111,35 @@ export function SegmentAnnotations({
     return segments.map((segment) => {
       const startX = mileToX(segment.start_mile);
       const endX = mileToX(segment.end_mile);
-      const centerX = (startX + endX) / 2;
-      const centerY = getSegmentCenterY(segment);
       const width = endX - startX;
+
+      // Check if any checkpoint/aid station falls within this segment (not at boundaries)
+      const hasInternalCheckpoint = aidStations.some(
+        (station) =>
+          station.mile > segment.start_mile + 0.5 &&
+          station.mile < segment.end_mile - 0.5
+      );
+
+      // Position badge at 30% from start if there's an internal checkpoint, otherwise center
+      const badgeX = hasInternalCheckpoint
+        ? startX + width * 0.25
+        : (startX + endX) / 2;
+
+      const centerY = getSegmentCenterY(segment);
 
       // Only show annotations if segment is wide enough
       const showLabels = width > 60;
 
       return {
         segment,
-        centerX,
+        centerX: badgeX,
         centerY,
         width,
         showLabels,
+        hasInternalCheckpoint,
       };
     });
-  }, [segments, elevationData, chartArea]);
+  }, [segments, elevationData, chartArea, aidStations]);
 
   if (segments.length === 0 || chartArea.width === 0) {
     return null;

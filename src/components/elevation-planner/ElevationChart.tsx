@@ -170,10 +170,10 @@ export function ElevationChart({ className, raceStartTime = "06:00", onSegmentCl
           margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
         >
           <defs>
-            {/* Dark theme gradient for elevation area */}
+            {/* Dark theme gradient for elevation area - subtle base layer */}
             <linearGradient id="elevationGradientDark" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.4} />
-              <stop offset="50%" stopColor="#38bdf8" stopOpacity={0.15} />
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.15} />
+              <stop offset="50%" stopColor="#38bdf8" stopOpacity={0.08} />
               <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.02} />
             </linearGradient>
           </defs>
