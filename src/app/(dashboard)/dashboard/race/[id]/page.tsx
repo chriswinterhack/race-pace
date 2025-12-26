@@ -150,6 +150,7 @@ export default function RaceDashboardPage() {
   const [activeSection, setActiveSection] = useState<SectionId>("overview");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
@@ -157,6 +158,7 @@ export default function RaceDashboardPage() {
 
   useEffect(() => {
     fetchPlan();
+    fetchSubscriptionStatus();
   }, [id]);
 
   // Update indicator position when active section changes
@@ -268,6 +270,19 @@ export default function RaceDashboardPage() {
       setPlan(data as unknown as RacePlan);
     }
     setLoading(false);
+  }
+
+  async function fetchSubscriptionStatus() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("users")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .single();
+
+    setIsSubscribed(data?.subscription_status === "active");
   }
 
   async function handleDelete() {
@@ -668,7 +683,7 @@ export default function RaceDashboardPage() {
               <DiscussionsSection raceId={race.id} raceName={race.name} />
             )}
             {activeSection === "export" && (
-              <ExportSection plan={plan as any} />
+              <ExportSection plan={plan as any} isSubscribed={isSubscribed} />
             )}
           </div>
         </div>

@@ -16,6 +16,7 @@ import {
   Download,
   Edit,
   Mountain,
+  Watch,
 } from "lucide-react";
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@/components/ui";
 import { cn, formatDateLong } from "@/lib/utils";
@@ -28,6 +29,7 @@ import {
   calculateRaceNutrition,
 } from "@/lib/calculations";
 import type { EffortLevel } from "@/types";
+import { GarminExportModal } from "@/components/garmin";
 
 interface Segment {
   id: string;
@@ -80,12 +82,15 @@ export default function PlanDetailPage() {
   const [plan, setPlan] = useState<RacePlan | null>(null);
   const [athlete, setAthlete] = useState<AthleteProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showGarminModal, setShowGarminModal] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   const supabase = createClient();
 
   useEffect(() => {
     fetchPlan();
     fetchAthleteProfile();
+    fetchSubscriptionStatus();
   }, [id]);
 
   async function fetchPlan() {
@@ -156,6 +161,19 @@ export default function PlanDetailPage() {
     if (data) {
       setAthlete(data);
     }
+  }
+
+  async function fetchSubscriptionStatus() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("users")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .single();
+
+    setIsSubscribed(data?.subscription_status === "active");
   }
 
   if (loading) {
@@ -233,6 +251,10 @@ export default function PlanDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowGarminModal(true)}>
+            <Watch className="h-4 w-4 mr-2" />
+            Garmin
+          </Button>
           <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -440,6 +462,14 @@ export default function PlanDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Garmin Export Modal */}
+      <GarminExportModal
+        open={showGarminModal}
+        onClose={() => setShowGarminModal(false)}
+        racePlanId={plan.id}
+        isSubscribed={isSubscribed}
+      />
     </div>
   );
 }

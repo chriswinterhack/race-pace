@@ -1,0 +1,12 @@
+# RacePace Connect IQ Build Configuration
+project.manifest = manifest.xml
+
+# Base configuration
+base.sourcePath = source
+base.resourcePath = resources
+
+# String resources
+base.resourcePath = $(base.resourcePath);resources/strings
+
+# Drawable resources
+base.resourcePath = $(base.resourcePath);resources/drawables

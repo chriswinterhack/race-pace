@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
+    <iq:application
+        entry="FinalClimbApp"
+        id="finalclimb-app-id"
+        launcherIcon="@Drawables.LauncherIcon"
+        minSdkVersion="4.0.0"
+        name="@Strings.AppName"
+        type="widget"
+        version="1.0.0">
+
+        <iq:products>
+            <!-- Edge Cycling Computers -->
+            <iq:product id="edge530"/>
+            <iq:product id="edge540"/>
+            <iq:product id="edge830"/>
+            <iq:product id="edge840"/>
+            <iq:product id="edge1030"/>
+            <iq:product id="edge1040"/>
+            <iq:product id="edge1050"/>
+
+            <!-- Fenix Watches -->
+            <iq:product id="fenix6"/>
+            <iq:product id="fenix6s"/>
+            <iq:product id="fenix6xpro"/>
+            <iq:product id="fenix7"/>
+            <iq:product id="fenix7s"/>
+            <iq:product id="fenix7x"/>
+            <iq:product id="fenix8"/>
+
+            <!-- Forerunner Series -->
+            <iq:product id="fr955"/>
+            <iq:product id="fr965"/>
+            <iq:product id="fr255"/>
+            <iq:product id="fr265"/>
+            <iq:product id="fr945"/>
+
+            <!-- Enduro -->
+            <iq:product id="enduro"/>
+            <iq:product id="enduro2"/>
+
+            <!-- Epix -->
+            <iq:product id="epix2"/>
+            <iq:product id="epix2pro42mm"/>
+            <iq:product id="epix2pro47mm"/>
+            <iq:product id="epix2pro51mm"/>
+        </iq:products>
+
+        <iq:permissions>
+            <iq:uses-permission id="Communications"/>
+            <iq:uses-permission id="Background"/>
+        </iq:permissions>
+
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+
+        <iq:barrels/>
+    </iq:application>
+</iq:manifest>

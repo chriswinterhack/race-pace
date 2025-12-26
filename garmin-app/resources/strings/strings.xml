@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<strings>
+    <string id="AppName">FinalClimb</string>
+    <string id="Sync">Sync</string>
+    <string id="EnterCode">Enter Code</string>
+    <string id="Syncing">Syncing...</string>
+    <string id="Success">Success!</string>
+    <string id="Error">Error</string>
+    <string id="NoData">No race plan loaded</string>
+    <string id="InvalidCode">Invalid code</string>
+    <string id="ConnectionError">Connection error</string>
+</strings>

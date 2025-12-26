@@ -1,7 +1,9 @@
 "use client";
 
-import { FileText, Download, Printer } from "lucide-react";
+import { useState } from "react";
+import { FileText, Download, Printer, Watch } from "lucide-react";
 import { Button } from "@/components/ui";
+import { GarminExportModal } from "@/components/garmin";
 
 interface RacePlan {
   id: string;
@@ -25,9 +27,11 @@ interface RacePlan {
 
 interface ExportSectionProps {
   plan: RacePlan;
+  isSubscribed?: boolean;
 }
 
-export function ExportSection({ plan }: ExportSectionProps) {
+export function ExportSection({ plan, isSubscribed = false }: ExportSectionProps) {
+  const [showGarminModal, setShowGarminModal] = useState(false);
   const hasSegments = plan.segments.length > 0;
   const hasGoalTime = !!plan.goal_time_minutes;
 
@@ -40,7 +44,37 @@ export function ExportSection({ plan }: ExportSectionProps) {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Garmin Sync */}
+        <div className="p-6 rounded-lg border border-brand-navy-200 hover:border-brand-sky-300 transition-colors">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-lg bg-emerald-50">
+              <Watch className="h-6 w-6 text-emerald-600" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-brand-navy-900">Garmin Sync</h4>
+              <p className="mt-1 text-sm text-brand-navy-600">
+                View checkpoints and power targets on your Garmin
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                disabled={!hasSegments}
+                onClick={() => setShowGarminModal(true)}
+              >
+                <Watch className="h-4 w-4 mr-2" />
+                Sync to Garmin
+              </Button>
+              {!hasSegments && (
+                <p className="mt-2 text-xs text-brand-navy-500">
+                  Add pacing segments first
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Top Tube Sticker */}
         <div className="p-6 rounded-lg border border-brand-navy-200 hover:border-brand-sky-300 transition-colors">
           <div className="flex items-start gap-4">
@@ -132,6 +166,14 @@ export function ExportSection({ plan }: ExportSectionProps) {
           </div>
         </div>
       )}
+
+      {/* Garmin Export Modal */}
+      <GarminExportModal
+        open={showGarminModal}
+        onClose={() => setShowGarminModal(false)}
+        racePlanId={plan.id}
+        isSubscribed={isSubscribed}
+      />
     </div>
   );
 }
