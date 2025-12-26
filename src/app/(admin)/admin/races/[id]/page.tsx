@@ -78,6 +78,8 @@ interface SurfaceComposition {
   dirt?: number;
 }
 
+type DistanceRaceType = "road" | "gravel" | "xc_mtb" | "ultra_mtb";
+
 interface RaceDistance {
   id: string;
   name: string | null;
@@ -90,6 +92,7 @@ interface RaceDistance {
   sort_order: number;
   aid_stations: AidStation[] | null;
   surface_composition: SurfaceComposition | null;
+  race_type: DistanceRaceType | null;
 }
 
 interface RaceEdition {
@@ -196,7 +199,8 @@ export default function RaceDetailPage() {
             is_active,
             sort_order,
             aid_stations,
-            surface_composition
+            surface_composition,
+            race_type
           )
         )
       `)
@@ -926,6 +930,13 @@ function EditEditionModal({
   );
 }
 
+const RACE_TYPE_OPTIONS: { value: DistanceRaceType; label: string; description: string }[] = [
+  { value: "road", label: "Road", description: "Road race with drafting" },
+  { value: "gravel", label: "Gravel", description: "Gravel with some drafting" },
+  { value: "xc_mtb", label: "XC MTB", description: "Cross-country MTB" },
+  { value: "ultra_mtb", label: "Ultra MTB", description: "Ultra MTB with hike-a-bike" },
+];
+
 function EditDistanceModal({
   distance,
   onClose,
@@ -941,6 +952,7 @@ function EditDistanceModal({
     date: distance.date || "",
     start_time: distance.start_time || "",
     elevation_gain: distance.elevation_gain?.toString() || "",
+    race_type: (distance.race_type || "gravel") as DistanceRaceType,
   });
   const [surface, setSurface] = useState<SurfaceComposition>(
     distance.surface_composition || {}
@@ -979,6 +991,7 @@ function EditDistanceModal({
           start_time: formData.start_time || null,
           elevation_gain: formData.elevation_gain ? parseInt(formData.elevation_gain) : null,
           surface_composition: Object.keys(cleanedSurface).length > 0 ? cleanedSurface : null,
+          race_type: formData.race_type,
         }),
       });
 
@@ -1064,6 +1077,32 @@ function EditDistanceModal({
                 onChange={(e) => setFormData({ ...formData, elevation_gain: e.target.value })}
                 placeholder="4500"
               />
+            </div>
+
+            {/* Race Type for Power Calculation */}
+            <div className="space-y-2">
+              <Label>Race Type (Power Adjustment)</Label>
+              <p className="text-xs text-brand-navy-500">
+                Affects real-world power adjustment for goal time calculations
+              </p>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {RACE_TYPE_OPTIONS.map(({ value, label, description }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, race_type: value })}
+                    className={cn(
+                      "p-3 rounded-lg border-2 text-left transition-colors",
+                      formData.race_type === value
+                        ? "border-brand-sky-500 bg-brand-sky-50"
+                        : "border-brand-navy-200 hover:border-brand-navy-300"
+                    )}
+                  >
+                    <div className="font-medium text-sm text-brand-navy-900">{label}</div>
+                    <div className="text-xs text-brand-navy-500 mt-0.5">{description}</div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Surface Composition */}

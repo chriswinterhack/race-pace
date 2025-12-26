@@ -15,6 +15,7 @@ interface AthleteProfile {
   id: string;
   user_id: string;
   weight_kg: number | null;
+  gear_weight_kg: number | null; // bike + hydration + gear
   ftp_watts: number | null;
   altitude_adjustment_factor: number | null;
   if_safe: number | null;
@@ -94,6 +95,7 @@ export default function SettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [ftp, setFtp] = useState("");
   const [weight, setWeight] = useState("");
+  const [gearWeight, setGearWeight] = useState("12"); // Default 12kg (~26lbs)
   const [altitudeAdjustment, setAltitudeAdjustment] = useState("");
   const [ifSafe, setIfSafe] = useState("67");
   const [ifTempo, setIfTempo] = useState("70");
@@ -148,6 +150,7 @@ export default function SettingsPage() {
       setProfile(profileData);
       setFtp(profileData.ftp_watts?.toString() || "");
       setWeight(profileData.weight_kg?.toString() || "");
+      setGearWeight(profileData.gear_weight_kg?.toString() || "12");
       setAltitudeAdjustment(((profileData.altitude_adjustment_factor || 0.20) * 100).toString());
       setIfSafe(((profileData.if_safe || 0.67) * 100).toString());
       setIfTempo(((profileData.if_tempo || 0.70) * 100).toString());
@@ -193,6 +196,24 @@ export default function SettingsPage() {
     if (isNaN(numValue)) return;
     const kgValue = preferredUnits === "imperial" ? lbsToKg(numValue) : numValue;
     setWeight(kgValue.toString());
+  };
+
+  const getDisplayGearWeight = () => {
+    if (!gearWeight) return "";
+    const kg = parseFloat(gearWeight);
+    if (isNaN(kg)) return "";
+    return preferredUnits === "imperial" ? kgToLbs(kg).toFixed(1) : kg.toFixed(1);
+  };
+
+  const handleGearWeightChange = (value: string) => {
+    if (!value) {
+      setGearWeight("12"); // Default
+      return;
+    }
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return;
+    const kgValue = preferredUnits === "imperial" ? lbsToKg(numValue) : numValue;
+    setGearWeight(kgValue.toString());
   };
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -270,6 +291,7 @@ export default function SettingsPage() {
       user_id: user.id,
       ftp_watts: ftp ? parseInt(ftp) : null,
       weight_kg: weight ? parseFloat(weight) : null,
+      gear_weight_kg: gearWeight ? parseFloat(gearWeight) : 12,
       altitude_adjustment_factor: altitudeAdjustment ? parseFloat(altitudeAdjustment) / 100 : 0.20,
       if_safe: ifSafe ? parseFloat(ifSafe) / 100 : 0.67,
       if_tempo: ifTempo ? parseFloat(ifTempo) / 100 : 0.70,
@@ -447,13 +469,18 @@ export default function SettingsPage() {
                   <Input id="ftp" type="number" placeholder="250" className="font-mono" value={ftp} onChange={(e) => setFtp(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="weight">Weight ({preferredUnits === "imperial" ? "lbs" : "kg"})</Label>
+                  <Label htmlFor="weight">Body Weight ({preferredUnits === "imperial" ? "lbs" : "kg"})</Label>
                   <Input id="weight" type="number" step="0.1" placeholder={preferredUnits === "imperial" ? "154" : "70"} className="font-mono" value={getDisplayWeight()} onChange={(e) => handleWeightChange(e.target.value)} />
                 </div>
-                <div className="space-y-2 col-span-2 sm:col-span-2">
+                <div className="space-y-2">
+                  <Label htmlFor="gear-weight">Gear Weight ({preferredUnits === "imperial" ? "lbs" : "kg"})</Label>
+                  <Input id="gear-weight" type="number" step="0.1" placeholder={preferredUnits === "imperial" ? "26" : "12"} className="font-mono" value={getDisplayGearWeight()} onChange={(e) => handleGearWeightChange(e.target.value)} />
+                  <p className="text-xs text-brand-navy-500">Bike + hydration + gear</p>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="altitude">Altitude Adjustment (%)</Label>
                   <Input id="altitude" type="number" step="1" min="0" max="50" placeholder="20" className="font-mono" value={altitudeAdjustment} onChange={(e) => setAltitudeAdjustment(e.target.value)} disabled={isLocked} />
-                  <p className="text-xs text-brand-navy-500">Applied automatically for races above 4,000 ft</p>
+                  <p className="text-xs text-brand-navy-500">Applied for races above 4,000 ft</p>
                 </div>
               </div>
             </div>

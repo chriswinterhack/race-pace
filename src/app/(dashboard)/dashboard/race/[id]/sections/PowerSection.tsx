@@ -10,8 +10,9 @@ import {
   calculateRequiredPowerAdvanced,
   estimateFinishTimeAdvanced,
   DEFAULT_INTENSITY_FACTORS,
+  RACE_TYPE_LABELS,
 } from "@/lib/calculations/power";
-import type { IntensityFactors } from "@/types";
+import type { IntensityFactors, RaceType } from "@/types";
 
 interface SurfaceComposition {
   // With _pct suffix (legacy)
@@ -30,6 +31,7 @@ interface SurfaceComposition {
 interface RacePlan {
   id: string;
   goal_time_minutes: number | null;
+  goal_np_watts: number | null; // Manual override for Goal NP
   race_distance: {
     distance_miles: number;
     elevation_gain: number | null;
@@ -41,12 +43,15 @@ interface RacePlan {
     descent_pct: number | null;
     avg_climb_grade: number | null;
     avg_descent_grade: number | null;
+    // Race type for power adjustment
+    race_type: RaceType | null;
   };
 }
 
 interface AthleteProfile {
   ftp_watts: number | null;
   weight_kg: number | null;
+  gear_weight_kg: number | null; // bike + hydration + gear
   altitude_adjustment_factor: number | null;
   if_safe: number | null;
   if_tempo: number | null;
@@ -70,12 +75,17 @@ export function PowerSection({ plan }: PowerSectionProps) {
     if_pushing: 0.73,
     altitude_adjustment_factor: 0.20,
   });
+  // Goal NP editing state
+  const [goalNpWatts, setGoalNpWatts] = useState<number | null>(plan.goal_np_watts);
+  const [editingGoalNp, setEditingGoalNp] = useState(false);
+  const [goalNpInput, setGoalNpInput] = useState<string>(plan.goal_np_watts?.toString() || "");
+  const [savingGoalNp, setSavingGoalNp] = useState(false);
+
   const supabase = createClient();
   const { units } = useUnits();
 
   useEffect(() => {
-    fetchProfile();
-    fetchPacingTotal();
+    fetchData();
   }, [plan.id]);
 
   useEffect(() => {
@@ -89,38 +99,76 @@ export function PowerSection({ plan }: PowerSectionProps) {
     }
   }, [profile]);
 
-  async function fetchProfile() {
+  async function fetchData() {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
+
+    // Run all queries in parallel for better performance
+    const [userResult, segmentsResult] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase
+        .from("segments")
+        .select("target_time_minutes")
+        .eq("race_plan_id", plan.id),
+    ]);
+
+    // Process segments result
+    if (segmentsResult.data && segmentsResult.data.length > 0) {
+      const total = segmentsResult.data.reduce((sum, s) => sum + (s.target_time_minutes || 0), 0);
+      setPacingTotalMinutes(total);
     }
 
-    const { data } = await supabase
-      .from("athlete_profiles")
-      .select("ftp_watts, weight_kg, altitude_adjustment_factor, if_safe, if_tempo, if_pushing, power_settings_locked")
-      .eq("user_id", user.id)
-      .single();
+    // If we have a user, fetch their profile
+    const user = userResult.data?.user;
+    if (user) {
+      const { data } = await supabase
+        .from("athlete_profiles")
+        .select("ftp_watts, weight_kg, gear_weight_kg, altitude_adjustment_factor, if_safe, if_tempo, if_pushing, power_settings_locked")
+        .eq("user_id", user.id)
+        .single();
 
-    if (data) {
-      setProfile(data);
+      if (data) {
+        setProfile(data);
+      }
     }
+
     setLoading(false);
   }
 
-  async function fetchPacingTotal() {
-    // Fetch segments for this plan and sum their target_time_minutes
-    const { data: segments } = await supabase
-      .from("segments")
-      .select("target_time_minutes")
-      .eq("race_plan_id", plan.id);
+  const handleSaveGoalNp = useCallback(async () => {
+    setSavingGoalNp(true);
+    const npValue = goalNpInput ? parseInt(goalNpInput) : null;
 
-    if (segments && segments.length > 0) {
-      const total = segments.reduce((sum, s) => sum + (s.target_time_minutes || 0), 0);
-      setPacingTotalMinutes(total);
+    const { error } = await supabase
+      .from("race_plans")
+      .update({ goal_np_watts: npValue })
+      .eq("id", plan.id);
+
+    if (!error) {
+      setGoalNpWatts(npValue);
+      setEditingGoalNp(false);
     }
-  }
+    setSavingGoalNp(false);
+  }, [goalNpInput, plan.id, supabase]);
+
+  const handleCancelGoalNp = useCallback(() => {
+    setGoalNpInput(goalNpWatts?.toString() || "");
+    setEditingGoalNp(false);
+  }, [goalNpWatts]);
+
+  const handleClearGoalNp = useCallback(async () => {
+    setSavingGoalNp(true);
+    const { error } = await supabase
+      .from("race_plans")
+      .update({ goal_np_watts: null })
+      .eq("id", plan.id);
+
+    if (!error) {
+      setGoalNpWatts(null);
+      setGoalNpInput("");
+      setEditingGoalNp(false);
+    }
+    setSavingGoalNp(false);
+  }, [plan.id, supabase]);
 
   const handleSave = useCallback(async () => {
     if (!profile) return;
@@ -224,14 +272,22 @@ export function PowerSection({ plan }: PowerSectionProps) {
         }
       : undefined;
 
+    // Use gear weight from profile, default to 12kg (~26lbs) if not set
+    const gearWeightKg = profile.gear_weight_kg ?? 12;
+
+    // Get race type for power adjustment (default to gravel)
+    const raceType: RaceType = plan.race_distance.race_type ?? "gravel";
+
     const np = calculateRequiredPowerAdvanced(plan.goal_time_minutes, {
       distanceKm,
       elevationGainM,
       avgElevationM,
       riderWeightKg: profile.weight_kg,
+      bikeWeightKg: gearWeightKg,
       surfaceComposition,
       courseProfile,
       includeFatigue: true,
+      raceType,
     });
 
     // Get detailed time breakdown at that power
@@ -241,13 +297,15 @@ export function PowerSection({ plan }: PowerSectionProps) {
       avgElevationM,
       normalizedPowerWatts: np,
       riderWeightKg: profile.weight_kg,
+      bikeWeightKg: gearWeightKg,
       surfaceComposition,
       courseProfile,
       includeFatigue: true,
+      raceType,
     });
 
     return { requiredPower: np, timeEstimate: estimate };
-  }, [plan.goal_time_minutes, plan.race_distance, profile?.weight_kg]);
+  }, [plan.goal_time_minutes, plan.race_distance, profile?.weight_kg, profile?.gear_weight_kg]);
 
   // Format time in hours:minutes
   const formatTime = (minutes: number) => {
@@ -453,33 +511,112 @@ export function PowerSection({ plan }: PowerSectionProps) {
             </p>
           </div>
         )}
-        {requiredPower && plan.goal_time_minutes && powerTargets && (
+        {/* Goal NP Card - Editable */}
+        {plan.goal_time_minutes && powerTargets && (
           <div className={cn(
-            "p-4 rounded-lg",
-            requiredPower > powerTargets.adjustedNP.pushing
-              ? "bg-red-50 border border-red-200"
-              : requiredPower > powerTargets.adjustedNP.tempo
-                ? "bg-amber-50 border border-amber-200"
-                : "bg-emerald-50"
+            "p-4 rounded-lg relative",
+            goalNpWatts
+              ? "bg-brand-sky-50 border-2 border-brand-sky-300"
+              : requiredPower && requiredPower > powerTargets.adjustedNP.pushing
+                ? "bg-red-50 border border-red-200"
+                : requiredPower && requiredPower > powerTargets.adjustedNP.tempo
+                  ? "bg-amber-50 border border-amber-200"
+                  : "bg-emerald-50"
           )}>
-            <p className="text-sm text-brand-navy-600">Goal Time NP</p>
-            <p className={cn(
-              "text-2xl font-bold font-mono",
-              requiredPower > powerTargets.adjustedNP.pushing
-                ? "text-red-700"
-                : requiredPower > powerTargets.adjustedNP.tempo
-                  ? "text-amber-700"
-                  : "text-emerald-700"
-            )}>
-              {requiredPower}w
-            </p>
-            <p className="text-xs text-brand-navy-500 mt-1">
-              {requiredPower > powerTargets.adjustedNP.pushing
-                ? "Exceeds Pushing zone - goal may be too aggressive"
-                : requiredPower > powerTargets.adjustedNP.tempo
-                  ? "Requires Pushing effort"
-                  : "Within Tempo zone"}
-            </p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm text-brand-navy-600">
+                Goal NP {goalNpWatts && <span className="text-brand-sky-600">(Set)</span>}
+              </p>
+              {!editingGoalNp && (
+                <button
+                  onClick={() => {
+                    setGoalNpInput(goalNpWatts?.toString() || requiredPower?.toString() || "");
+                    setEditingGoalNp(true);
+                  }}
+                  className="p-1 text-brand-navy-400 hover:text-brand-sky-600 hover:bg-brand-sky-50 rounded transition-colors"
+                  title="Edit Goal NP"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {editingGoalNp ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={goalNpInput}
+                    onChange={(e) => setGoalNpInput(e.target.value)}
+                    className="w-24 px-2 py-1 text-lg font-bold font-mono border border-brand-navy-200 rounded focus:outline-none focus:ring-2 focus:ring-brand-sky-400"
+                    placeholder={requiredPower?.toString() || ""}
+                    autoFocus
+                  />
+                  <span className="text-lg font-bold text-brand-navy-600">w</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSaveGoalNp}
+                    disabled={savingGoalNp}
+                    className="p-1.5 bg-brand-sky-500 text-white rounded hover:bg-brand-sky-600 disabled:opacity-50"
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleCancelGoalNp}
+                    className="p-1.5 text-brand-navy-500 hover:text-brand-navy-700 hover:bg-brand-navy-100 rounded"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  {goalNpWatts && (
+                    <button
+                      onClick={handleClearGoalNp}
+                      disabled={savingGoalNp}
+                      className="text-xs text-red-500 hover:text-red-700 ml-auto"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {requiredPower && (
+                  <p className="text-xs text-brand-navy-400">
+                    Calculated: {requiredPower}w
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <p className={cn(
+                  "text-2xl font-bold font-mono",
+                  goalNpWatts
+                    ? "text-brand-sky-700"
+                    : requiredPower && requiredPower > powerTargets.adjustedNP.pushing
+                      ? "text-red-700"
+                      : requiredPower && requiredPower > powerTargets.adjustedNP.tempo
+                        ? "text-amber-700"
+                        : "text-emerald-700"
+                )}>
+                  {goalNpWatts || requiredPower || "—"}w
+                </p>
+                <p className="text-xs text-brand-navy-500 mt-1">
+                  {goalNpWatts ? (
+                    <>
+                      Coach/manual target
+                      {requiredPower && (
+                        <span className="ml-1 text-brand-navy-400">
+                          (calc: {requiredPower}w)
+                        </span>
+                      )}
+                    </>
+                  ) : requiredPower && requiredPower > powerTargets.adjustedNP.pushing
+                    ? "Exceeds Pushing zone"
+                    : requiredPower && requiredPower > powerTargets.adjustedNP.tempo
+                      ? "Requires Pushing effort"
+                      : "Within Tempo zone"
+                  }
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -612,6 +749,42 @@ export function PowerSection({ plan }: PowerSectionProps) {
               </p>
             </div>
           </div>
+
+          {/* Race Type Adjustment Row */}
+          <div className="mt-4 pt-3 border-t border-brand-navy-100 flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="text-xs text-brand-navy-500 mb-0.5">Race Type</p>
+                <p className="text-sm font-medium text-brand-navy-900">
+                  {RACE_TYPE_LABELS[timeEstimate.raceType]}
+                </p>
+              </div>
+              <div className="h-8 w-px bg-brand-navy-200" />
+              <div>
+                <p className="text-xs text-brand-navy-500 mb-0.5">Real-World Factor</p>
+                <p className={cn(
+                  "text-sm font-bold font-mono",
+                  timeEstimate.raceTypeMultiplier < 0.95 ? "text-amber-600" : "text-brand-navy-900"
+                )}>
+                  {Math.round(timeEstimate.raceTypeMultiplier * 100)}%
+                </p>
+              </div>
+              <div className="h-8 w-px bg-brand-navy-200" />
+              <div>
+                <p className="text-xs text-brand-navy-500 mb-0.5">Adjusted NP</p>
+                <p className="text-sm font-bold font-mono text-brand-sky-600">
+                  {Math.round(timeEstimate.adjustedNP)}w
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-brand-navy-400 max-w-md">
+              {timeEstimate.raceType === "road" && "Heavy drafting in road peloton reduces sustained power needs"}
+              {timeEstimate.raceType === "gravel" && "Some drafting on fast sections, occasional coasting on descents"}
+              {timeEstimate.raceType === "xc_mtb" && "Minimal drafting, some hike-a-bike, technical terrain reduces power output"}
+              {timeEstimate.raceType === "ultra_mtb" && "Significant hike-a-bike sections, conservation pacing, extended coasting"}
+            </p>
+          </div>
+
           <p className="mt-3 text-xs text-brand-navy-400">
             Includes {formatTime(timeEstimate.overheadMinutes)} overhead for stops, nutrition, and mechanicals.
           </p>

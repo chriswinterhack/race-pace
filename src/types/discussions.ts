@@ -20,7 +20,7 @@ export const CATEGORY_COLORS: Record<DiscussionCategory, { bg: string; text: str
 
 export interface DiscussionUser {
   id: string;
-  full_name: string | null;
+  name: string | null;
   avatar_url: string | null;
 }
 

@@ -16,6 +16,9 @@ export type EffortLevel = "safe" | "tempo" | "pushing";
 // Plan status
 export type PlanStatus = "draft" | "complete";
 
+// Race types for power calculation adjustment
+export type RaceType = "road" | "gravel" | "xc_mtb" | "ultra_mtb";
+
 // Packing checklist categories
 export type PackingCategory =
   | "on_bike"
@@ -50,6 +53,7 @@ export interface AthleteProfile {
   id: string;
   user_id: string;
   weight_kg: number | null;
+  gear_weight_kg: number | null; // Total equipment weight (bike + hydration + gear)
   ftp_watts: number | null;
   altitude_adjustment_factor: number;
   // Intensity factors for power zones
@@ -155,6 +159,7 @@ export interface RaceDistance {
   avg_climb_grade: number | null;
   avg_descent_grade: number | null;
   total_elevation_loss: number | null;
+  race_type: RaceType | null; // Race type for power calculation adjustment
   aid_stations: AidStation[];
   time_limit_minutes: number | null;
   participant_limit: number | null;
@@ -214,6 +219,7 @@ export interface RacePlan {
   race_edition_id: string | null;
   race_distance_id: string | null;
   goal_time_minutes: number;
+  goal_np_watts: number | null; // Manual override for Goal NP (coach-provided or user-set)
   created_by: string;
   segments: Segment[];
   status: PlanStatus;

@@ -161,20 +161,15 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
 
   const effectiveDistance = plan.race_distance.gpx_distance_miles ?? plan.race_distance.distance_miles;
 
-  // All stations including checkpoints (for display)
+  // All stations including checkpoints - both create segment boundaries
   const allStations = plan.race_distance.aid_stations ?? [];
-
-  // Only aid stations (for segment generation - checkpoints don't have supplies)
-  const aidStations = allStations.filter(
-    (s) => !s.type || s.type === "aid_station"
-  );
 
   const segments = [...plan.segments].sort((a, b) => a.segment_order - b.segment_order);
   const startTime = plan.start_time?.slice(0, 5) || plan.race_distance.start_time?.slice(0, 5) || "06:00";
 
   const handleGenerateFromAidStations = async () => {
-    if (aidStations.length === 0) {
-      toast.error("No aid stations found for this race");
+    if (allStations.length === 0) {
+      toast.error("No aid stations or checkpoints found for this race");
       return;
     }
 
@@ -199,8 +194,9 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
         await supabase.from("segments").delete().eq("race_plan_id", plan.id);
       }
 
+      // Use all stations (aid stations + checkpoints) for segment boundaries
       const newSegments = generateSegmentsFromAidStations(
-        aidStations,
+        allStations,
         effectiveDistance,
         plan.goal_time_minutes,
         elevationPoints
@@ -313,42 +309,6 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
     };
   });
 
-  // Build cumulative time data for interpolation
-  const segmentTimes: { mile: number; elapsedMinutes: number }[] = [{ mile: 0, elapsedMinutes: 0 }];
-  let cumulativeMinutes = 0;
-  for (const segment of segments) {
-    cumulativeMinutes += segment.target_time_minutes;
-    segmentTimes.push({ mile: segment.end_mile, elapsedMinutes: cumulativeMinutes });
-  }
-
-  // Interpolate arrival time for any mile marker
-  const getArrivalTimeAtMile = (mile: number): string => {
-    for (let i = 1; i < segmentTimes.length; i++) {
-      const prev = segmentTimes[i - 1]!;
-      const curr = segmentTimes[i]!;
-      if (mile <= curr.mile) {
-        const mileRange = curr.mile - prev.mile;
-        if (mileRange === 0) return calculateArrivalTime(startTime, prev.elapsedMinutes);
-        const segmentProgress = (mile - prev.mile) / mileRange;
-        const interpolatedMinutes = prev.elapsedMinutes +
-          segmentProgress * (curr.elapsedMinutes - prev.elapsedMinutes);
-        return calculateArrivalTime(startTime, Math.round(interpolatedMinutes));
-      }
-    }
-    return calculateArrivalTime(startTime, cumulativeMinutes);
-  };
-
-  // Find checkpoints that fall within segments (not at boundaries)
-  const internalCheckpoints = allStations.filter((station) => {
-    // Check if this station is NOT a segment boundary
-    const isSegmentBoundary = segments.some(
-      (seg) =>
-        Math.abs(seg.start_mile - station.mile) < 0.5 ||
-        Math.abs(seg.end_mile - station.mile) < 0.5
-    );
-    return !isSegmentBoundary && station.mile > 0;
-  });
-
   const totalTime = segments.reduce((sum, s) => sum + s.target_time_minutes, 0);
   const totalElevationGain = segments.reduce((sum, s) => sum + (s.elevation_gain || 0), 0);
   const totalElevationLoss = segments.reduce((sum, s) => sum + (s.elevation_loss || 0), 0);
@@ -393,7 +353,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
               gpxFileUrl={plan.race_distance.gpx_file_url}
             />
           )}
-          {aidStations.length > 0 && (
+          {allStations.length > 0 && (
             <Button
               onClick={handleGenerateFromAidStations}
               disabled={generating}
@@ -425,7 +385,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
               Generate race splits based on aid station locations and your goal time.
               Times are automatically adjusted for terrain difficulty.
             </p>
-            {aidStations.length > 0 ? (
+            {allStations.length > 0 ? (
               <Button
                 onClick={handleGenerateFromAidStations}
                 disabled={generating}
@@ -539,54 +499,14 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
                 const isFirst = index === 0;
                 const isLast = index === segments.length - 1;
 
-                // Find checkpoints within this segment (not at boundaries)
-                const checkpointsInSegment = internalCheckpoints.filter(
-                  (cp) => cp.mile > segment.start_mile && cp.mile < segment.end_mile
+                // Check if this segment ends at a checkpoint (vs aid station)
+                const endStation = allStations.find(
+                  (s) => Math.abs(s.mile - segment.end_mile) < 0.5
                 );
+                const isCheckpointSegment = endStation?.type === "checkpoint";
 
                 return (
-                  <div key={segment.id} className="space-y-3">
-                    {/* Checkpoint rows that fall within this segment */}
-                    {checkpointsInSegment.map((checkpoint) => (
-                      <div
-                        key={`checkpoint-${checkpoint.mile}`}
-                        className="relative bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200 p-4"
-                      >
-                        <div className="flex items-center gap-4">
-                          {/* Checkpoint Icon */}
-                          <div className="relative flex-shrink-0">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center">
-                              <Flag className="h-5 w-5" />
-                            </div>
-                            <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-white hidden sm:block" />
-                          </div>
-
-                          {/* Checkpoint Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-semibold uppercase tracking-wide text-orange-600 bg-orange-100 px-2 py-0.5 rounded">
-                                Checkpoint
-                              </span>
-                            </div>
-                            <h4 className="font-semibold text-brand-navy-900">
-                              {checkpoint.name}
-                            </h4>
-                            <p className="text-sm text-brand-navy-500">
-                              Mile {checkpoint.mile.toFixed(1)}
-                            </p>
-                          </div>
-
-                          {/* Arrival Time */}
-                          <div className="text-right">
-                            <p className="text-xs text-brand-navy-500 uppercase tracking-wide">ETA</p>
-                            <p className="text-lg font-bold text-orange-600">
-                              {getArrivalTimeAtMile(checkpoint.mile)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
+                  <div key={segment.id}>
                     {/* Segment Row */}
                     <div
                       className={cn(
@@ -619,6 +539,12 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
 
                       {/* Segment Info */}
                       <div className="flex-1 min-w-0">
+                        {/* Checkpoint label if this segment ends at a checkpoint */}
+                        {isCheckpointSegment && (
+                          <span className="inline-block text-xs font-semibold uppercase tracking-wide text-orange-600 bg-orange-100 px-2 py-0.5 rounded mb-1">
+                            Checkpoint
+                          </span>
+                        )}
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold text-brand-navy-900 truncate">
                             {segment.start_name || `Mile ${segment.start_mile}`}
@@ -627,6 +553,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
                           <span className="font-medium text-brand-navy-900 truncate flex items-center gap-1.5">
                             {segment.end_name || `Mile ${segment.end_mile}`}
                             {isLast && <Flag className="h-4 w-4 text-brand-sky-500" />}
+                            {isCheckpointSegment && !isLast && <Flag className="h-4 w-4 text-orange-500" />}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-sm">

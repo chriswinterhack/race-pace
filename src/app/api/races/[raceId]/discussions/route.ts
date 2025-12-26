@@ -52,7 +52,7 @@ export async function GET(
       created_at,
       user:users!race_discussions_user_id_fkey_public (
         id,
-        full_name,
+        name,
         avatar_url
       )
     `)
@@ -165,7 +165,7 @@ export async function POST(
       created_at,
       user:users!race_discussions_user_id_fkey_public (
         id,
-        full_name,
+        name,
         avatar_url
       )
     `)

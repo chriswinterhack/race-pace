@@ -1,4 +1,4 @@
-import type { EffortLevel, IntensityFactors } from "@/types";
+import type { EffortLevel, IntensityFactors, RaceType } from "@/types";
 
 // Default intensity factors (can be overridden per athlete)
 export const DEFAULT_INTENSITY_FACTORS: IntensityFactors = {
@@ -51,13 +51,16 @@ const TIME_OVERHEAD_MINUTES = {
 };
 
 // Rolling resistance coefficients by surface
+// Values calibrated for real-world race conditions (not ideal lab conditions)
+// Reference: BikeCalculator, Silca research, real-world race data
 export const ROLLING_RESISTANCE = {
-  road: 0.004,
-  gravel: 0.008,
-  mtb: 0.012,
-  dirt: 0.010,
-  singletrack: 0.012,
-  pavement: 0.004,
+  road: 0.004,      // Smooth pavement, race tires
+  pavement: 0.004,  // Same as road
+  gravel: 0.010,    // Packed gravel roads (was 0.008, too optimistic)
+  dirt: 0.012,      // Dirt roads, some loose sections (was 0.010)
+  doubletrack: 0.014, // Fire roads, grass sections, varied surface
+  singletrack: 0.018, // Technical trail, roots, rocks (was 0.012)
+  mtb: 0.015,       // General MTB/XC average (was 0.012)
 };
 
 // Drag area (CdA) by position
@@ -68,6 +71,28 @@ export const DRAG_AREA = {
   hoods: 0.38, // Road bike hoods position
   gravel: 0.42, // Gravel bike, slightly more upright
   mtb: 0.50, // MTB position, very upright, wider bars
+};
+
+// Race type multipliers for real-world power adjustment
+// These account for factors not captured in physics model:
+// - Drafting (road races have significant pack riding)
+// - Hike-a-bike sections (MTB races)
+// - Extended coasting on descents
+// - Conservation strategy in ultra events
+// Calibrated against real race data (Leadville 2024: 165W predicted, 155W actual = 0.94)
+export const RACE_TYPE_MULTIPLIERS: Record<RaceType, number> = {
+  road: 0.90,      // Heavy drafting in peloton saves 10-20%
+  gravel: 0.97,    // Some drafting on fast sections, occasional coasting
+  xc_mtb: 0.96,    // Minimal drafting, some hike-a-bike, technical sections
+  ultra_mtb: 0.94, // No drafting, significant hike-a-bike, conservation pacing
+};
+
+// Human-readable labels for race types
+export const RACE_TYPE_LABELS: Record<RaceType, string> = {
+  road: "Road Race",
+  gravel: "Gravel",
+  xc_mtb: "XC MTB",
+  ultra_mtb: "Ultra MTB",
 };
 
 // ============================================================================
@@ -108,18 +133,17 @@ export function calculateWeightedCrr(composition: SurfaceComposition): number {
   const dirt = composition.dirt_pct ?? composition.dirt ?? 0;
   const doubletrack = composition.doubletrack ?? 0;
 
-  // Treat doubletrack similarly to dirt/gravel
-  const totalDirt = dirt + doubletrack;
-
-  const total = gravel + pavement + singletrack + totalDirt;
+  const total = gravel + pavement + singletrack + dirt + doubletrack;
 
   if (total === 0 || !isFinite(total)) return ROLLING_RESISTANCE.gravel; // Default
 
+  // Use specific Crr for each surface type
   const weightedCrr =
     (gravel * ROLLING_RESISTANCE.gravel +
      pavement * ROLLING_RESISTANCE.pavement +
      singletrack * ROLLING_RESISTANCE.singletrack +
-     totalDirt * ROLLING_RESISTANCE.dirt) / total;
+     dirt * ROLLING_RESISTANCE.dirt +
+     doubletrack * ROLLING_RESISTANCE.doubletrack) / total;
 
   // Guard against NaN results
   if (!isFinite(weightedCrr)) return ROLLING_RESISTANCE.gravel;
@@ -675,6 +699,7 @@ export interface AdvancedRaceParams {
   surfaceComposition?: SurfaceComposition;
   courseProfile?: CourseProfile;
   includeFatigue?: boolean;
+  raceType?: RaceType; // For real-world power adjustment
 }
 
 /**
@@ -694,6 +719,11 @@ export interface FinishTimeResult {
   fatigueFactor: number;
   effectiveCrr: number;
   courseProfile: CourseProfile;
+  // Race type adjustment
+  raceType: RaceType;
+  raceTypeMultiplier: number;
+  physicsNP: number; // NP from physics model (before race type adjustment)
+  adjustedNP: number; // NP after race type adjustment (what you'll actually need)
 }
 
 /**
@@ -719,7 +749,11 @@ export function estimateFinishTimeAdvanced(params: AdvancedRaceParams): FinishTi
     surfaceComposition,
     courseProfile: providedProfile,
     includeFatigue: _includeFatigue = true, // Kept for API compatibility but not used
+    raceType = "gravel", // Default to gravel if not specified
   } = params;
+
+  // Get race type multiplier for real-world adjustment
+  const raceTypeMultiplier = RACE_TYPE_MULTIPLIERS[raceType];
 
   const totalMass = riderWeightKg + bikeWeightKg;
   const distanceM = distanceKm * 1000;
@@ -853,6 +887,16 @@ export function estimateFinishTimeAdvanced(params: AdvancedRaceParams): FinishTi
   // Helper to ensure finite numbers (fallback to 0 for invalid values)
   const finite = (n: number, fallback = 0): number => isFinite(n) ? n : fallback;
 
+  // Calculate the physics-based NP (what the model calculates)
+  // and the adjusted NP (what the athlete will actually need to sustain)
+  // The race type multiplier accounts for real-world factors:
+  // - Drafting in road races (saves power)
+  // - Hike-a-bike in MTB races (lower average power)
+  // - Coasting on technical descents
+  // - Conservation pacing in ultra events
+  const physicsNP = normalizedPowerWatts;
+  const adjustedNP = normalizedPowerWatts * raceTypeMultiplier;
+
   return {
     totalMinutes: finite(totalMinutes),
     movingTimeMinutes: finite(fatigueAdjustedMovingMinutes),
@@ -867,6 +911,11 @@ export function estimateFinishTimeAdvanced(params: AdvancedRaceParams): FinishTi
     fatigueFactor: finite(fatigueFactor, 1),
     effectiveCrr: finite(crr, ROLLING_RESISTANCE.gravel),
     courseProfile: profile,
+    // Race type adjustment fields
+    raceType,
+    raceTypeMultiplier: finite(raceTypeMultiplier, 1),
+    physicsNP: finite(physicsNP),
+    adjustedNP: finite(adjustedNP),
   };
 }
 

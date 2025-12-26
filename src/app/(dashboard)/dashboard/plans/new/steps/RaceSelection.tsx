@@ -114,6 +114,7 @@ export function RaceSelection({ preselectedDistanceId }: RaceSelectionProps) {
       avg_climb_grade: null,
       avg_descent_grade: null,
       total_elevation_loss: null,
+      race_type: distance.race_type ?? null,
       aid_stations: distance.aid_stations,
       time_limit_minutes: distance.time_limit_minutes,
       participant_limit: distance.participant_limit,

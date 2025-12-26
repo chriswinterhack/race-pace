@@ -26,8 +26,9 @@ const GRADE_THRESHOLDS = {
 };
 
 // Minimum elevation change threshold to filter GPS noise (in feet)
-// ~4.5 meters threshold matches what platforms like RideWithGPS use
-const ELEVATION_THRESHOLD_FT = 15;
+// Higher threshold (~10 meters/33 ft) better matches official race elevation data
+// by filtering out more GPS noise. This is closer to what Strava uses.
+const ELEVATION_THRESHOLD_FT = 33;
 
 // Parse GPX and calculate total distance, elevation stats, and course profile
 function parseGPXStats(gpxText: string): {

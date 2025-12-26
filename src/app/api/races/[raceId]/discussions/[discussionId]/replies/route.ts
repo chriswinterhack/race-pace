@@ -67,7 +67,7 @@ export async function POST(
       user_id,
       user:users!race_discussion_replies_user_id_fkey_public (
         id,
-        full_name,
+        name,
         avatar_url
       )
     `)

@@ -73,76 +73,90 @@ export default function DashboardPage() {
   async function fetchData() {
     setLoading(true);
 
-    const { data: plans, error: plansError } = await supabase
-      .from("race_plans")
-      .select(`
-        id,
-        goal_time_minutes,
-        status,
-        created_at,
-        race_distance:race_distances (
+    // Run all queries in parallel for better performance
+    const [plansResult, profileResult, racesResult, countsResult] = await Promise.all([
+      // User's race plans
+      supabase
+        .from("race_plans")
+        .select(`
           id,
-          name,
-          distance_miles,
-          date,
-          elevation_gain,
-          race_edition:race_editions (
-            year,
-            race:races (
-              id,
-              name,
-              location,
-              hero_image_url,
-              race_subtype
-            )
-          )
-        )
-      `)
-      .order("created_at", { ascending: false });
-
-    if (plansError) {
-      console.error("Error fetching race plans:", plansError);
-    } else {
-      setRacePlans((plans || []) as unknown as RacePlan[]);
-    }
-
-    const { data: profile } = await supabase
-      .from("athlete_profiles")
-      .select("ftp_watts, weight_kg")
-      .single();
-
-    if (profile) {
-      setAthleteProfile(profile);
-    }
-
-    // Fetch featured/available races for discovery
-    const { data: races } = await supabase
-      .from("races")
-      .select(`
-        id,
-        name,
-        slug,
-        location,
-        hero_image_url,
-        race_subtype,
-        race_type,
-        race_editions (
-          id,
-          year,
-          race_distances (
+          goal_time_minutes,
+          status,
+          created_at,
+          race_distance:race_distances (
             id,
             name,
             distance_miles,
             date,
-            elevation_gain
+            elevation_gain,
+            race_edition:race_editions (
+              year,
+              race:races (
+                id,
+                name,
+                location,
+                hero_image_url,
+                race_subtype
+              )
+            )
           )
-        )
-      `)
-      .eq("is_active", true)
-      .order("name");
+        `)
+        .order("created_at", { ascending: false }),
 
-    if (races) {
-      // Filter to only races with upcoming dates and get participant counts
+      // Athlete profile
+      supabase
+        .from("athlete_profiles")
+        .select("ftp_watts, weight_kg")
+        .single(),
+
+      // Available races for discovery
+      supabase
+        .from("races")
+        .select(`
+          id,
+          name,
+          slug,
+          location,
+          hero_image_url,
+          race_subtype,
+          race_type,
+          race_editions (
+            id,
+            year,
+            race_distances (
+              id,
+              name,
+              distance_miles,
+              date,
+              elevation_gain
+            )
+          )
+        `)
+        .eq("is_active", true)
+        .order("name"),
+
+      // Participant counts for all races (run in parallel, not as waterfall)
+      supabase
+        .from("race_plans")
+        .select("race_distance:race_distances(race_edition:race_editions(race_id))")
+        .not("race_distance", "is", null),
+    ]);
+
+    // Process race plans
+    if (plansResult.error) {
+      console.error("Error fetching race plans:", plansResult.error);
+    } else {
+      setRacePlans((plansResult.data || []) as unknown as RacePlan[]);
+    }
+
+    // Process athlete profile
+    if (profileResult.data) {
+      setAthleteProfile(profileResult.data);
+    }
+
+    // Process races with participant counts
+    if (racesResult.data) {
+      const races = racesResult.data;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -157,15 +171,10 @@ export default function DashboardPage() {
         return hasUpcomingEdition;
       });
 
-      // Get participant counts
-      const { data: counts } = await supabase
-        .from("race_plans")
-        .select("race_distance:race_distances(race_edition:race_editions(race_id))")
-        .not("race_distance", "is", null);
-
+      // Build participant count map from parallel query
       const countMap = new Map<string, number>();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      counts?.forEach((plan: any) => {
+      countsResult.data?.forEach((plan: any) => {
         const raceId = plan.race_distance?.race_edition?.race_id;
         if (raceId) {
           countMap.set(raceId, (countMap.get(raceId) || 0) + 1);

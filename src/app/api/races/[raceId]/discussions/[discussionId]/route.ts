@@ -44,7 +44,7 @@ export async function GET(
       user_id,
       user:users!race_discussions_user_id_fkey_public (
         id,
-        full_name,
+        name,
         avatar_url
       )
     `)
@@ -70,7 +70,7 @@ export async function GET(
       user_id,
       user:users!race_discussion_replies_user_id_fkey_public (
         id,
-        full_name,
+        name,
         avatar_url
       )
     `)

@@ -197,7 +197,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
           className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-navy-900 to-brand-navy-800 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
           style={{ animationDelay: "0ms" }}
         >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-sky-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-sky-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           <Route className="h-5 w-5 text-brand-sky-400 mb-3" />
           <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Distance</p>
           <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
@@ -217,7 +217,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
             className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
             style={{ animationDelay: "75ms" }}
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <Mountain className="h-5 w-5 text-emerald-200 mb-3" />
             <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Elevation Gain</p>
             <p className="text-3xl font-bold mt-1 font-mono tracking-tight">
@@ -235,13 +235,16 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
           className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 to-purple-700 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
           style={{ animationDelay: "150ms" }}
         >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-          <div className="flex items-start justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <div className="relative flex items-start justify-between">
             <Clock className="h-5 w-5 text-violet-200 mb-3" />
             {!editingStartTime && (
               <button
-                onClick={() => setEditingStartTime(true)}
-                className="p-1.5 rounded-lg hover:bg-white/20 text-white/60 hover:text-white transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingStartTime(true);
+                }}
+                className="p-1.5 rounded-lg hover:bg-white/20 text-white/60 hover:text-white transition-colors z-10"
                 aria-label="Edit start time"
               >
                 <Pencil className="h-4 w-4" />
@@ -296,7 +299,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
             className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 p-5 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] opacity-0 animate-fade-in-up"
             style={{ animationDelay: "225ms" }}
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <Timer className="h-5 w-5 text-amber-200 mb-3" />
             <p className="text-sm font-medium text-white/60 uppercase tracking-wide">Time Limit</p>
             <p className="text-3xl font-bold mt-1 font-mono tracking-tight">

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { race_edition_id, name, distance_miles, date, start_time, elevation_gain, gpx_file_url } = body;
+    const { race_edition_id, name, distance_miles, date, start_time, elevation_gain, gpx_file_url, race_type } = body;
 
     if (!race_edition_id || !distance_miles) {
       return NextResponse.json({ error: "Edition ID and distance are required" }, { status: 400 });
@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
         start_time: start_time || null,
         elevation_gain: elevation_gain || null,
         gpx_file_url: gpx_file_url || null,
+        race_type: race_type || "gravel",
         is_active: true,
       })
       .select()
@@ -54,7 +55,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { distanceId, name, distance_miles, date, start_time, elevation_gain, surface_composition } = body;
+    const { distanceId, name, distance_miles, date, start_time, elevation_gain, surface_composition, race_type } = body;
 
     if (!distanceId) {
       return NextResponse.json({ error: "Distance ID is required" }, { status: 400 });
@@ -69,6 +70,7 @@ export async function PUT(request: NextRequest) {
         start_time: start_time || null,
         elevation_gain: elevation_gain || null,
         surface_composition: surface_composition || null,
+        race_type: race_type || "gravel",
       })
       .eq("id", distanceId);
 

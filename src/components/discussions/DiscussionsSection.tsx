@@ -278,7 +278,7 @@ function DiscussionCard({
             {discussion.user?.avatar_url ? (
               <img
                 src={discussion.user.avatar_url}
-                alt={discussion.user.full_name || "User"}
+                alt={discussion.user.name || "User"}
                 className="w-10 h-10 rounded-full object-cover"
               />
             ) : (
@@ -316,7 +316,7 @@ function DiscussionCard({
             )}
 
             <div className="flex items-center gap-3 mt-2 text-xs text-brand-navy-500">
-              <span>{discussion.user?.full_name || "Anonymous"}</span>
+              <span>{discussion.user?.name || "Anonymous"}</span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <MessageSquare className="h-3 w-3" />
@@ -609,7 +609,7 @@ function DiscussionDetail({
           {discussion.user?.avatar_url ? (
             <img
               src={discussion.user.avatar_url}
-              alt={discussion.user.full_name || "User"}
+              alt={discussion.user.name || "User"}
               className="w-10 h-10 rounded-full object-cover"
             />
           ) : (
@@ -619,7 +619,7 @@ function DiscussionDetail({
           )}
           <div>
             <p className="font-medium text-brand-navy-900">
-              {discussion.user?.full_name || "Anonymous"}
+              {discussion.user?.name || "Anonymous"}
             </p>
             <p className="text-sm text-brand-navy-500">
               {formatDistanceToNow(new Date(discussion.created_at), { addSuffix: true })}
@@ -707,7 +707,7 @@ function ReplyCard({ reply }: { reply: DiscussionReply }) {
       {reply.user?.avatar_url ? (
         <img
           src={reply.user.avatar_url}
-          alt={reply.user.full_name || "User"}
+          alt={reply.user.name || "User"}
           className="w-8 h-8 rounded-full object-cover flex-shrink-0"
         />
       ) : (
@@ -718,7 +718,7 @@ function ReplyCard({ reply }: { reply: DiscussionReply }) {
       <div className="flex-1 bg-brand-navy-50 rounded-lg p-3">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-medium text-sm text-brand-navy-900">
-            {reply.user?.full_name || "Anonymous"}
+            {reply.user?.name || "Anonymous"}
           </span>
           <span className="text-xs text-brand-navy-500">
             {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}

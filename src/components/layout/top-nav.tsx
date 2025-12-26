@@ -36,7 +36,7 @@ const allNavItems: NavItem[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard, category: "main" },
   { label: "Discover Races", href: "/dashboard/races", icon: Map, category: "main" },
   { label: "My Gear", href: "/dashboard/gear", icon: Bike, roles: ["athlete", "coach"], category: "main" },
-  { label: "Forums", href: "/dashboard/community", icon: Users, category: "main" },
+  { label: "Athlete Hub", href: "/dashboard/community", icon: Users, category: "main" },
   { label: "Athletes", href: "/dashboard/athletes", icon: Users, roles: ["coach"], category: "coach" },
   { label: "Race Mgmt", href: "/admin/races", icon: FlagTriangleRight, roles: ["admin"], category: "admin" },
   { label: "Nutrition", href: "/admin/nutrition", icon: Apple, roles: ["admin"], category: "admin" },

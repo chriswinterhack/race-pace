@@ -21,6 +21,8 @@ import {
   MessageSquare,
   LayoutDashboard,
   Download,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import {
   Button,
@@ -52,6 +54,7 @@ interface RacePlan {
   id: string;
   user_id: string;
   goal_time_minutes: number | null;
+  goal_np_watts: number | null;
   start_time: string | null;
   status: string;
   created_at: string;
@@ -70,6 +73,7 @@ interface RacePlan {
     elevation_low: number | null;
     gpx_file_url: string | null;
     surface_composition: Record<string, number> | null;
+    race_type: "road" | "gravel" | "xc_mtb" | "ultra_mtb" | null;
     aid_stations: Array<{ name: string; mile: number; cutoff?: string }> | null;
     time_limit_minutes: number | null;
     participant_limit: number | null;
@@ -185,6 +189,7 @@ export default function RaceDashboardPage() {
         id,
         user_id,
         goal_time_minutes,
+        goal_np_watts,
         start_time,
         status,
         created_at,
@@ -208,6 +213,7 @@ export default function RaceDashboardPage() {
           descent_pct,
           avg_climb_grade,
           avg_descent_grade,
+          race_type,
           aid_stations,
           time_limit_minutes,
           participant_limit,
@@ -571,6 +577,64 @@ export default function RaceDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Setup Prompt - Show when critical values are missing */}
+      {(() => {
+        const effectiveStartTime = plan.start_time || distance?.start_time;
+        const missingStartTime = !effectiveStartTime;
+        const missingGoalTime = !plan.goal_time_minutes;
+        const needsSetup = missingStartTime || missingGoalTime;
+
+        if (!needsSetup) return null;
+
+        return (
+          <div className="mt-6 relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-sky-500 via-brand-sky-600 to-brand-navy-700 p-6 shadow-lg">
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-brand-sky-400/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+
+            <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Complete Your Race Plan Setup</h3>
+                  <p className="mt-1 text-white/80 text-sm max-w-xl">
+                    {missingStartTime && missingGoalTime
+                      ? "Set your start time and goal time to unlock personalized pacing, power targets, and checkpoint schedules."
+                      : missingStartTime
+                        ? "Set your start time to see accurate arrival times at checkpoints and aid stations."
+                        : "Set your goal time to generate personalized pacing, power targets, and nutrition plans."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 ml-0 sm:ml-4">
+                {missingStartTime && (
+                  <button
+                    onClick={() => setActiveSection("overview")}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 backdrop-blur-sm text-white text-sm font-medium hover:bg-white/30 transition-all border border-white/20"
+                  >
+                    <Clock className="h-4 w-4" />
+                    Set Start Time
+                  </button>
+                )}
+                {missingGoalTime && (
+                  <button
+                    onClick={() => setActiveSection("goal")}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-brand-navy-900 text-sm font-semibold hover:bg-white/90 transition-all shadow-lg"
+                  >
+                    <Target className="h-4 w-4" />
+                    Set Goal Time
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Section Content */}
       <div className="mt-6">
