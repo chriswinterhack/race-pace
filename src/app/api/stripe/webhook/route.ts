@@ -169,9 +169,19 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
 async function processSubscription(subscription: Stripe.Subscription, userId: string) {
   const priceId = subscription.items.data[0]?.price.id;
 
-  // Get period timestamps - use type assertion since these are always numbers in subscription objects
-  const periodStart = (subscription as unknown as { current_period_start: number }).current_period_start;
-  const periodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
+  // Safely get period timestamps - handle both number (unix) and Date formats
+  const subAny = subscription as Record<string, unknown>;
+  const periodStart = subAny.current_period_start;
+  const periodEnd = subAny.current_period_end;
+
+  // Convert to ISO string, handling numbers (unix timestamps) or already-Date values
+  const toISOString = (value: unknown): string | null => {
+    if (!value) return null;
+    if (typeof value === 'number') return new Date(value * 1000).toISOString();
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'string') return value;
+    return null;
+  };
 
   // Upsert subscription record
   await supabaseAdmin.from("subscriptions").upsert(
@@ -180,8 +190,8 @@ async function processSubscription(subscription: Stripe.Subscription, userId: st
       stripe_subscription_id: subscription.id,
       stripe_price_id: priceId,
       status: subscription.status,
-      current_period_start: new Date(periodStart * 1000).toISOString(),
-      current_period_end: new Date(periodEnd * 1000).toISOString(),
+      current_period_start: toISOString(periodStart),
+      current_period_end: toISOString(periodEnd),
       cancel_at_period_end: subscription.cancel_at_period_end,
       canceled_at: subscription.canceled_at
         ? new Date(subscription.canceled_at * 1000).toISOString()

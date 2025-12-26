@@ -34,7 +34,7 @@ export default function PricingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           priceKey,
-          successUrl: `${window.location.origin}/dashboard/settings/billing?success=true`,
+          successUrl: `${window.location.origin}/dashboard/settings?section=billing&success=true`,
           cancelUrl: `${window.location.origin}/pricing?canceled=true`,
         }),
       });
@@ -120,7 +120,7 @@ export default function PricingPage() {
               <p className="mt-1 text-emerald-300/70 text-sm">
                 You already have full access to all features.{" "}
                 <Link
-                  href="/dashboard/settings/billing"
+                  href="/dashboard/settings?section=billing"
                   className="underline hover:no-underline"
                 >
                   Manage your subscription

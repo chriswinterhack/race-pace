@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     // Build success/cancel URLs
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const defaultSuccessUrl = `${baseUrl}/dashboard/settings/billing?success=true`;
+    const defaultSuccessUrl = `${baseUrl}/dashboard/settings?section=billing&success=true`;
     const defaultCancelUrl = `${baseUrl}/pricing?canceled=true`;
 
     // Create Stripe Checkout session

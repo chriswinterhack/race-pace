@@ -4,7 +4,7 @@
   "private": true,
   "description": "Race planning platform for cyclists. Build personalized race execution plans with pacing, nutrition, and gear management for gravel, road, MTB, and cyclocross racing.",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

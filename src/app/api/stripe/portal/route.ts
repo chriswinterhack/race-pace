@@ -38,7 +38,7 @@ export async function POST() {
 
     // Create portal session
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const returnUrl = `${baseUrl}/dashboard/settings/billing`;
+    const returnUrl = `${baseUrl}/dashboard/settings?section=billing`;
 
     const stripe = getStripe();
     const session = await stripe.billingPortal.sessions.create({
