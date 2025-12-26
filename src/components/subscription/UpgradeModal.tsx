@@ -158,55 +158,25 @@ export function UpgradeModal({
           </div>
         )}
 
-        <div className="mt-6 space-y-3">
-          {/* Annual Plan - Primary */}
+        <div className="mt-6">
+          {/* Annual Plan */}
           <button
             onClick={() => handleUpgrade("annual")}
             disabled={isLoading}
-            className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-brand-sky-500 to-brand-sky-600 p-4 text-left text-white shadow-lg transition-all hover:from-brand-sky-600 hover:to-brand-sky-700 hover:shadow-xl disabled:opacity-50"
+            className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-brand-sky-500 to-brand-sky-600 p-5 text-left text-white shadow-lg transition-all hover:from-brand-sky-600 hover:to-brand-sky-700 hover:shadow-xl disabled:opacity-50"
           >
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">Annual Plan</span>
-                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
-                    Popular
-                  </span>
+                  <span className="text-lg font-semibold">Upgrade to Premium</span>
                 </div>
                 <div className="mt-1 text-2xl font-bold">
                   ${STRIPE_PRICES.annual.amount / 100}
                   <span className="text-sm font-normal opacity-80">/year</span>
                 </div>
+                <p className="mt-1 text-sm opacity-80">Less than $2.50/month</p>
               </div>
-              <Zap className="h-8 w-8 opacity-80" />
-            </div>
-          </button>
-
-          {/* Lifetime Plan - Secondary */}
-          <button
-            onClick={() => handleUpgrade("lifetime")}
-            disabled={isLoading}
-            className="group w-full rounded-xl border-2 border-brand-navy-200 bg-white p-4 text-left transition-all hover:border-brand-sky-400 hover:bg-brand-sky-50 disabled:opacity-50"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-brand-navy-900">
-                    Lifetime Access
-                  </span>
-                  <span className="rounded-full bg-brand-navy-100 px-2 py-0.5 text-xs font-medium text-brand-navy-600">
-                    Best Value
-                  </span>
-                </div>
-                <div className="mt-1 text-2xl font-bold text-brand-navy-900">
-                  ${STRIPE_PRICES.lifetime.amount / 100}
-                  <span className="text-sm font-normal text-brand-navy-500">
-                    {" "}
-                    one-time
-                  </span>
-                </div>
-              </div>
-              <Check className="h-6 w-6 text-brand-navy-400" />
+              <Zap className="h-10 w-10 opacity-80" />
             </div>
           </button>
         </div>

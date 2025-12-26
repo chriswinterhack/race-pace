@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import {
   User,
   Zap,
@@ -120,7 +120,7 @@ interface SubscriptionData {
   cancelAtPeriodEnd: boolean;
 }
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const searchParams = useSearchParams();
   const initialSection = (searchParams.get("section") as SettingsSection) || "profile";
 
@@ -1128,5 +1128,18 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrap in Suspense for useSearchParams
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-sky-500" />
+      </div>
+    }>
+      <SettingsPageContent />
+    </Suspense>
   );
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe/client";
+import { getStripe, getOrCreateStripeCustomer } from "@/lib/stripe/client";
 import { STRIPE_PRICES, PriceKey } from "@/lib/stripe/prices";
 
 // Admin client for database operations
@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Create session based on type
+    const stripe = getStripe();
     let session;
     if (isLifetime) {
       // One-time payment for lifetime

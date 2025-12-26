@@ -6,7 +6,6 @@ import {
   Mountain,
   Check,
   Zap,
-  Crown,
   ChevronRight,
   Shield,
   CreditCard,
@@ -21,8 +20,7 @@ import { STRIPE_PRICES, PREMIUM_FEATURES, FREE_FEATURES } from "@/lib/stripe/pri
 import { useSubscription } from "@/hooks/useSubscription";
 
 export default function PricingPage() {
-  const { isPremium, isLoading, data } = useSubscription();
-  const [selectedPlan] = useState<"annual" | "lifetime">("annual");
+  const { isPremium, isLoading } = useSubscription();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,10 +114,8 @@ export default function PricingPage() {
           {!isLoading && isPremium && (
             <div className="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
               <div className="flex items-center justify-center gap-2 text-emerald-400">
-                <Crown className="h-5 w-5" />
-                <span className="font-semibold">
-                  {data?.isLifetime ? "Lifetime Member" : "Premium Member"}
-                </span>
+                <Check className="h-5 w-5" />
+                <span className="font-semibold">Premium Member</span>
               </div>
               <p className="mt-1 text-emerald-300/70 text-sm">
                 You already have full access to all features.{" "}
@@ -140,25 +136,19 @@ export default function PricingPage() {
             </div>
           )}
 
-          {/* Pricing Cards */}
-          <div className="grid md:grid-cols-2 gap-6 mb-16">
+          {/* Pricing Card - Single centered annual plan */}
+          <div className="max-w-md mx-auto mb-16">
             {/* Annual Plan */}
-            <div
-              className={`relative rounded-2xl p-8 transition-all duration-300 ${
-                selectedPlan === "annual"
-                  ? "bg-gradient-to-br from-brand-sky-500/20 to-brand-sky-600/10 border-2 border-brand-sky-500 shadow-lg shadow-brand-sky-500/20"
-                  : "bg-white/5 border border-white/10 hover:border-white/20"
-              }`}
-            >
+            <div className="relative rounded-2xl p-8 bg-gradient-to-br from-brand-sky-500/20 to-brand-sky-600/10 border-2 border-brand-sky-500 shadow-lg shadow-brand-sky-500/20">
               {/* Popular Badge */}
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full bg-brand-sky-500 text-white text-sm font-semibold shadow-lg">
                   <Zap className="h-4 w-4" />
-                  Most Popular
+                  Full Access
                 </span>
               </div>
 
-              <div className="pt-4">
+              <div className="pt-4 text-center">
                 <h2 className="text-2xl font-heading font-bold text-white">
                   {STRIPE_PRICES.annual.name}
                 </h2>
@@ -166,7 +156,7 @@ export default function PricingPage() {
                   {STRIPE_PRICES.annual.description}
                 </p>
 
-                <div className="mt-6 flex items-baseline gap-2">
+                <div className="mt-6 flex items-baseline justify-center gap-2">
                   <span className="text-5xl font-heading font-bold text-white">
                     ${STRIPE_PRICES.annual.amount / 100}
                   </span>
@@ -178,7 +168,7 @@ export default function PricingPage() {
 
                 <button
                   onClick={() => handleCheckout("annual")}
-                  disabled={isRedirecting || (isPremium && !data?.isLifetime)}
+                  disabled={isRedirecting || isPremium}
                   className="mt-8 w-full py-4 rounded-xl bg-brand-sky-500 hover:bg-brand-sky-400 text-white font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isRedirecting ? (
@@ -188,58 +178,6 @@ export default function PricingPage() {
                   ) : (
                     <>
                       Get Started <ChevronRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Lifetime Plan */}
-            <div
-              className={`relative rounded-2xl p-8 transition-all duration-300 ${
-                selectedPlan === "lifetime"
-                  ? "bg-gradient-to-br from-amber-500/20 to-amber-600/10 border-2 border-amber-500 shadow-lg shadow-amber-500/20"
-                  : "bg-white/5 border border-white/10 hover:border-white/20"
-              }`}
-            >
-              {/* Best Value Badge */}
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full bg-amber-500 text-white text-sm font-semibold shadow-lg">
-                  <Crown className="h-4 w-4" />
-                  Best Value
-                </span>
-              </div>
-
-              <div className="pt-4">
-                <h2 className="text-2xl font-heading font-bold text-white">
-                  {STRIPE_PRICES.lifetime.name}
-                </h2>
-                <p className="mt-2 text-white/60 text-sm">
-                  {STRIPE_PRICES.lifetime.description}
-                </p>
-
-                <div className="mt-6 flex items-baseline gap-2">
-                  <span className="text-5xl font-heading font-bold text-white">
-                    ${STRIPE_PRICES.lifetime.amount / 100}
-                  </span>
-                  <span className="text-white/60">one-time</span>
-                </div>
-                <p className="mt-1 text-amber-400 text-sm font-medium">
-                  Pay once, access forever
-                </p>
-
-                <button
-                  onClick={() => handleCheckout("lifetime")}
-                  disabled={isRedirecting || (isPremium && data?.isLifetime)}
-                  className="mt-8 w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isRedirecting ? (
-                    "Redirecting..."
-                  ) : data?.isLifetime ? (
-                    "Current Plan"
-                  ) : (
-                    <>
-                      Get Lifetime Access <Crown className="h-4 w-4" />
                     </>
                   )}
                 </button>
@@ -337,8 +275,8 @@ export default function PricingPage() {
                   a: "You'll still have access to view your existing race plans, but you won't be able to create new ones or use premium features until you renew.",
                 },
                 {
-                  q: "Is lifetime really forever?",
-                  a: "Yes! Lifetime members get permanent access to all current and future premium features. Pay once, use forever.",
+                  q: "Will you add more pricing options?",
+                  a: "We're considering a lifetime plan in the future. Subscribe now to lock in the best annual rate!",
                 },
                 {
                   q: "Do you offer refunds?",

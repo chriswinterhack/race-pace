@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { stripe } from "@/lib/stripe/client";
+import { getStripe } from "@/lib/stripe/client";
 import Stripe from "stripe";
 
 // Admin client for database operations (bypasses RLS)
@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify webhook signature
+    const stripe = getStripe();
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);

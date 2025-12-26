@@ -4,7 +4,7 @@
 export const STRIPE_PRICES = {
   // Annual subscription: $29/year
   annual: {
-    priceId: process.env.STRIPE_PRICE_ANNUAL || "price_annual_placeholder",
+    priceId: process.env.STRIPE_PRICE_ANNUAL || "price_1Sic5hKcrwIOdDuN9s92B73P",
     amount: 2900, // in cents
     currency: "usd",
     interval: "year" as const,
@@ -12,14 +12,15 @@ export const STRIPE_PRICES = {
     description: "Annual subscription - unlimited race plans, Garmin sync, exports",
   },
 
-  // Lifetime purchase: $79 one-time
+  // Lifetime purchase: $79 one-time (coming soon)
   lifetime: {
-    priceId: process.env.STRIPE_PRICE_LIFETIME || "price_lifetime_placeholder",
+    priceId: process.env.STRIPE_PRICE_LIFETIME || "", // Not yet configured
     amount: 7900, // in cents
     currency: "usd",
     interval: null, // one-time
     name: "FinalClimb Lifetime",
     description: "One-time purchase - all premium features forever",
+    enabled: false, // Enable when lifetime price is created in Stripe
   },
 } as const;
 
