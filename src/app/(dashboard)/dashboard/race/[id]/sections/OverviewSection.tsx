@@ -195,7 +195,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
   // Sub-tab configuration
   const subTabs = [
     { id: "summary" as SubTab, label: "Summary", icon: Gauge },
-    ...(hasCourseContent ? [{ id: "course" as SubTab, label: "Course", icon: Navigation }] : []),
+    ...(hasCourseContent ? [{ id: "course" as SubTab, label: "Aid Stations", icon: Flag }] : []),
     ...(hasLogisticsContent ? [{ id: "logistics" as SubTab, label: "Logistics", icon: Truck }] : []),
   ];
 
