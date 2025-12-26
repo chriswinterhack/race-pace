@@ -22,6 +22,8 @@ interface InviteUserModalProps {
 }
 
 export function InviteUserModal({ open, onOpenChange, onSuccess }: InviteUserModalProps) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [grantPremium, setGrantPremium] = useState(true);
   const [notes, setNotes] = useState("");
@@ -38,6 +40,8 @@ export function InviteUserModal({ open, onOpenChange, onSuccess }: InviteUserMod
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
           email,
           grantPremium,
           premiumDays: 365, // 1 year default
@@ -79,6 +83,8 @@ export function InviteUserModal({ open, onOpenChange, onSuccess }: InviteUserMod
   };
 
   const handleClose = () => {
+    setFirstName("");
+    setLastName("");
     setEmail("");
     setGrantPremium(true);
     setNotes("");
@@ -144,6 +150,29 @@ export function InviteUserModal({ open, onOpenChange, onSuccess }: InviteUserMod
         ) : (
           // Form state
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input

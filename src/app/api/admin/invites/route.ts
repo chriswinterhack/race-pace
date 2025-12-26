@@ -14,6 +14,8 @@ function generateInviteCode(): string {
 }
 
 const inviteSchema = z.object({
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
   email: z.string().email("Invalid email address"),
   grantPremium: z.boolean().default(false),
   premiumDays: z.number().min(1).max(36500).default(365), // Max ~100 years for "lifetime"
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, grantPremium, premiumDays, notes } = validation.data;
+    const { firstName, lastName, email, grantPremium, premiumDays, notes } = validation.data;
 
     const supabase = await createClient();
 
@@ -78,6 +80,8 @@ export async function POST(request: Request) {
     const { data: invite, error: insertError } = await supabase
       .from("vip_invites")
       .insert({
+        first_name: firstName,
+        last_name: lastName,
         email: email.toLowerCase(),
         invite_code: inviteCode,
         invited_by: auth.userId,
@@ -145,6 +149,8 @@ export async function GET() {
       .from("vip_invites")
       .select(`
         id,
+        first_name,
+        last_name,
         email,
         invite_code,
         grant_premium,

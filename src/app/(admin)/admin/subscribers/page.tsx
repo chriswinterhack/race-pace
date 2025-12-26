@@ -13,6 +13,10 @@ import {
   Mail,
   MoreVertical,
   Gift,
+  X,
+  Clock,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   Card,
@@ -48,6 +52,19 @@ interface Stats {
   freeUsers: number;
 }
 
+interface PendingInvite {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  invite_code: string;
+  grant_premium: boolean;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
 interface RawUser {
   id: string;
   email: string;
@@ -74,13 +91,19 @@ export default function AdminSubscribersPage() {
   });
   const [filter, setFilter] = useState<"all" | "active" | "lifetime" | "free">("all");
 
+  // Pending invites state
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(true);
+
   // Modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Subscriber | null>(null);
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubscribers();
+    fetchPendingInvites();
   }, []);
 
   async function fetchSubscribers() {
@@ -146,6 +169,55 @@ export default function AdminSubscribersPage() {
       console.error("Error fetching subscribers:", err);
       setLoading(false);
     }
+  }
+
+  async function fetchPendingInvites() {
+    setLoadingInvites(true);
+    try {
+      const response = await fetch("/api/admin/invites");
+      const result = await response.json();
+
+      if (result.error) {
+        console.error("Error fetching invites:", result.error);
+        setLoadingInvites(false);
+        return;
+      }
+
+      // Filter to only pending invites
+      const pending = (result.data || []).filter(
+        (invite: PendingInvite) => invite.status === "pending"
+      );
+      setPendingInvites(pending);
+    } catch (err) {
+      console.error("Error fetching invites:", err);
+    }
+    setLoadingInvites(false);
+  }
+
+  async function revokeInvite(inviteId: string) {
+    try {
+      const response = await fetch(`/api/admin/invites?id=${inviteId}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+
+      if (result.error) {
+        console.error("Error revoking invite:", result.error);
+        return;
+      }
+
+      // Refresh the list
+      fetchPendingInvites();
+    } catch (err) {
+      console.error("Error revoking invite:", err);
+    }
+  }
+
+  async function copyInviteLink(inviteCode: string, inviteId: string) {
+    const signupUrl = `${window.location.origin}/signup?invite=${inviteCode}`;
+    await navigator.clipboard.writeText(signupUrl);
+    setCopiedInviteId(inviteId);
+    setTimeout(() => setCopiedInviteId(null), 2000);
   }
 
   // Filter subscribers
@@ -294,6 +366,95 @@ export default function AdminSubscribersPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pending Invites Section */}
+      {(loadingInvites || pendingInvites.length > 0) && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-brand-navy-900 flex items-center gap-2">
+              <Mail className="h-5 w-5 text-brand-sky-500" />
+              Pending Invites
+              {!loadingInvites && (
+                <span className="text-sm font-normal text-brand-navy-500">
+                  ({pendingInvites.length})
+                </span>
+              )}
+            </h2>
+          </div>
+
+          {loadingInvites ? (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-brand-sky-500" />
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-3">
+              {pendingInvites.map((invite) => (
+                <Card key={invite.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-brand-navy-900">
+                            {invite.first_name || invite.last_name
+                              ? `${invite.first_name || ""} ${invite.last_name || ""}`.trim()
+                              : "No name"}
+                          </p>
+                          {invite.grant_premium && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-sky-100 text-brand-sky-700">
+                              <Gift className="h-3 w-3" />
+                              Premium
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-brand-navy-600 truncate">{invite.email}</p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-brand-navy-500">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Sent {formatDate(invite.created_at)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Expires {formatDate(invite.expires_at)}
+                          </span>
+                        </div>
+                        {invite.notes && (
+                          <p className="text-xs text-brand-navy-400 mt-1 italic">{invite.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyInviteLink(invite.invite_code, invite.id)}
+                          className="h-8 px-2"
+                        >
+                          {copiedInviteId === invite.id ? (
+                            <Check className="h-4 w-4 text-emerald-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => revokeInvite(invite.id)}
+                          className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -459,7 +620,10 @@ export default function AdminSubscribersPage() {
       <InviteUserModal
         open={showInviteModal}
         onOpenChange={setShowInviteModal}
-        onSuccess={fetchSubscribers}
+        onSuccess={() => {
+          fetchSubscribers();
+          fetchPendingInvites();
+        }}
       />
       <ManagePremiumModal
         open={showPremiumModal}
