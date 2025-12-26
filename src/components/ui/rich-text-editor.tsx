@@ -245,6 +245,12 @@ export function RichTextDisplay({
   content: string;
   className?: string;
 }) {
+  // Clean up empty paragraphs that Tiptap creates for line breaks
+  // Replace empty <p></p> with proper spacing or remove them
+  const cleanedContent = content
+    .replace(/<p><\/p>/g, '<p class="h-4"></p>') // Convert empty paragraphs to spacing
+    .replace(/<p>\s*<\/p>/g, '<p class="h-4"></p>');
+
   return (
     <div
       className={cn(
@@ -252,14 +258,14 @@ export function RichTextDisplay({
         "prose-headings:text-brand-navy-900 prose-headings:font-semibold",
         "prose-h1:text-lg prose-h1:mt-4 prose-h1:mb-2",
         "prose-h2:text-base prose-h2:mt-3 prose-h2:mb-1.5",
-        "prose-p:text-brand-navy-700 prose-p:my-2",
+        "prose-p:my-3 first:prose-p:mt-0 last:prose-p:mb-0",
         "prose-ul:my-2 prose-ol:my-2",
-        "prose-li:text-brand-navy-700 prose-li:my-0.5",
-        "prose-strong:text-brand-navy-900",
+        "prose-li:my-0.5",
+        "prose-strong:font-semibold",
         "prose-a:text-brand-sky-600 prose-a:no-underline hover:prose-a:underline",
         className
       )}
-      dangerouslySetInnerHTML={{ __html: content }}
+      dangerouslySetInnerHTML={{ __html: cleanedContent }}
     />
   );
 }
