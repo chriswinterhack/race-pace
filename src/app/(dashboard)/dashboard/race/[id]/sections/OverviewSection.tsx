@@ -25,7 +25,7 @@ import {
   ChevronRight,
   Zap,
 } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, RichTextDisplay } from "@/components/ui";
 import { cn, formatElevation, formatElevationPerDistance, getDisplayDistance, getDistanceUnit, getElevationUnit } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUnits } from "@/hooks";
@@ -596,7 +596,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                 iconColor="text-emerald-600"
                 title="Parking"
               >
-                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.parking_info}</p>
+                <RichTextDisplay content={race.parking_info} className="text-sm text-brand-navy-700" />
               </LogisticsCard>
             )}
 
@@ -608,7 +608,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                 iconColor="text-orange-600"
                 title="Drop Bags"
               >
-                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.drop_bag_info}</p>
+                <RichTextDisplay content={race.drop_bag_info} className="text-sm text-brand-navy-700" />
               </LogisticsCard>
             )}
 
@@ -620,7 +620,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                 iconColor="text-pink-600"
                 title="Course Marking"
               >
-                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.course_marking}</p>
+                <RichTextDisplay content={race.course_marking} className="text-sm text-brand-navy-700" />
               </LogisticsCard>
             )}
 
@@ -632,7 +632,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                 iconColor="text-sky-600"
                 title="Weather & Conditions"
               >
-                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.weather_notes}</p>
+                <RichTextDisplay content={race.weather_notes} className="text-sm text-brand-navy-700" />
               </LogisticsCard>
             )}
 
@@ -644,7 +644,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                 iconColor="text-brand-navy-600"
                 title="Additional Information"
               >
-                <p className="text-sm text-brand-navy-700 whitespace-pre-line">{race.additional_info}</p>
+                <RichTextDisplay content={race.additional_info} className="text-sm text-brand-navy-700" />
               </LogisticsCard>
             )}
           </div>
@@ -658,7 +658,7 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                 </div>
                 <div>
                   <h4 className="font-semibold text-amber-900 mb-2">Important Rules</h4>
-                  <p className="text-sm text-amber-800 whitespace-pre-line">{race.course_rules}</p>
+                  <RichTextDisplay content={race.course_rules} className="text-sm text-amber-800" />
                 </div>
               </div>
             </div>

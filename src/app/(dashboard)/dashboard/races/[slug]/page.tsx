@@ -33,6 +33,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  RichTextDisplay,
 } from "@/components/ui";
 import {
   cn,
@@ -633,7 +634,7 @@ function InfoCard({
           {icon}
           <h3 className="font-semibold text-brand-navy-900">{title}</h3>
         </div>
-        <p className="text-sm text-brand-navy-600 leading-relaxed">{content}</p>
+        <RichTextDisplay content={content} className="text-sm text-brand-navy-600 leading-relaxed" />
       </CardContent>
     </Card>
   );
