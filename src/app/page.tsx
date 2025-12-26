@@ -97,7 +97,7 @@ const structuredData = {
       operatingSystem: "Web",
       offers: {
         "@type": "Offer",
-        price: "20",
+        price: "29",
         priceCurrency: "USD",
         priceValidUntil: "2026-12-31",
       },
@@ -736,12 +736,12 @@ export default async function HomePage() {
               </div>
               <div className="flex items-baseline justify-center gap-2">
                 <span className="text-5xl font-heading font-bold text-brand-navy-900">
-                  $20
+                  $29
                 </span>
                 <span className="text-brand-navy-500">/year</span>
               </div>
               <p className="mt-2 text-brand-navy-600">
-                That&apos;s less than $2/month
+                That&apos;s less than $2.50/month
               </p>
 
               <ul className="mt-8 space-y-4 text-left">

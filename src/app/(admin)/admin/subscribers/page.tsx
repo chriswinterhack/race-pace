@@ -1,0 +1,410 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Search,
+  Users,
+  Crown,
+  Sparkles,
+  TrendingUp,
+  Calendar,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  Button,
+  Input,
+  Skeleton,
+} from "@/components/ui";
+import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+
+interface Subscriber {
+  id: string;
+  email: string;
+  name: string | null;
+  subscription_status: string;
+  created_at: string;
+  subscription?: {
+    is_lifetime: boolean;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+  };
+}
+
+interface Stats {
+  totalUsers: number;
+  activeSubscribers: number;
+  lifetimeMembers: number;
+  freeUsers: number;
+}
+
+export default function AdminSubscribersPage() {
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [stats, setStats] = useState<Stats>({
+    totalUsers: 0,
+    activeSubscribers: 0,
+    lifetimeMembers: 0,
+    freeUsers: 0,
+  });
+  const [filter, setFilter] = useState<"all" | "active" | "lifetime" | "free">("all");
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    fetchSubscribers();
+  }, []);
+
+  async function fetchSubscribers() {
+    setLoading(true);
+
+    // Fetch users with subscription data
+    const { data: users, error } = await supabase
+      .from("users")
+      .select(`
+        id,
+        email,
+        name,
+        subscription_status,
+        created_at,
+        subscriptions (
+          is_lifetime,
+          current_period_end,
+          cancel_at_period_end,
+          status
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching subscribers:", error);
+      setLoading(false);
+      return;
+    }
+
+    // Process users
+    const processedUsers: Subscriber[] = (users || []).map((user) => {
+      const activeSubscription = user.subscriptions?.find(
+        (s: { status: string }) => s.status === "active"
+      );
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        subscription_status: user.subscription_status || "inactive",
+        created_at: user.created_at,
+        subscription: activeSubscription
+          ? {
+              is_lifetime: activeSubscription.is_lifetime,
+              current_period_end: activeSubscription.current_period_end,
+              cancel_at_period_end: activeSubscription.cancel_at_period_end,
+            }
+          : undefined,
+      };
+    });
+
+    setSubscribers(processedUsers);
+
+    // Calculate stats
+    const totalUsers = processedUsers.length;
+    const activeSubscribers = processedUsers.filter(
+      (u) => u.subscription_status === "active"
+    ).length;
+    const lifetimeMembers = processedUsers.filter(
+      (u) => u.subscription?.is_lifetime
+    ).length;
+    const freeUsers = processedUsers.filter(
+      (u) => u.subscription_status !== "active"
+    ).length;
+
+    setStats({
+      totalUsers,
+      activeSubscribers,
+      lifetimeMembers,
+      freeUsers,
+    });
+
+    setLoading(false);
+  }
+
+  // Filter subscribers
+  const filteredSubscribers = subscribers.filter((subscriber) => {
+    // Search filter
+    const matchesSearch =
+      searchQuery === "" ||
+      subscriber.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subscriber.name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Status filter
+    let matchesFilter = true;
+    if (filter === "active") {
+      matchesFilter = subscriber.subscription_status === "active" && !subscriber.subscription?.is_lifetime;
+    } else if (filter === "lifetime") {
+      matchesFilter = subscriber.subscription?.is_lifetime === true;
+    } else if (filter === "free") {
+      matchesFilter = subscriber.subscription_status !== "active";
+    }
+
+    return matchesSearch && matchesFilter;
+  });
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-brand-navy-900">
+            Subscribers
+          </h1>
+          <p className="text-brand-navy-600 mt-1">
+            Manage user subscriptions and view analytics
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={fetchSubscribers}
+          disabled={loading}
+          className="gap-2"
+        >
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-brand-navy-100">
+                <Users className="h-5 w-5 text-brand-navy-600" />
+              </div>
+              <div>
+                <p className="text-sm text-brand-navy-500">Total Users</p>
+                {loading ? (
+                  <Skeleton className="h-7 w-16 mt-0.5" />
+                ) : (
+                  <p className="text-2xl font-bold text-brand-navy-900">
+                    {stats.totalUsers}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-brand-sky-100">
+                <Sparkles className="h-5 w-5 text-brand-sky-600" />
+              </div>
+              <div>
+                <p className="text-sm text-brand-navy-500">Active Premium</p>
+                {loading ? (
+                  <Skeleton className="h-7 w-16 mt-0.5" />
+                ) : (
+                  <p className="text-2xl font-bold text-brand-sky-600">
+                    {stats.activeSubscribers}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-amber-100">
+                <Crown className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm text-brand-navy-500">Lifetime</p>
+                {loading ? (
+                  <Skeleton className="h-7 w-16 mt-0.5" />
+                ) : (
+                  <p className="text-2xl font-bold text-amber-600">
+                    {stats.lifetimeMembers}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-emerald-100">
+                <TrendingUp className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm text-brand-navy-500">Conversion</p>
+                {loading ? (
+                  <Skeleton className="h-7 w-16 mt-0.5" />
+                ) : (
+                  <p className="text-2xl font-bold text-emerald-600">
+                    {stats.totalUsers > 0
+                      ? ((stats.activeSubscribers / stats.totalUsers) * 100).toFixed(1)
+                      : 0}
+                    %
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-navy-400" />
+          <Input
+            placeholder="Search by email or name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          {[
+            { id: "all", label: "All" },
+            { id: "active", label: "Premium" },
+            { id: "lifetime", label: "Lifetime" },
+            { id: "free", label: "Free" },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id as typeof filter)}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
+                filter === f.id
+                  ? "bg-brand-sky-500 text-white"
+                  : "bg-brand-navy-100 text-brand-navy-600 hover:bg-brand-navy-200"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Subscribers Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-8 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-brand-sky-500" />
+            </div>
+          ) : filteredSubscribers.length === 0 ? (
+            <div className="p-8 text-center text-brand-navy-500">
+              No subscribers found matching your criteria.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-brand-navy-100">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-brand-navy-500 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-brand-navy-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-brand-navy-500 uppercase tracking-wider">
+                      Joined
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-brand-navy-500 uppercase tracking-wider">
+                      Renews
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brand-navy-100">
+                  {filteredSubscribers.map((subscriber) => (
+                    <tr
+                      key={subscriber.id}
+                      className="hover:bg-brand-navy-50 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-brand-navy-900">
+                            {subscriber.name || "—"}
+                          </p>
+                          <p className="text-sm text-brand-navy-500">
+                            {subscriber.email}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {subscriber.subscription?.is_lifetime ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                            <Crown className="h-3 w-3" />
+                            Lifetime
+                          </span>
+                        ) : subscriber.subscription_status === "active" ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-brand-sky-100 text-brand-sky-700">
+                            <Sparkles className="h-3 w-3" />
+                            Premium
+                          </span>
+                        ) : subscriber.subscription_status === "past_due" ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            Past Due
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-brand-navy-100 text-brand-navy-600">
+                            Free
+                          </span>
+                        )}
+                        {subscriber.subscription?.cancel_at_period_end && (
+                          <span className="ml-2 text-xs text-red-500">
+                            Canceling
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-brand-navy-600">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-brand-navy-400" />
+                          {formatDate(subscriber.created_at)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-brand-navy-600">
+                        {subscriber.subscription?.is_lifetime ? (
+                          <span className="text-amber-600">Never</span>
+                        ) : subscriber.subscription?.current_period_end ? (
+                          formatDate(subscriber.subscription.current_period_end)
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Summary */}
+      {!loading && (
+        <p className="text-sm text-brand-navy-500 text-center">
+          Showing {filteredSubscribers.length} of {subscribers.length} users
+        </p>
+      )}
+    </div>
+  );
+}

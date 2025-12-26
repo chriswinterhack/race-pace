@@ -17,13 +17,17 @@ import {
   Bell,
   Link2,
   ChevronRight,
+  CreditCard,
+  Crown,
+  Sparkles,
+  ExternalLink,
 } from "lucide-react";
 import { Input, Label, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { calculateAllPowerTargets } from "@/lib/calculations/power";
 import { updateUnitsCache } from "@/hooks";
 
@@ -53,7 +57,7 @@ interface UserProfile {
   avatar_url: string | null;
 }
 
-type SettingsSection = "profile" | "athlete" | "nutrition" | "preferences" | "notifications" | "integrations" | "account";
+type SettingsSection = "profile" | "athlete" | "nutrition" | "preferences" | "billing" | "notifications" | "integrations" | "account";
 
 const kgToLbs = (kg: number) => kg * 2.20462;
 const lbsToKg = (lbs: number) => lbs / 2.20462;
@@ -102,17 +106,31 @@ const navItems: { id: SettingsSection; label: string; icon: React.ComponentType<
   { id: "athlete", label: "Athlete Profile", icon: Zap, description: "FTP, weight, power zones" },
   { id: "nutrition", label: "Nutrition", icon: Droplets, description: "Hourly fueling targets" },
   { id: "preferences", label: "Preferences", icon: Settings2, description: "Units, visibility" },
+  { id: "billing", label: "Billing", icon: CreditCard, description: "Subscription & payments" },
   { id: "notifications", label: "Notifications", icon: Bell, description: "Email & push settings" },
   { id: "integrations", label: "Integrations", icon: Link2, description: "Connected apps" },
   { id: "account", label: "Account", icon: Shield, description: "Security, logout" },
 ];
 
+interface SubscriptionData {
+  isPremium: boolean;
+  status: "active" | "inactive" | "past_due" | "canceled";
+  isLifetime: boolean;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+}
+
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
+  const initialSection = (searchParams.get("section") as SettingsSection) || "profile";
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [profile, setProfile] = useState<AthleteProfile | null>(null);
-  const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
+  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
 
   // Form state
   const [name, setName] = useState("");
@@ -139,7 +157,84 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchUserAndProfile();
+    fetchSubscription();
   }, []);
+
+  // Update active section when URL param changes
+  useEffect(() => {
+    const section = searchParams.get("section") as SettingsSection;
+    if (section && navItems.some((item) => item.id === section)) {
+      setActiveSection(section);
+    }
+  }, [searchParams]);
+
+  async function fetchSubscription() {
+    try {
+      const response = await fetch("/api/subscription/status");
+      if (response.ok) {
+        const result = await response.json();
+        if (result.data) {
+          setSubscription({
+            isPremium: result.data.isPremium,
+            status: result.data.status,
+            isLifetime: result.data.isLifetime || false,
+            currentPeriodEnd: result.data.subscription?.currentPeriodEnd || null,
+            cancelAtPeriodEnd: result.data.subscription?.cancelAtPeriodEnd || false,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+    }
+  }
+
+  async function openBillingPortal() {
+    setBillingLoading(true);
+    try {
+      const response = await fetch("/api/stripe/portal", { method: "POST" });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to open billing portal");
+      }
+
+      if (result.data?.url) {
+        window.location.href = result.data.url;
+      }
+    } catch (error) {
+      console.error("Error opening billing portal:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to open billing portal");
+      setBillingLoading(false);
+    }
+  }
+
+  async function handleUpgrade() {
+    setBillingLoading(true);
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceKey: "annual",
+          successUrl: `${window.location.origin}/dashboard/settings?section=billing&success=true`,
+          cancelUrl: `${window.location.origin}/dashboard/settings?section=billing`,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create checkout session");
+      }
+
+      if (result.data?.url) {
+        window.location.href = result.data.url;
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to start upgrade");
+      setBillingLoading(false);
+    }
+  }
 
   async function fetchUserAndProfile() {
     setLoading(true);
@@ -768,6 +863,177 @@ export default function SettingsPage() {
                   Save Preferences
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Billing Section */}
+          {activeSection === "billing" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-brand-navy-900">Billing & Subscription</h2>
+                <p className="text-sm text-brand-navy-500">Manage your subscription and payment methods</p>
+              </div>
+
+              {/* Current Plan Card */}
+              <div className={cn(
+                "rounded-xl border p-6",
+                subscription?.isPremium
+                  ? "bg-gradient-to-br from-brand-sky-50 to-white border-brand-sky-200"
+                  : "bg-white border-brand-navy-200"
+              )}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {subscription?.isPremium ? (
+                        subscription.isLifetime ? (
+                          <Crown className="h-5 w-5 text-amber-500" />
+                        ) : (
+                          <Sparkles className="h-5 w-5 text-brand-sky-500" />
+                        )
+                      ) : (
+                        <User className="h-5 w-5 text-brand-navy-400" />
+                      )}
+                      <h3 className="font-semibold text-brand-navy-900">
+                        {subscription?.isPremium
+                          ? subscription.isLifetime
+                            ? "Lifetime Member"
+                            : "Premium"
+                          : "Free Plan"}
+                      </h3>
+                      {subscription?.isPremium && (
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-full text-xs font-medium",
+                          subscription.isLifetime
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-brand-sky-100 text-brand-sky-700"
+                        )}>
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-brand-navy-600">
+                      {subscription?.isPremium
+                        ? subscription.isLifetime
+                          ? "You have lifetime access to all premium features."
+                          : subscription.cancelAtPeriodEnd
+                            ? "Your subscription will end on " + (subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "renewal date")
+                            : "Full access to all features. Renews " + (subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "annually")
+                        : "Upgrade to unlock race plans, Garmin sync, exports, and more."}
+                    </p>
+                  </div>
+                  {subscription?.isPremium && !subscription.isLifetime && (
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-brand-navy-900">$29</div>
+                      <div className="text-sm text-brand-navy-500">/year</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="mt-6 flex gap-3">
+                  {subscription?.isPremium ? (
+                    !subscription.isLifetime && (
+                      <Button
+                        onClick={openBillingPortal}
+                        disabled={billingLoading}
+                        variant="outline"
+                        className="gap-2"
+                      >
+                        {billingLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ExternalLink className="h-4 w-4" />
+                        )}
+                        Manage Subscription
+                      </Button>
+                    )
+                  ) : (
+                    <Button
+                      onClick={handleUpgrade}
+                      disabled={billingLoading}
+                      className="gap-2 bg-brand-sky-500 hover:bg-brand-sky-600"
+                    >
+                      {billingLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4" />
+                      )}
+                      Upgrade to Premium
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Premium Features List */}
+              {!subscription?.isPremium && (
+                <div className="bg-white rounded-xl border border-brand-navy-200 p-6">
+                  <h3 className="font-semibold text-brand-navy-900 mb-4">What you get with Premium</h3>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {[
+                      { icon: "map", text: "Unlimited race plans" },
+                      { icon: "watch", text: "Garmin sync" },
+                      { icon: "download", text: "PDF exports & stickers" },
+                      { icon: "bike", text: "Gear tracking" },
+                      { icon: "checklist", text: "Packing checklists" },
+                      { icon: "messages", text: "Discussion posts" },
+                    ].map((feature, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm text-brand-navy-600">
+                        <Check className="h-4 w-4 text-brand-sky-500 flex-shrink-0" />
+                        {feature.text}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-brand-navy-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-2xl font-bold text-brand-navy-900">$29</span>
+                      <span className="text-brand-navy-500">/year</span>
+                      <span className="ml-2 text-sm text-brand-navy-400">or $79 lifetime</span>
+                    </div>
+                    <a
+                      href="/pricing"
+                      className="text-sm text-brand-sky-600 hover:text-brand-sky-700 font-medium"
+                    >
+                      View pricing details →
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment History Link */}
+              {subscription?.isPremium && !subscription.isLifetime && (
+                <div className="bg-white rounded-xl border border-brand-navy-200 divide-y divide-brand-navy-100">
+                  <div className="p-6 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium text-brand-navy-900">Payment History & Invoices</h3>
+                      <p className="text-sm text-brand-navy-500 mt-0.5">View and download past invoices</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={openBillingPortal}
+                      disabled={billingLoading}
+                      className="gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      View Invoices
+                    </Button>
+                  </div>
+                  <div className="p-6 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium text-brand-navy-900">Payment Method</h3>
+                      <p className="text-sm text-brand-navy-500 mt-0.5">Update your card or payment details</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={openBillingPortal}
+                      disabled={billingLoading}
+                      className="gap-2"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      Update
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

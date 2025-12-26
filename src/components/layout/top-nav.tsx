@@ -17,11 +17,13 @@ import {
   Mountain,
   ChevronDown,
   Apple,
+  CreditCard,
 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { cn } from "@/lib/utils";
 import { useDevRole } from "@/hooks/use-dev-role";
 import { createClient } from "@/lib/supabase/client";
+import { PremiumBadge } from "@/components/subscription/PremiumBadge";
 
 interface NavItem {
   label: string;
@@ -39,6 +41,7 @@ const allNavItems: NavItem[] = [
   { label: "Athletes", href: "/dashboard/athletes", icon: Users, roles: ["coach"], category: "coach" },
   { label: "Race Mgmt", href: "/admin/races", icon: FlagTriangleRight, roles: ["admin"], category: "admin" },
   { label: "Nutrition", href: "/admin/nutrition", icon: Apple, roles: ["admin"], category: "admin" },
+  { label: "Subscribers", href: "/admin/subscribers", icon: CreditCard, roles: ["admin"], category: "admin" },
   { label: "Users", href: "/admin/users", icon: UserCog, roles: ["admin"], category: "admin" },
 ];
 
@@ -375,7 +378,10 @@ export function TopNav() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{userName || "User"}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-white truncate">{userName || "User"}</p>
+                            <PremiumBadge variant="compact" />
+                          </div>
                           <p className="text-xs text-brand-navy-400 capitalize">{role}</p>
                         </div>
                       </div>
@@ -390,6 +396,14 @@ export function TopNav() {
                       >
                         <User className="h-4 w-4" />
                         Profile & Settings
+                      </Link>
+                      <Link
+                        href="/dashboard/settings?section=billing"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-navy-200 hover:text-white hover:bg-brand-navy-700 transition-colors"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                        Billing
                       </Link>
                       <button
                         onClick={handleLogout}
