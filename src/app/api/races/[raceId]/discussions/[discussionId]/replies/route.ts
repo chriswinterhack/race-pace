@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createNotificationEvent } from "@/lib/notifications/create-event";
 
 // POST /api/races/[raceId]/discussions/[discussionId]/replies - Add a reply
 export async function POST(
@@ -28,10 +29,10 @@ export async function POST(
     );
   }
 
-  // Verify discussion exists and belongs to this race
+  // Verify discussion exists and belongs to this race, get title for notification
   const { data: discussion } = await supabase
     .from("race_discussions")
-    .select("id")
+    .select("id, title")
     .eq("id", discussionId)
     .eq("race_id", raceId)
     .single();
@@ -76,6 +77,30 @@ export async function POST(
   if (error) {
     console.error("Error creating reply:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Create notification event for the reply
+  try {
+    // Get race name and user name for notification
+    const [raceResult, userResult] = await Promise.all([
+      supabase.from("races").select("name").eq("id", raceId).single(),
+      supabase.from("users").select("name").eq("id", user.id).single(),
+    ]);
+
+    const raceName = raceResult.data?.name || "a race";
+    const userName = userResult.data?.name || "Someone";
+
+    await createNotificationEvent(supabase, {
+      type: "discussion_reply",
+      actor_id: user.id,
+      race_id: raceId,
+      discussion_id: discussionId,
+      title: `${userName} replied to "${discussion.title}" in ${raceName}`,
+      body: content.trim().substring(0, 150) + (content.length > 150 ? "..." : ""),
+    });
+  } catch (notifError) {
+    // Log but don't fail the request if notification creation fails
+    console.error("Error creating notification:", notifError);
   }
 
   return NextResponse.json({ data: reply }, { status: 201 });

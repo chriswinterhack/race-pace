@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createNotificationEvent } from "@/lib/notifications/create-event";
 
 type DiscussionCategory = "general" | "gear" | "logistics" | "training" | "strategy";
 
@@ -174,6 +175,30 @@ export async function POST(
   if (error) {
     console.error("Error creating discussion:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Create notification event for the new discussion
+  try {
+    // Get race name and user name for notification
+    const [raceResult, userResult] = await Promise.all([
+      supabase.from("races").select("name").eq("id", raceId).single(),
+      supabase.from("users").select("name").eq("id", user.id).single(),
+    ]);
+
+    const raceName = raceResult.data?.name || "a race";
+    const userName = userResult.data?.name || "Someone";
+
+    await createNotificationEvent(supabase, {
+      type: "discussion_post",
+      actor_id: user.id,
+      race_id: raceId,
+      discussion_id: discussion.id,
+      title: `${userName} started a discussion in ${raceName}`,
+      body: title.trim(),
+    });
+  } catch (notifError) {
+    // Log but don't fail the request if notification creation fails
+    console.error("Error creating notification:", notifError);
   }
 
   return NextResponse.json({ data: discussion }, { status: 201 });

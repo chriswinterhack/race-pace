@@ -71,6 +71,7 @@ interface GearSetup {
     model: string;
     year?: number;
     bike_type?: string;
+    image_url?: string;
   };
   front_tire?: {
     brand: string;
@@ -680,12 +681,21 @@ function TrendingGearSection({ gear }: { gear: TrendingGear | null }) {
           )}
         </div>
 
-        <Link
-          href="/dashboard/gear"
-          className="mt-4 text-sm text-brand-sky-600 hover:text-brand-sky-700 font-medium flex items-center justify-center gap-1"
-        >
-          Manage your gear <ArrowRight className="h-4 w-4" />
-        </Link>
+        <div className="mt-4 pt-4 border-t border-brand-navy-100 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href="/dashboard/community/gear"
+            className="text-sm text-brand-sky-600 hover:text-brand-sky-700 font-medium flex items-center gap-1"
+          >
+            Browse All Gear Setups <ArrowRight className="h-4 w-4" />
+          </Link>
+          <span className="hidden sm:inline text-brand-navy-300">·</span>
+          <Link
+            href="/dashboard/gear"
+            className="text-sm text-brand-navy-500 hover:text-brand-navy-700 font-medium flex items-center gap-1"
+          >
+            Manage Your Gear
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
@@ -760,22 +770,33 @@ function GearSetupModal({
         <div className="p-6 space-y-6">
           {/* Bike */}
           {setup.bike && (
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-brand-sky-50 border border-brand-sky-100">
-              <div className="p-2 rounded-lg bg-brand-sky-100">
-                <Bike className="h-6 w-6 text-brand-sky-700" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-brand-sky-700">Bike</p>
-                <p className="text-lg font-semibold text-brand-navy-900">
-                  {setup.bike.brand} {setup.bike.model}
-                </p>
-                {(setup.bike.year || setup.bike.bike_type) && (
-                  <p className="text-sm text-brand-navy-500">
-                    {setup.bike.year && `${setup.bike.year}`}
-                    {setup.bike.year && setup.bike.bike_type && " • "}
-                    {setup.bike.bike_type}
+            <div className="rounded-xl bg-brand-sky-50 border border-brand-sky-100 overflow-hidden">
+              {setup.bike.image_url && (
+                <div className="relative w-full h-48">
+                  <img
+                    src={setup.bike.image_url}
+                    alt={`${setup.bike.brand} ${setup.bike.model}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex items-start gap-4 p-4">
+                <div className="p-2 rounded-lg bg-brand-sky-100">
+                  <Bike className="h-6 w-6 text-brand-sky-700" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-brand-sky-700">Bike</p>
+                  <p className="text-lg font-semibold text-brand-navy-900">
+                    {setup.bike.brand} {setup.bike.model}
                   </p>
-                )}
+                  {(setup.bike.year || setup.bike.bike_type) && (
+                    <p className="text-sm text-brand-navy-500">
+                      {setup.bike.year && `${setup.bike.year}`}
+                      {setup.bike.year && setup.bike.bike_type && " • "}
+                      {setup.bike.bike_type}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}

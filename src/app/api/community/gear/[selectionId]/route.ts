@@ -46,7 +46,8 @@ export async function GET(
           brand,
           model,
           year,
-          bike_type
+          bike_type,
+          image_url
         ),
         front_tire:user_tires!race_gear_selections_front_tire_id_fkey (
           id,

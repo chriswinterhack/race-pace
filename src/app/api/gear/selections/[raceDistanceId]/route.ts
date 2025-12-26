@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { raceGearSelectionSchema } from "@/lib/validations/gear";
+import { createNotificationEvent } from "@/lib/notifications/create-event";
 
 // GET /api/gear/selections/[raceDistanceId] - Get gear selection for a specific race distance
 export async function GET(
@@ -88,6 +89,17 @@ export async function PUT(
 
   const { bag_ids, clothing_ids, ...selectionData } = validation.data;
 
+  // Check if this is a new public share (for notifications)
+  const { data: existingSelection } = await supabase
+    .from("race_gear_selections")
+    .select("id, is_public")
+    .eq("race_distance_id", raceDistanceId)
+    .eq("user_id", user.id)
+    .single();
+
+  const wasPublic = existingSelection?.is_public || false;
+  const isNowPublic = selectionData.is_public || false;
+
   // Upsert the main selection
   const { data: selection, error: upsertError } = await supabase
     .from("race_gear_selections")
@@ -139,6 +151,46 @@ export async function PUT(
           clothing_id,
         }))
       );
+    }
+  }
+
+  // Create notification if this is a new public share
+  if (isNowPublic && !wasPublic) {
+    try {
+      // Get race info and user name for notification
+      const [distanceResult, userResult] = await Promise.all([
+        supabase
+          .from("race_distances")
+          .select(`
+            name,
+            race_edition:race_editions!inner(
+              race:races!inner(id, name)
+            )
+          `)
+          .eq("id", raceDistanceId)
+          .single(),
+        supabase.from("users").select("name").eq("id", user.id).single(),
+      ]);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raceEdition = distanceResult.data?.race_edition as any;
+      const raceName = raceEdition?.race?.name || "a race";
+      const raceId = raceEdition?.race?.id;
+      const distanceName = distanceResult.data?.name || "";
+      const userName = userResult.data?.name || "Someone";
+
+      if (raceId) {
+        await createNotificationEvent(supabase, {
+          type: "gear_share",
+          actor_id: user.id,
+          race_id: raceId,
+          title: `${userName} shared their gear setup for ${raceName}`,
+          body: distanceName ? `${distanceName} distance` : undefined,
+        });
+      }
+    } catch (notifError) {
+      // Log but don't fail the request if notification creation fails
+      console.error("Error creating notification:", notifError);
     }
   }
 

@@ -10,7 +10,6 @@ import {
   Bike,
   Users,
   LogOut,
-  Bell,
   User,
   Shield,
   FlagTriangleRight,
@@ -19,8 +18,8 @@ import {
   ChevronDown,
   Apple,
 } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { useDevRole } from "@/hooks/use-dev-role";
 import { createClient } from "@/lib/supabase/client";
 
@@ -320,15 +319,7 @@ export function TopNav() {
             {/* Right Actions */}
             <div className="flex items-center gap-1">
               {/* Notifications */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-brand-navy-300 hover:text-white hover:bg-brand-navy-800 relative h-9 w-9"
-                aria-label="Notifications"
-              >
-                <Bell className="h-4.5 w-4.5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-sky-400 rounded-full ring-2 ring-brand-navy-900" />
-              </Button>
+              <NotificationBell />
 
               {/* Divider */}
               <div className="w-px h-6 bg-brand-navy-700 mx-2" />
