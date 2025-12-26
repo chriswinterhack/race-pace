@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password, inviteCode } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -53,11 +53,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Process invite code if provided
+    let inviteResult = null;
+    if (inviteCode && data.user?.id) {
+      try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+        const inviteResponse = await fetch(`${appUrl}/api/invite/${inviteCode}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: data.user.id }),
+        });
+
+        if (inviteResponse.ok) {
+          inviteResult = await inviteResponse.json();
+        }
+      } catch (inviteError) {
+        console.error("Error processing invite:", inviteError);
+        // Don't fail signup if invite processing fails
+      }
+    }
+
     return NextResponse.json({
       data: {
         user: data.user,
         session: data.session,
         needsEmailConfirmation: !data.session,
+        invite: inviteResult,
       },
       error: null,
     });

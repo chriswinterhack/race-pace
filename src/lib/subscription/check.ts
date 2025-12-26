@@ -8,6 +8,8 @@ export type SubscriptionCheckResult = {
   status: "active" | "inactive" | "past_due" | "canceled";
   expiresAt?: string;
   isLifetime?: boolean;
+  isComped?: boolean;
+  compedSource?: string;
 };
 
 export async function checkSubscription(
@@ -39,10 +41,10 @@ export async function checkSubscription(
   }
 
   const status = userData.subscription_status as SubscriptionCheckResult["status"];
-  const isPremium = status === "active";
+  const hasStripeSubscription = status === "active";
 
-  // If premium, get more details from subscriptions table
-  if (isPremium) {
+  // If premium via Stripe, get more details from subscriptions table
+  if (hasStripeSubscription) {
     const { data: subscription } = await supabase
       .from("subscriptions")
       .select("current_period_end, is_lifetime")
@@ -57,10 +59,32 @@ export async function checkSubscription(
       status: "active",
       expiresAt: subscription?.current_period_end || undefined,
       isLifetime: subscription?.is_lifetime || false,
+      isComped: false,
     };
   }
 
-  return { isPremium, status };
+  // Check for active comped subscription
+  const { data: compedSub } = await supabase
+    .from("comped_subscriptions")
+    .select("expires_at, source")
+    .eq("user_id", targetUserId)
+    .eq("is_active", true)
+    .gt("expires_at", new Date().toISOString())
+    .order("expires_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (compedSub) {
+    return {
+      isPremium: true,
+      status: "active",
+      expiresAt: compedSub.expires_at,
+      isComped: true,
+      compedSource: compedSub.source,
+    };
+  }
+
+  return { isPremium: false, status };
 }
 
 // Throws an error if user doesn't have premium

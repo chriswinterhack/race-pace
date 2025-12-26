@@ -10,6 +10,9 @@ import {
   Calendar,
   Loader2,
   RefreshCw,
+  Mail,
+  MoreVertical,
+  Gift,
 } from "lucide-react";
 import {
   Card,
@@ -17,8 +20,13 @@ import {
   Button,
   Input,
   Skeleton,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { InviteUserModal, ManagePremiumModal } from "@/components/admin";
 
 interface Subscriber {
   id: string;
@@ -65,6 +73,11 @@ export default function AdminSubscribersPage() {
     freeUsers: 0,
   });
   const [filter, setFilter] = useState<"all" | "active" | "lifetime" | "free">("all");
+
+  // Modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<Subscriber | null>(null);
 
   useEffect(() => {
     fetchSubscribers();
@@ -176,15 +189,24 @@ export default function AdminSubscribersPage() {
             Manage user subscriptions and view analytics
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={fetchSubscribers}
-          disabled={loading}
-          className="gap-2"
-        >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowInviteModal(true)}
+            className="gap-2 bg-brand-navy-900 hover:bg-brand-navy-800"
+          >
+            <Mail className="h-4 w-4" />
+            Invite User
+          </Button>
+          <Button
+            variant="outline"
+            onClick={fetchSubscribers}
+            disabled={loading}
+            className="gap-2"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -335,6 +357,9 @@ export default function AdminSubscribersPage() {
                     <th className="text-left px-4 py-3 text-xs font-medium text-brand-navy-500 uppercase tracking-wider">
                       Renews
                     </th>
+                    <th className="text-right px-4 py-3 text-xs font-medium text-brand-navy-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-navy-100">
@@ -394,6 +419,26 @@ export default function AdminSubscribersPage() {
                           "—"
                         )}
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedUser(subscriber);
+                                setShowPremiumModal(true);
+                              }}
+                            >
+                              <Gift className="h-4 w-4 mr-2" />
+                              Manage Premium
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -409,6 +454,19 @@ export default function AdminSubscribersPage() {
           Showing {filteredSubscribers.length} of {subscribers.length} users
         </p>
       )}
+
+      {/* Modals */}
+      <InviteUserModal
+        open={showInviteModal}
+        onOpenChange={setShowInviteModal}
+        onSuccess={fetchSubscribers}
+      />
+      <ManagePremiumModal
+        open={showPremiumModal}
+        onOpenChange={setShowPremiumModal}
+        user={selectedUser}
+        onSuccess={fetchSubscribers}
+      />
     </div>
   );
 }

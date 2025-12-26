@@ -19,3 +19,15 @@ export { Textarea } from "./textarea";
 export { ViewToggle, type ViewMode } from "./ViewToggle";
 export { EditableTime } from "./editable-time";
 export { RichTextEditor, RichTextDisplay } from "./rich-text-editor";
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuRadioGroup,
+} from "./dropdown-menu";
