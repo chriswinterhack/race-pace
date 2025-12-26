@@ -7,10 +7,15 @@ const supabase = createClient(
 
 async function resetSubscription() {
   // Get all users with active subscriptions
-  const { data: users, error } = await supabase
+  const { data: users, error: fetchError } = await supabase
     .from('users')
     .select('id, email, subscription_status')
     .eq('subscription_status', 'active');
+
+  if (fetchError) {
+    console.error('Fetch error:', fetchError);
+    return;
+  }
 
   console.log('Users with active subscriptions:', users);
 

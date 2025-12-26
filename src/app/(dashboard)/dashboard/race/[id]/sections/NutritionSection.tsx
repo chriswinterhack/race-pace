@@ -5,7 +5,9 @@ import { Utensils, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { NutritionPlanner } from "@/components/nutrition-planner";
+import { NutritionPreview } from "@/components/nutrition-planner/NutritionPreview";
 import { Button } from "@/components/ui";
+import { usePremiumFeature } from "@/hooks/useSubscription";
 
 interface RaceDistance {
   elevation_high: number | null;
@@ -33,6 +35,8 @@ export function NutritionSection({ plan }: NutritionSectionProps) {
   const [resetting, setResetting] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const supabase = createClient();
+
+  const { canAccess: isPremium, isLoading: isPremiumLoading } = usePremiumFeature("Nutrition Planning");
 
   async function handleResetNutrition() {
     if (!window.confirm("Are you sure you want to clear ALL nutrition data for this race plan? This cannot be undone.")) {
@@ -100,7 +104,7 @@ export function NutritionSection({ plan }: NutritionSectionProps) {
     setLoading(false);
   }
 
-  if (loading) {
+  if (loading || isPremiumLoading) {
     return (
       <div className="animate-pulse space-y-4">
         <div className="h-6 w-48 bg-brand-navy-100 rounded" />
@@ -143,6 +147,18 @@ export function NutritionSection({ plan }: NutritionSectionProps) {
   // Get athlete weight (default 75kg)
   const athleteWeightKg = profile?.weight_kg ?? 75;
 
+  // Show preview for free users
+  if (!isPremium) {
+    return (
+      <NutritionPreview
+        raceDurationHours={raceDurationHours}
+        maxElevationFt={maxElevationFt}
+        athleteWeightKg={athleteWeightKg}
+      />
+    );
+  }
+
+  // Full nutrition planner for premium users
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">

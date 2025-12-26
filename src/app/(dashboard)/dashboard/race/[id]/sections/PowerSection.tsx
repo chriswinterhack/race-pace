@@ -5,6 +5,7 @@ import { Zap, Mountain, Minus, Lock, Pencil, Check, X, Info } from "lucide-react
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUnits } from "@/hooks";
+import { usePremiumFeature } from "@/hooks/useSubscription";
 import {
   calculateAllPowerTargets,
   calculateRequiredPowerAdvanced,
@@ -12,6 +13,7 @@ import {
   DEFAULT_INTENSITY_FACTORS,
   RACE_TYPE_LABELS,
 } from "@/lib/calculations/power";
+import { PowerTargetsPreview } from "@/components/premium-previews";
 import type { IntensityFactors, RaceType } from "@/types";
 
 interface SurfaceComposition {
@@ -83,6 +85,7 @@ export function PowerSection({ plan }: PowerSectionProps) {
 
   const supabase = createClient();
   const { units } = useUnits();
+  const { canAccess: isPremium, isLoading: isPremiumLoading } = usePremiumFeature("Power Targets");
 
   useEffect(() => {
     fetchData();
@@ -314,12 +317,25 @@ export function PowerSection({ plan }: PowerSectionProps) {
     return `${hours}h ${mins}m`;
   };
 
-  if (loading) {
+  if (loading || isPremiumLoading) {
     return (
       <div className="animate-pulse space-y-4">
         <div className="h-6 w-48 bg-brand-navy-100 rounded" />
         <div className="h-32 bg-brand-navy-100 rounded" />
       </div>
+    );
+  }
+
+  // Show preview for free users
+  if (!isPremium) {
+    return (
+      <PowerTargetsPreview
+        ftpWatts={profile?.ftp_watts ?? undefined}
+        weightKg={profile?.weight_kg ?? undefined}
+        maxElevationFt={plan.race_distance.elevation_high ?? undefined}
+        goalTimeMinutes={plan.goal_time_minutes ?? undefined}
+        distanceMiles={plan.race_distance.distance_miles}
+      />
     );
   }
 

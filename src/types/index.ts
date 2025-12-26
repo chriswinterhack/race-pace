@@ -72,6 +72,9 @@ export interface AthleteProfile {
   updated_at: string;
 }
 
+// Pass direction for out-and-back courses
+export type PassDirection = "outbound" | "inbound" | "single";
+
 // Aid station type
 export interface AidStation {
   name: string;
@@ -79,6 +82,14 @@ export interface AidStation {
   supplies: string[];
   cutoff_time: string | null;
   type?: "aid_station" | "checkpoint";
+  // Logistics flags (for drop bag and crew planning)
+  is_drop_bag?: boolean;
+  is_crew_access?: boolean;
+  drop_bag_notes?: string;
+  crew_notes?: string;
+  // Linked drop bag support (for out-and-back courses)
+  drop_bag_name?: string; // Name of physical bag - stations with same name share a bag
+  pass_direction?: PassDirection; // Which direction this pass is
 }
 
 // Surface composition for courses

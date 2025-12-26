@@ -17,7 +17,7 @@ import {
   Info,
   GripVertical,
 } from "lucide-react";
-import { Button, Input, Label, Textarea } from "@/components/ui";
+import { Button, Input, Label, RichTextEditor, Textarea } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -397,11 +397,11 @@ export function RaceLogisticsEditor({
                 <p className="text-xs text-brand-navy-500 mt-1 mb-2">
                   Include parking locations, fees, shuttle info, overnight rules
                 </p>
-                <Textarea
+                <RichTextEditor
                   value={parkingInfo}
-                  onChange={(e) => setParkingInfo(e.target.value)}
+                  onChange={setParkingInfo}
                   placeholder="All athletes and crews must park at Community Fields and High School parking lots. Complimentary shuttles run to the start line from 4:30am. No overnight camping or parking is allowed..."
-                  rows={8}
+                  minHeight="180px"
                 />
               </div>
             </div>
@@ -653,11 +653,11 @@ export function RaceLogisticsEditor({
                 <p className="text-xs text-brand-navy-500 mt-1 mb-2">
                   Overall crew policies, registration requirements, general rules
                 </p>
-                <Textarea
+                <RichTextEditor
                   value={crewInfo}
-                  onChange={(e) => setCrewInfo(e.target.value)}
+                  onChange={setCrewInfo}
                   placeholder="All crew must check in at registration and receive crew wristbands. Crews may only access designated crew areas. Athletes may not receive outside assistance at any other point on course. Reserved crew spots require advance registration ($50) at..."
-                  rows={5}
+                  minHeight="140px"
                 />
               </div>
             </div>
@@ -670,11 +670,11 @@ export function RaceLogisticsEditor({
                 <p className="text-xs text-brand-navy-500 mt-1 mb-2">
                   Locations, labeling requirements, what to include
                 </p>
-                <Textarea
+                <RichTextEditor
                   value={dropBagInfo}
-                  onChange={(e) => setDropBagInfo(e.target.value)}
+                  onChange={setDropBagInfo}
                   placeholder="Drop bags available at Twin Lakes Dam (mile 40.8/63.2) and Outward Bound (mile 25/78.5). Use clear plastic bags labeled with bib number, name, and aid station..."
-                  rows={8}
+                  minHeight="180px"
                 />
               </div>
             </div>
@@ -687,13 +687,11 @@ export function RaceLogisticsEditor({
                 <p className="text-xs text-brand-navy-500 mt-1 mb-2">
                   DQ conditions, number placement, course rules
                 </p>
-                <Textarea
+                <RichTextEditor
                   value={courseRules}
-                  onChange={(e) => setCourseRules(e.target.value)}
-                  placeholder="• Starting outside assigned corral is grounds for DQ
-• Race numbers must be visible on handlebars - do not cut or fold
-• If you leave the course, you must re-enter at the same point..."
-                  rows={8}
+                  onChange={setCourseRules}
+                  placeholder="Starting outside assigned corral is grounds for DQ. Race numbers must be visible on handlebars - do not cut or fold. If you leave the course, you must re-enter at the same point..."
+                  minHeight="180px"
                 />
               </div>
             </div>
@@ -706,11 +704,11 @@ export function RaceLogisticsEditor({
                 <p className="text-xs text-brand-navy-500 mt-1 mb-2">
                   How the course is marked, what to look for
                 </p>
-                <Textarea
+                <RichTextEditor
                   value={courseMarking}
-                  onChange={(e) => setCourseMarking(e.target.value)}
+                  onChange={setCourseMarking}
                   placeholder="Course marked with pink flags and pink/black tape. Major intersections have course marshals. Wrong Way signs mark closed trails..."
-                  rows={6}
+                  minHeight="150px"
                 />
               </div>
             </div>
@@ -723,11 +721,11 @@ export function RaceLogisticsEditor({
                 <p className="text-xs text-brand-navy-500 mt-1 mb-2">
                   Typical conditions, altitude effects, what to prepare for
                 </p>
-                <Textarea
+                <RichTextEditor
                   value={weatherNotes}
-                  onChange={(e) => setWeatherNotes(e.target.value)}
+                  onChange={setWeatherNotes}
                   placeholder="Start elevation: 10,152 ft. Max elevation: 12,424 ft at Columbine Mine. Morning temps typically 40-50°F, afternoon highs 70-80°F. Afternoon thunderstorms common - prepare for rain and cold..."
-                  rows={6}
+                  minHeight="150px"
                 />
               </div>
             </div>
@@ -740,11 +738,11 @@ export function RaceLogisticsEditor({
                 <p className="text-xs text-brand-navy-500 mt-1 mb-2">
                   Any other important notes for athletes
                 </p>
-                <Textarea
+                <RichTextEditor
                   value={additionalInfo}
-                  onChange={(e) => setAdditionalInfo(e.target.value)}
+                  onChange={setAdditionalInfo}
                   placeholder="Post-race party at finish line from 12pm-8pm. Awards ceremony at 7pm. Finisher buckles available at awards..."
-                  rows={6}
+                  minHeight="150px"
                 />
               </div>
             </div>

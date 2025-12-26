@@ -23,6 +23,7 @@ import {
   Download,
   Sparkles,
   ArrowRight,
+  Backpack,
 } from "lucide-react";
 import {
   Button,
@@ -47,6 +48,7 @@ import { PowerSection } from "./sections/PowerSection";
 import { NutritionSection } from "./sections/NutritionSection";
 import { ParticipantGearSection } from "./sections/ParticipantGearSection";
 import { ChecklistSection } from "./sections/ChecklistSection";
+import { LogisticsSection } from "./sections/LogisticsSection";
 import { ExportSection } from "./sections/ExportSection";
 import { DiscussionsSection } from "@/components/discussions";
 
@@ -118,7 +120,7 @@ interface RacePlan {
   }>;
 }
 
-type SectionId = "overview" | "course" | "goal" | "pacing" | "power" | "nutrition" | "gear" | "checklist" | "community" | "export";
+type SectionId = "overview" | "course" | "goal" | "pacing" | "power" | "nutrition" | "gear" | "checklist" | "logistics" | "community" | "export";
 
 interface Section {
   id: SectionId;
@@ -135,6 +137,7 @@ const sections: Section[] = [
   { id: "power", label: "Power", icon: Zap, category: "strategy" },
   { id: "nutrition", label: "Nutrition", icon: Utensils, category: "strategy" },
   { id: "gear", label: "Gear", icon: Bike, category: "prep" },
+  { id: "logistics", label: "Logistics", icon: Backpack, category: "prep" },
   { id: "checklist", label: "Checklist", icon: CheckSquare, category: "prep" },
   { id: "community", label: "Discuss", icon: MessageSquare, category: "social" },
   { id: "export", label: "Export", icon: Download, category: "prep" },
@@ -675,6 +678,9 @@ export default function RaceDashboardPage() {
             )}
             {activeSection === "gear" && (
               <ParticipantGearSection plan={plan as any} />
+            )}
+            {activeSection === "logistics" && (
+              <LogisticsSection plan={plan as any} />
             )}
             {activeSection === "checklist" && (
               <ChecklistSection plan={plan as any} />

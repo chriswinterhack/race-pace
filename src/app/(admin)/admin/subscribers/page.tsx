@@ -19,7 +19,6 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 
 interface Subscriber {
   id: string;
@@ -41,6 +40,20 @@ interface Stats {
   freeUsers: number;
 }
 
+interface RawUser {
+  id: string;
+  email: string;
+  name: string | null;
+  subscription_status: string | null;
+  created_at: string;
+  subscriptions?: Array<{
+    status: string;
+    is_lifetime: boolean;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+  }>;
+}
+
 export default function AdminSubscribersPage() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,8 +66,6 @@ export default function AdminSubscribersPage() {
   });
   const [filter, setFilter] = useState<"all" | "active" | "lifetime" | "free">("all");
 
-  const supabase = createClient();
-
   useEffect(() => {
     fetchSubscribers();
   }, []);
@@ -62,34 +73,23 @@ export default function AdminSubscribersPage() {
   async function fetchSubscribers() {
     setLoading(true);
 
-    // Fetch users with subscription data
-    const { data: users, error } = await supabase
-      .from("users")
-      .select(`
-        id,
-        email,
-        name,
-        subscription_status,
-        created_at,
-        subscriptions (
-          is_lifetime,
-          current_period_end,
-          cancel_at_period_end,
-          status
-        )
-      `)
-      .order("created_at", { ascending: false });
+    try {
+      // Fetch users with subscription data via API
+      const response = await fetch("/api/admin/subscribers");
+      const result = await response.json();
 
-    if (error) {
-      console.error("Error fetching subscribers:", error);
-      setLoading(false);
-      return;
-    }
+      if (result.error) {
+        console.error("Error fetching subscribers:", result.error);
+        setLoading(false);
+        return;
+      }
+
+      const users = result.data;
 
     // Process users
-    const processedUsers: Subscriber[] = (users || []).map((user) => {
+    const processedUsers: Subscriber[] = (users || []).map((user: RawUser) => {
       const activeSubscription = user.subscriptions?.find(
-        (s: { status: string }) => s.status === "active"
+        (s) => s.status === "active"
       );
       return {
         id: user.id,
@@ -129,6 +129,10 @@ export default function AdminSubscribersPage() {
     });
 
     setLoading(false);
+    } catch (err) {
+      console.error("Error fetching subscribers:", err);
+      setLoading(false);
+    }
   }
 
   // Filter subscribers

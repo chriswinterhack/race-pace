@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Download, Printer, Watch } from "lucide-react";
+import { FileText, Download, Printer, Watch, Lock } from "lucide-react";
 import { Button } from "@/components/ui";
 import { GarminExportModal } from "@/components/garmin";
+import { usePremiumFeature } from "@/hooks/useSubscription";
 
 interface RacePlan {
   id: string;
@@ -30,10 +31,14 @@ interface ExportSectionProps {
   isSubscribed?: boolean;
 }
 
-export function ExportSection({ plan, isSubscribed = false }: ExportSectionProps) {
+export function ExportSection({ plan }: ExportSectionProps) {
   const [showGarminModal, setShowGarminModal] = useState(false);
   const hasSegments = plan.segments.length > 0;
   const hasGoalTime = !!plan.goal_time_minutes;
+
+  const { canAccess: isPremium, showUpgrade: showGarminUpgrade } = usePremiumFeature("Sync to Garmin");
+  const { showUpgrade: showPdfUpgrade } = usePremiumFeature("Export PDF");
+  const { showUpgrade: showStickerUpgrade } = usePremiumFeature("Export Top Tube Sticker");
 
   return (
     <div className="space-y-6">
@@ -57,14 +62,18 @@ export function ExportSection({ plan, isSubscribed = false }: ExportSectionProps
                 View checkpoints and power targets on your Garmin
               </p>
               <Button
-                variant="outline"
+                variant={isPremium ? "outline" : "default"}
                 size="sm"
-                className="mt-4"
+                className={`mt-4 ${!isPremium ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}`}
                 disabled={!hasSegments}
-                onClick={() => setShowGarminModal(true)}
+                onClick={isPremium ? () => setShowGarminModal(true) : showGarminUpgrade}
               >
-                <Watch className="h-4 w-4 mr-2" />
-                Sync to Garmin
+                {isPremium ? (
+                  <Watch className="h-4 w-4 mr-2" />
+                ) : (
+                  <Lock className="h-4 w-4 mr-2" />
+                )}
+                {isPremium ? "Sync to Garmin" : "Upgrade to Sync"}
               </Button>
               {!hasSegments && (
                 <p className="mt-2 text-xs text-brand-navy-500">
@@ -87,15 +96,20 @@ export function ExportSection({ plan, isSubscribed = false }: ExportSectionProps
                 Compact reference card to tape to your bike
               </p>
               <Button
-                variant="outline"
+                variant={isPremium ? "outline" : "default"}
                 size="sm"
-                className="mt-4"
-                disabled={!hasSegments}
+                className={`mt-4 ${!isPremium ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}`}
+                disabled={!hasSegments && isPremium}
+                onClick={isPremium ? undefined : showStickerUpgrade}
               >
-                <Download className="h-4 w-4 mr-2" />
-                Generate PDF
+                {isPremium ? (
+                  <Download className="h-4 w-4 mr-2" />
+                ) : (
+                  <Lock className="h-4 w-4 mr-2" />
+                )}
+                {isPremium ? "Generate PDF" : "Upgrade to Export"}
               </Button>
-              {!hasSegments && (
+              {!hasSegments && isPremium && (
                 <p className="mt-2 text-xs text-brand-navy-500">
                   Add pacing segments first
                 </p>
@@ -116,15 +130,20 @@ export function ExportSection({ plan, isSubscribed = false }: ExportSectionProps
                 Complete PDF with all details, power targets, and nutrition
               </p>
               <Button
-                variant="outline"
+                variant={isPremium ? "outline" : "default"}
                 size="sm"
-                className="mt-4"
-                disabled={!hasGoalTime}
+                className={`mt-4 ${!isPremium ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}`}
+                disabled={!hasGoalTime && isPremium}
+                onClick={isPremium ? undefined : showPdfUpgrade}
               >
-                <Download className="h-4 w-4 mr-2" />
-                Download PDF
+                {isPremium ? (
+                  <Download className="h-4 w-4 mr-2" />
+                ) : (
+                  <Lock className="h-4 w-4 mr-2" />
+                )}
+                {isPremium ? "Download PDF" : "Upgrade to Export"}
               </Button>
-              {!hasGoalTime && (
+              {!hasGoalTime && isPremium && (
                 <p className="mt-2 text-xs text-brand-navy-500">
                   Set a goal time first
                 </p>
@@ -172,7 +191,7 @@ export function ExportSection({ plan, isSubscribed = false }: ExportSectionProps
         open={showGarminModal}
         onClose={() => setShowGarminModal(false)}
         racePlanId={plan.id}
-        isSubscribed={isSubscribed}
+        isSubscribed={isPremium}
       />
     </div>
   );

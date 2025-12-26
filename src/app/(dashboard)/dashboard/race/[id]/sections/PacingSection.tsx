@@ -19,6 +19,7 @@ import { Button, ViewToggle, EditableTime, type ViewMode } from "@/components/ui
 import { cn, formatDistance, formatElevation, haversineDistance } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUnits } from "@/hooks";
+import { usePremiumFeature } from "@/hooks/useSubscription";
 import { toast } from "sonner";
 import {
   formatDuration,
@@ -28,6 +29,7 @@ import {
 import type { ElevationPoint } from "@/lib/calculations";
 import { ElevationPlanner } from "@/components/elevation-planner";
 import { TopTubeStickerButton } from "@/components/exports";
+import { SplitsPreview } from "@/components/premium-previews";
 
 interface Segment {
   id: string;
@@ -145,6 +147,7 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
   const [viewMode, setViewModeState] = useState<ViewMode>("table");
   const supabase = createClient();
   const { units } = useUnits();
+  const { canAccess: isPremium, isLoading: isPremiumLoading } = usePremiumFeature("Race Splits");
 
   // Persist view mode in localStorage
   useEffect(() => {
@@ -315,6 +318,28 @@ export function PacingSection({ plan, onUpdate }: PacingSectionProps) {
 
   // Calculate pace per mile
   const avgPacePerMile = effectiveDistance > 0 ? totalTime / effectiveDistance : 0;
+
+  // Show loading state
+  if (isPremiumLoading) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="h-6 w-48 bg-brand-navy-100 rounded" />
+        <div className="h-32 bg-brand-navy-100 rounded" />
+      </div>
+    );
+  }
+
+  // Show preview for free users
+  if (!isPremium) {
+    return (
+      <SplitsPreview
+        raceName={plan.race_distance.race_edition?.race?.name}
+        distanceMiles={effectiveDistance}
+        goalTimeMinutes={plan.goal_time_minutes ?? undefined}
+        aidStationCount={allStations.length}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8">

@@ -26,6 +26,8 @@ import {
   Droplet,
   Milestone,
   ImagePlus,
+  Backpack,
+  Users,
 } from "lucide-react";
 import {
   DndContext,
@@ -53,6 +55,8 @@ import {
   Input,
   Label,
   Skeleton,
+  RichTextEditor,
+  RichTextDisplay,
 } from "@/components/ui";
 import { cn, formatDateRange, formatDateShort } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -61,6 +65,8 @@ import { toast } from "sonner";
 import { RaceLogisticsEditor } from "@/components/admin/RaceLogisticsEditor";
 import Image from "next/image";
 
+type PassDirection = "outbound" | "inbound" | "single";
+
 interface AidStation {
   id?: string; // For drag and drop tracking
   name: string;
@@ -68,6 +74,14 @@ interface AidStation {
   supplies?: string[];
   cutoff_time?: string;
   type?: "aid_station" | "checkpoint"; // Defaults to "aid_station" for backward compatibility
+  // Logistics flags
+  is_drop_bag?: boolean;
+  is_crew_access?: boolean;
+  drop_bag_notes?: string;
+  crew_notes?: string;
+  // Linked drop bag support (for out-and-back courses)
+  drop_bag_name?: string;
+  pass_direction?: PassDirection;
 }
 
 interface SurfaceComposition {
@@ -334,7 +348,7 @@ export default function RaceDetailPage() {
             <CardTitle className="text-lg">About</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-brand-navy-700">{race.description}</p>
+            <RichTextDisplay content={race.description} />
           </CardContent>
         </Card>
       )}
@@ -1386,13 +1400,12 @@ function EditRaceModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-race-description">Description</Label>
-              <textarea
-                id="edit-race-description"
+              <Label>Description</Label>
+              <RichTextEditor
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-                className="flex w-full rounded-md border border-brand-navy-200 bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-brand-navy-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky-400 focus-visible:ring-offset-2"
+                onChange={(value) => setFormData({ ...formData, description: value })}
+                placeholder="Add a description of the race..."
+                minHeight="120px"
               />
             </div>
 
@@ -1813,6 +1826,85 @@ function SortableAidStationItem({
               />
             </div>
           </div>
+          {/* Supplies - Only show for aid stations */}
+          {isAidStation && (
+            <div className="space-y-1">
+              <Label className="text-xs">Supplies Available</Label>
+              <Input
+                value={(station.supplies || []).join(", ")}
+                onChange={(e) => {
+                  const supplies = e.target.value
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter((s) => s.length > 0);
+                  onUpdate({ supplies });
+                }}
+                placeholder="e.g., Water, Gels, Bananas, Pickle Juice, Coke"
+                className="h-9 text-sm"
+              />
+              <p className="text-xs text-brand-navy-400">Comma-separated list</p>
+            </div>
+          )}
+          {/* Logistics Flags - Only show for aid stations */}
+          {isAidStation && (
+            <div className="space-y-3 pt-2 mt-2 border-t border-emerald-200/50">
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={station.is_drop_bag || false}
+                    onChange={(e) => onUpdate({ is_drop_bag: e.target.checked })}
+                    className="rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                  />
+                  <span className="flex items-center gap-1.5 text-sm text-emerald-700 group-hover:text-emerald-800">
+                    <Backpack className="h-4 w-4" />
+                    Drop Bag Location
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={station.is_crew_access || false}
+                    onChange={(e) => onUpdate({ is_crew_access: e.target.checked })}
+                    className="rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                  />
+                  <span className="flex items-center gap-1.5 text-sm text-emerald-700 group-hover:text-emerald-800">
+                    <Users className="h-4 w-4" />
+                    Crew Access
+                  </span>
+                </label>
+              </div>
+              {/* Linked Drop Bag Fields - Only show when is_drop_bag is checked */}
+              {station.is_drop_bag && (
+                <div className="grid gap-3 sm:grid-cols-2 p-3 bg-emerald-100/50 rounded-lg">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-emerald-700">Drop Bag Name (optional)</Label>
+                    <Input
+                      value={station.drop_bag_name || ""}
+                      onChange={(e) => onUpdate({ drop_bag_name: e.target.value || undefined })}
+                      placeholder="Leave blank to auto-group"
+                      className="h-8 text-sm bg-white"
+                    />
+                    <p className="text-xs text-emerald-600">
+                      Leave blank! Auto-groups &quot;Name (Outbound)&quot; with &quot;Name (Inbound)&quot;
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-emerald-700">Pass Direction</Label>
+                    <select
+                      value={station.pass_direction || "single"}
+                      onChange={(e) => onUpdate({ pass_direction: e.target.value as PassDirection })}
+                      className="h-8 w-full text-sm rounded-md border border-brand-navy-200 bg-white px-3 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    >
+                      <option value="single">Single Pass</option>
+                      <option value="outbound">Outbound</option>
+                      <option value="inbound">Inbound</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <button
           onClick={onRemove}
@@ -1854,7 +1946,15 @@ function AidStationsModal({
   const addStation = (type: "aid_station" | "checkpoint" = "aid_station") => {
     setStations([
       ...stations,
-      { id: `station-new-${Date.now()}`, name: "", mile: 0, cutoff_time: "", type },
+      {
+        id: `station-new-${Date.now()}`,
+        name: "",
+        mile: 0,
+        cutoff_time: "",
+        type,
+        is_drop_bag: false,
+        is_crew_access: false,
+      },
     ]);
   };
 
@@ -1886,12 +1986,19 @@ function AidStationsModal({
     // Clean stations for saving (remove empty ones, strip internal IDs)
     const cleanedStations = stations
       .filter((s) => s.name && s.mile >= 0)
-      .map(({ name, mile, supplies, cutoff_time, type }) => ({
+      .map(({ name, mile, supplies, cutoff_time, type, is_drop_bag, is_crew_access, drop_bag_name, pass_direction, drop_bag_notes, crew_notes }) => ({
         name,
         mile,
         supplies: supplies || [],
         cutoff_time: cutoff_time || null,
         type: type || "aid_station", // Default to aid_station for backward compatibility
+        is_drop_bag: is_drop_bag || false,
+        is_crew_access: is_crew_access || false,
+        // Linked drop bag fields
+        drop_bag_name: drop_bag_name || null,
+        pass_direction: pass_direction || null,
+        drop_bag_notes: drop_bag_notes || null,
+        crew_notes: crew_notes || null,
       }));
 
     try {

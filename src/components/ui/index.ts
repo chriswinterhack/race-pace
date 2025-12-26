@@ -18,3 +18,4 @@ export { Skeleton } from "./skeleton";
 export { Textarea } from "./textarea";
 export { ViewToggle, type ViewMode } from "./ViewToggle";
 export { EditableTime } from "./editable-time";
+export { RichTextEditor, RichTextDisplay } from "./rich-text-editor";

@@ -46,7 +46,7 @@ interface RaceDistance {
   elevation_low: number | null;
   gpx_file_url: string | null;
   surface_composition: Record<string, number> | null;
-  aid_stations: Array<{ name: string; mile: number; cutoff?: string; type?: "aid_station" | "checkpoint" }> | null;
+  aid_stations: Array<{ name: string; mile: number; cutoff?: string; type?: "aid_station" | "checkpoint"; supplies?: string[] }> | null;
   time_limit_minutes: number | null;
   participant_limit: number | null;
   registration_url: string | null;
@@ -482,22 +482,40 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
 
                   {/* Station card */}
                   <div className="flex-1 pb-4">
-                    <div className="flex items-center gap-3 p-4 rounded-xl bg-white border border-brand-navy-100 shadow-sm group-hover:shadow-md group-hover:border-brand-sky-200 transition-all duration-200">
-                      <div className="flex-1">
-                        <p className="font-semibold text-brand-navy-900">{station.name}</p>
-                        <p className="text-sm text-brand-navy-500 mt-0.5">
-                          {units === "metric"
-                            ? `Km ${(station.mile * 1.60934).toFixed(1)}`
-                            : `Mile ${station.mile.toFixed(1)}`}
-                        </p>
+                    <div className="p-4 rounded-xl bg-white border border-brand-navy-100 shadow-sm group-hover:shadow-md group-hover:border-brand-sky-200 transition-all duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <p className="font-semibold text-brand-navy-900">{station.name}</p>
+                          <p className="text-sm text-brand-navy-500 mt-0.5">
+                            {units === "metric"
+                              ? `Km ${(station.mile * 1.60934).toFixed(1)}`
+                              : `Mile ${station.mile.toFixed(1)}`}
+                          </p>
+                        </div>
+                        {station.cutoff && (
+                          <div className="text-right">
+                            <p className="text-xs text-brand-navy-500">Cutoff</p>
+                            <p className="text-sm font-mono font-semibold text-amber-600">{station.cutoff}</p>
+                          </div>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-brand-navy-300 group-hover:text-brand-sky-500 transition-colors" />
                       </div>
-                      {station.cutoff && (
-                        <div className="text-right">
-                          <p className="text-xs text-brand-navy-500">Cutoff</p>
-                          <p className="text-sm font-mono font-semibold text-amber-600">{station.cutoff}</p>
+                      {/* Supplies */}
+                      {station.supplies && station.supplies.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-brand-navy-100">
+                          <p className="text-xs font-medium text-brand-navy-500 mb-1.5">Supplies</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {station.supplies.map((supply, i) => (
+                              <span
+                                key={i}
+                                className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              >
+                                {supply}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
-                      <ChevronRight className="h-4 w-4 text-brand-navy-300 group-hover:text-brand-sky-500 transition-colors" />
                     </div>
                   </div>
                 </div>

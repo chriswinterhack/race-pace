@@ -40,6 +40,11 @@ export default function GearPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<unknown>(null);
 
+  const handleAddGear = () => {
+    setEditingItem(null);
+    setShowForm(true);
+  };
+
   // Inventory state
   const [bikes, setBikes] = useState<UserBike[]>([]);
   const [tires, setTires] = useState<UserTire[]>([]);
@@ -123,7 +128,7 @@ export default function GearPage() {
             title="No bikes yet"
             description="Add your bikes to your gear inventory"
             actionLabel="Add Bike"
-            onAction={() => setShowForm(true)}
+            onAction={handleAddGear}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -144,7 +149,7 @@ export default function GearPage() {
             title="No tires yet"
             description="Add your tires to your gear inventory"
             actionLabel="Add Tire"
-            onAction={() => setShowForm(true)}
+            onAction={handleAddGear}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -164,8 +169,8 @@ export default function GearPage() {
           <GearEmptyState
             title="No cycling shoes yet"
             description="Add your cycling shoes to your gear inventory"
-            actionLabel="Add Shoe"
-            onAction={() => setShowForm(true)}
+            actionLabel="Add Shoes"
+            onAction={handleAddGear}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -186,7 +191,7 @@ export default function GearPage() {
             title="No hydration packs yet"
             description="Add your hydration packs and vests"
             actionLabel="Add Pack"
-            onAction={() => setShowForm(true)}
+            onAction={handleAddGear}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -207,7 +212,7 @@ export default function GearPage() {
             title="No storage bags yet"
             description="Add your on-bike storage (saddle bags, frame bags, etc.)"
             actionLabel="Add Bag"
-            onAction={() => setShowForm(true)}
+            onAction={handleAddGear}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -228,7 +233,7 @@ export default function GearPage() {
             title="No repair kits yet"
             description="Create repair kit templates for your races"
             actionLabel="Add Kit"
-            onAction={() => setShowForm(true)}
+            onAction={handleAddGear}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -249,7 +254,7 @@ export default function GearPage() {
             title="No clothing yet"
             description="Add your race clothing and layers"
             actionLabel="Add Item"
-            onAction={() => setShowForm(true)}
+            onAction={handleAddGear}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -351,7 +356,7 @@ export default function GearPage() {
             Manage your gear to select for races
           </p>
         </div>
-        <Button onClick={() => { setEditingItem(null); setShowForm(true); }}>
+        <Button onClick={handleAddGear}>
           <Plus className="h-4 w-4 mr-2" />
           Add {tabs.find((t) => t.id === activeTab)?.label.replace(/s$/, "")}
         </Button>

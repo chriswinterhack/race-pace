@@ -1,6 +1,6 @@
 "use client";
 
-import { Package } from "lucide-react";
+import { Package, Plus, Lock } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ interface GearEmptyStateProps {
   actionLabel?: string;
   onAction?: () => void;
   className?: string;
+  showLock?: boolean;
 }
 
 export function GearEmptyState({
@@ -18,6 +19,7 @@ export function GearEmptyState({
   actionLabel,
   onAction,
   className,
+  showLock = false,
 }: GearEmptyStateProps) {
   return (
     <div
@@ -32,7 +34,16 @@ export function GearEmptyState({
         {description}
       </p>
       {actionLabel && onAction && (
-        <Button onClick={onAction} variant="default">
+        <Button
+          onClick={onAction}
+          variant="default"
+          className={showLock ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}
+        >
+          {showLock ? (
+            <Lock className="h-4 w-4 mr-2" />
+          ) : (
+            <Plus className="h-4 w-4 mr-2" />
+          )}
           {actionLabel}
         </Button>
       )}

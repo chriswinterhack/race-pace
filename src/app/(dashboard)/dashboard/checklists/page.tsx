@@ -1,8 +1,13 @@
+"use client";
+
 import Link from "next/link";
-import { CheckSquare, Plus } from "lucide-react";
+import { CheckSquare, Plus, Lock } from "lucide-react";
 import { Button } from "@/components/ui";
+import { usePremiumFeature } from "@/hooks/useSubscription";
 
 export default function ChecklistsPage() {
+  const { canAccess: isPremium, showUpgrade } = usePremiumFeature("Create Checklist");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -14,12 +19,22 @@ export default function ChecklistsPage() {
             Never forget race day essentials
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/checklists/new">
-            <Plus className="h-4 w-4 mr-2" />
-            New Checklist
-          </Link>
-        </Button>
+        {isPremium ? (
+          <Button asChild>
+            <Link href="/dashboard/checklists/new">
+              <Plus className="h-4 w-4 mr-2" />
+              New Checklist
+            </Link>
+          </Button>
+        ) : (
+          <Button
+            onClick={showUpgrade}
+            className="bg-gradient-to-r from-brand-sky-500 to-brand-sky-600"
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            Upgrade to Create
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -33,12 +48,22 @@ export default function ChecklistsPage() {
           Create packing checklists for race day, drop bags,
           and crew supplies.
         </p>
-        <Button asChild className="mt-6">
-          <Link href="/dashboard/checklists/new">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Checklist
-          </Link>
-        </Button>
+        {isPremium ? (
+          <Button asChild className="mt-6">
+            <Link href="/dashboard/checklists/new">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Checklist
+            </Link>
+          </Button>
+        ) : (
+          <Button
+            onClick={showUpgrade}
+            className="mt-6 bg-gradient-to-r from-brand-sky-500 to-brand-sky-600"
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            Upgrade to Create
+          </Button>
+        )}
       </div>
     </div>
   );

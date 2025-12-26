@@ -9,12 +9,14 @@ import {
   Loader2,
   Save,
   Download,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn, formatDateLong } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { usePlanBuilder } from "../context/PlanBuilderContext";
+import { usePremiumFeature } from "@/hooks/useSubscription";
 import {
   formatDuration,
   calculateAltitudeAdjustedFTP,
@@ -26,6 +28,7 @@ export function ReviewSave() {
   const { state } = usePlanBuilder();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const { canAccess: isPremium, showUpgrade } = usePremiumFeature("Save Race Plan");
 
   const supabase = createClient();
 
@@ -333,13 +336,19 @@ export function ReviewSave() {
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button
+          onClick={isPremium ? handleSave : showUpgrade}
+          disabled={saving}
+          className={!isPremium ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}
+        >
           {saving ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : !isPremium ? (
+            <Lock className="h-4 w-4 mr-2" />
           ) : (
             <Save className="h-4 w-4 mr-2" />
           )}
-          Save Plan
+          {isPremium ? "Save Plan" : "Upgrade to Save"}
         </Button>
       </div>
     </div>

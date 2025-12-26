@@ -1,4 +1,4 @@
-import { Users, Eye, EyeOff, Save, Loader2 } from "lucide-react";
+import { Users, Eye, EyeOff, Save, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { CommunityStats } from "./types";
@@ -12,6 +12,8 @@ interface GearSectionHeaderProps {
   saving: boolean;
   onTogglePublic: () => void;
   onSave: () => void;
+  isPremium?: boolean;
+  showUpgrade?: () => void;
 }
 
 export function GearSectionHeader({
@@ -23,6 +25,8 @@ export function GearSectionHeader({
   saving,
   onTogglePublic,
   onSave,
+  isPremium = true,
+  showUpgrade,
 }: GearSectionHeaderProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-navy-900 via-brand-navy-800 to-brand-sky-900 p-6 sm:p-8 text-white">
@@ -96,17 +100,27 @@ export function GearSectionHeader({
           </button>
 
           {/* Save button */}
-          <Button
-            onClick={onSave}
-            disabled={saving || !hasChanges}
-            className={cn(
-              "gap-2 shadow-lg",
-              hasChanges ? "bg-brand-sky-500 hover:bg-brand-sky-600" : "bg-white/20 hover:bg-white/30"
-            )}
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {hasChanges ? "Save" : "Saved"}
-          </Button>
+          {isPremium ? (
+            <Button
+              onClick={onSave}
+              disabled={saving || !hasChanges}
+              className={cn(
+                "gap-2 shadow-lg",
+                hasChanges ? "bg-brand-sky-500 hover:bg-brand-sky-600" : "bg-white/20 hover:bg-white/30"
+              )}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {hasChanges ? "Save" : "Saved"}
+            </Button>
+          ) : (
+            <Button
+              onClick={showUpgrade}
+              className="gap-2 shadow-lg bg-gradient-to-r from-brand-sky-500 to-brand-sky-600"
+            >
+              <Lock className="h-4 w-4" />
+              Upgrade to Save
+            </Button>
+          )}
         </div>
       </div>
     </div>

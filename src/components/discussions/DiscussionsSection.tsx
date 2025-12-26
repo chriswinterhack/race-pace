@@ -23,6 +23,7 @@ import type {
   DiscussionReply,
 } from "@/types/discussions";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/types/discussions";
+import { usePremiumFeature } from "@/hooks/useSubscription";
 
 interface DiscussionsSectionProps {
   raceId: string;
@@ -39,6 +40,16 @@ export function DiscussionsSection({ raceId, raceName, compact = false }: Discus
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedCategory, setSelectedCategory] = useState<DiscussionCategory | "all">("all");
   const [isRegistered, setIsRegistered] = useState<boolean | null>(null);
+
+  const { canAccess: isPremium, showUpgrade } = usePremiumFeature("Post in Discussions");
+
+  const handleNewDiscussion = () => {
+    if (isPremium) {
+      setViewMode("new");
+    } else {
+      showUpgrade();
+    }
+  };
 
   useEffect(() => {
     fetchDiscussions();
@@ -144,6 +155,8 @@ export function DiscussionsSection({ raceId, raceName, compact = false }: Discus
           });
         }}
         onDeleted={handleBack}
+        isPremium={isPremium}
+        showUpgrade={showUpgrade}
       />
     );
   }
@@ -162,9 +175,12 @@ export function DiscussionsSection({ raceId, raceName, compact = false }: Discus
               Connect with other {raceName || "race"} participants
             </p>
           </div>
-          <Button onClick={() => setViewMode("new")} className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Discussion
+          <Button
+            onClick={handleNewDiscussion}
+            className={`gap-2 ${!isPremium ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}`}
+          >
+            {isPremium ? <Plus className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            {isPremium ? "New Discussion" : "Upgrade to Post"}
           </Button>
         </div>
       )}
@@ -193,16 +209,20 @@ export function DiscussionsSection({ raceId, raceName, compact = false }: Discus
           <p className="text-sm text-brand-navy-600">
             {discussions.length} {discussions.length === 1 ? "discussion" : "discussions"}
           </p>
-          <Button size="sm" onClick={() => setViewMode("new")} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
-            New
+          <Button
+            size="sm"
+            onClick={handleNewDiscussion}
+            className={`gap-1.5 ${!isPremium ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}`}
+          >
+            {isPremium ? <Plus className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+            {isPremium ? "New" : "Upgrade"}
           </Button>
         </div>
       )}
 
       {/* Discussion List */}
       {discussions.length === 0 ? (
-        <EmptyState onNewClick={() => setViewMode("new")} />
+        <EmptyState onNewClick={handleNewDiscussion} isPremium={isPremium} />
       ) : (
         <div className="space-y-3">
           {discussions.map((discussion) => (
@@ -333,7 +353,7 @@ function DiscussionCard({
 }
 
 // Empty State
-function EmptyState({ onNewClick }: { onNewClick: () => void }) {
+function EmptyState({ onNewClick, isPremium = true }: { onNewClick: () => void; isPremium?: boolean }) {
   return (
     <div className="text-center py-12">
       <div className="p-4 rounded-full bg-brand-navy-100 inline-flex mb-4">
@@ -345,9 +365,12 @@ function EmptyState({ onNewClick }: { onNewClick: () => void }) {
       <p className="mt-2 text-brand-navy-600">
         Be the first to start a conversation!
       </p>
-      <Button onClick={onNewClick} className="mt-4 gap-2">
-        <Plus className="h-4 w-4" />
-        Start a Discussion
+      <Button
+        onClick={onNewClick}
+        className={`mt-4 gap-2 ${!isPremium ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}`}
+      >
+        {isPremium ? <Plus className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+        {isPremium ? "Start a Discussion" : "Upgrade to Post"}
       </Button>
     </div>
   );
@@ -507,12 +530,16 @@ function DiscussionDetail({
   onBack,
   onReplyAdded,
   onDeleted,
+  isPremium = true,
+  showUpgrade,
 }: {
   discussion: DiscussionWithReplies;
   raceId: string;
   onBack: () => void;
   onReplyAdded: (reply: DiscussionReply) => void;
   onDeleted: () => void;
+  isPremium?: boolean;
+  showUpgrade?: () => void;
 }) {
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -522,6 +549,11 @@ function DiscussionDetail({
 
   async function handleSubmitReply(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!isPremium && showUpgrade) {
+      showUpgrade();
+      return;
+    }
 
     if (replyText.length < 1) {
       toast.error("Reply cannot be empty");
@@ -686,13 +718,19 @@ function DiscussionDetail({
         />
         <div className="flex items-center justify-between mt-2">
           <p className="text-xs text-brand-navy-500">{replyText.length}/5,000</p>
-          <Button type="submit" disabled={submitting || replyText.length === 0} className="gap-2">
+          <Button
+            type="submit"
+            disabled={submitting || (isPremium && replyText.length === 0)}
+            className={`gap-2 ${!isPremium ? "bg-gradient-to-r from-brand-sky-500 to-brand-sky-600" : ""}`}
+          >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+            ) : isPremium ? (
               <Send className="h-4 w-4" />
+            ) : (
+              <Lock className="h-4 w-4" />
             )}
-            Reply
+            {isPremium ? "Reply" : "Upgrade to Reply"}
           </Button>
         </div>
       </form>

@@ -10,16 +10,20 @@ import { TireCard, TireForm } from "@/components/gear/inventory";
 import { RepairKitCard, RepairKitForm } from "@/components/gear/inventory";
 import { ShoeCard, ShoeForm } from "@/components/gear/inventory";
 import type { UserBike, UserTire, UserShoe, UserGearInventory } from "@/types/gear";
+import { usePremiumFeature } from "@/hooks/useSubscription";
 import {
   GearSectionSkeleton,
   GearSlotCard,
   SelectedGearDisplay,
   ParticipantGearCard,
   CommunityInsightsPanel,
+  CommunityInsightsLocked,
   GearPickerWithInsights,
   EmptyInventoryState,
   GearSectionHeader,
   ShowAllGearModal,
+  GearSetupPrompt,
+  GearSavedPrompt,
   type ParticipantGear,
   type CommunityStats,
   type ShowAllCategory,
@@ -54,6 +58,10 @@ export function ParticipantGearSection({ plan }: ParticipantGearSectionProps) {
   const [saving, setSaving] = useState(false);
   const [inventory, setInventory] = useState<UserGearInventory | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [startedAddingGear, setStartedAddingGear] = useState(false);
+
+  const { canAccess: isPremium, showUpgrade } = usePremiumFeature("Community Gear Insights");
 
   // Selection state (current user's gear)
   const [selectedBikeId, setSelectedBikeId] = useState<string | null>(null);
@@ -362,6 +370,7 @@ export function ParticipantGearSection({ plan }: ParticipantGearSectionProps) {
         toast.success("Gear selection saved!");
         setHasChanges(false);
         setHasExistingSelection(true);
+        setJustSaved(true);
         fetchCommunityGear();
       }
     } catch {
@@ -402,23 +411,54 @@ export function ParticipantGearSection({ plan }: ParticipantGearSectionProps) {
     return <GearSectionSkeleton />;
   }
 
+  // Determine if user has never added any gear to this race
+  const hasNoGearSelected = !selectedBikeId && !selectedFrontTireId && !selectedRearTireId && !selectedShoeId && !selectedRepairKitId;
+  const showSetupPrompt = hasNoGearSelected && !hasExistingSelection && !startedAddingGear;
+
   return (
     <div className="space-y-8">
-      <GearSectionHeader
-        raceName={raceName}
-        communityStats={communityStats}
-        completionPercent={completionPercent}
-        isPublic={isPublic}
-        hasChanges={hasChanges}
-        saving={saving}
-        onTogglePublic={() => {
-          setIsPublic(!isPublic);
-          handleSelectionChange();
-        }}
-        onSave={handleSave}
-      />
+      {/* Show saved success prompt */}
+      {justSaved && (
+        <GearSavedPrompt
+          isPublic={isPublic}
+          participantCount={communityStats?.publicCount || 0}
+          onTogglePublic={() => {
+            setIsPublic(!isPublic);
+            handleSelectionChange();
+          }}
+          onDismiss={() => setJustSaved(false)}
+        />
+      )}
 
-      {/* Main Content Grid */}
+      {/* Show setup prompt if no gear yet */}
+      {showSetupPrompt && !justSaved && (
+        <GearSetupPrompt
+          raceName={raceName}
+          participantCount={communityStats?.publicCount || 0}
+          onGetStarted={() => setStartedAddingGear(true)}
+          isPremium={isPremium}
+        />
+      )}
+
+      {/* Hide main content if showing setup prompt */}
+      {!showSetupPrompt && (
+        <>
+          <GearSectionHeader
+            raceName={raceName}
+            communityStats={communityStats}
+            completionPercent={completionPercent}
+            isPublic={isPublic}
+            hasChanges={hasChanges}
+            saving={saving}
+            onTogglePublic={() => {
+              setIsPublic(!isPublic);
+              handleSelectionChange();
+            }}
+            onSave={handleSave}
+            isPremium={true} // All users can save their gear
+          />
+
+          {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Your Setup - 2 columns */}
         <div className="lg:col-span-2 space-y-6">
@@ -546,17 +586,24 @@ export function ParticipantGearSection({ plan }: ParticipantGearSectionProps) {
 
         {/* Community Insights Sidebar */}
         <div className="space-y-6">
-          <CommunityInsightsPanel
-            stats={communityStats}
-            onShowAllBikes={() => setShowAllCategory("bikes")}
-            onShowAllTires={() => setShowAllCategory("tires")}
-            onShowAllShoes={() => setShowAllCategory("shoes")}
-          />
+          {isPremium ? (
+            <CommunityInsightsPanel
+              stats={communityStats}
+              onShowAllBikes={() => setShowAllCategory("bikes")}
+              onShowAllTires={() => setShowAllCategory("tires")}
+              onShowAllShoes={() => setShowAllCategory("shoes")}
+            />
+          ) : (
+            <CommunityInsightsLocked
+              participantCount={communityStats?.publicCount || 0}
+              onUpgrade={showUpgrade}
+            />
+          )}
         </div>
       </div>
 
-      {/* Participant Gear Cards */}
-      {participants.length > 0 && (
+      {/* Participant Gear Cards - Premium Only */}
+      {participants.length > 0 && isPremium && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-brand-navy-900">Rider Setups ({participants.length})</h3>
 
@@ -584,8 +631,48 @@ export function ParticipantGearSection({ plan }: ParticipantGearSectionProps) {
         </div>
       )}
 
-      {/* Empty Community State */}
-      {participants.length === 0 && hasExistingSelection && isPublic && (
+      {/* Rider Setups Teaser for Free Users */}
+      {participants.length > 0 && !isPremium && (
+        <div className="relative rounded-2xl border border-brand-navy-200 overflow-hidden">
+          {/* Blurred preview of cards */}
+          <div className="p-6 filter blur-[3px] pointer-events-none select-none">
+            <h3 className="text-lg font-semibold text-brand-navy-900 mb-4">Rider Setups ({participants.length})</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="p-4 rounded-xl border border-brand-navy-100 bg-white">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-brand-navy-200" />
+                    <div className="h-4 w-24 bg-brand-navy-200 rounded" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-32 bg-brand-navy-100 rounded" />
+                    <div className="h-3 w-28 bg-brand-navy-100 rounded" />
+                    <div className="h-3 w-24 bg-brand-navy-100 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Overlay */}
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+            <div className="text-center px-6">
+              <p className="text-lg font-semibold text-brand-navy-900 mb-2">
+                {participants.length} riders shared their setups
+              </p>
+              <p className="text-sm text-brand-navy-600 mb-4">
+                Upgrade to see exactly what gear they&apos;re running
+              </p>
+              <Button onClick={showUpgrade} className="gap-2">
+                <Bike className="h-4 w-4" />
+                Unlock Rider Setups
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Empty Community State - Premium Only */}
+      {participants.length === 0 && hasExistingSelection && isPublic && isPremium && (
         <div className="text-center py-8 px-6 bg-gradient-to-b from-brand-navy-50 to-white rounded-2xl border border-brand-navy-100">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center mb-4">
             <Share2 className="h-8 w-8 text-green-600" />
@@ -598,8 +685,8 @@ export function ParticipantGearSection({ plan }: ParticipantGearSectionProps) {
         </div>
       )}
 
-      {/* Share nudge for users with gear set to private */}
-      {hasExistingSelection && !isPublic && participants.length > 0 && (
+      {/* Share nudge for users with gear set to private - Premium Only */}
+      {hasExistingSelection && !isPublic && participants.length > 0 && isPremium && (
         <div className="flex items-center justify-between px-5 py-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-amber-100">
@@ -623,6 +710,8 @@ export function ParticipantGearSection({ plan }: ParticipantGearSectionProps) {
           </Button>
         </div>
       )}
+      </>
+    )}
 
       {/* Gear Picker Dialog */}
       <Dialog open={pickerType !== null} onOpenChange={(open) => !open && setPickerType(null)}>

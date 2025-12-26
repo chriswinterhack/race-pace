@@ -8,12 +8,22 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+type PassDirection = "outbound" | "inbound" | "single";
+
 interface AidStation {
   name: string;
   mile: number;
   supplies?: string[];
   cutoff_time?: string;
   type?: "aid_station" | "checkpoint";
+  // Logistics flags
+  is_drop_bag?: boolean;
+  is_crew_access?: boolean;
+  drop_bag_notes?: string;
+  crew_notes?: string;
+  // Linked drop bag support (for out-and-back courses)
+  drop_bag_name?: string;
+  pass_direction?: PassDirection;
 }
 
 export async function PUT(request: NextRequest) {
@@ -44,6 +54,14 @@ export async function PUT(request: NextRequest) {
         supplies: s.supplies || [],
         cutoff_time: s.cutoff_time || null,
         type: s.type || "aid_station", // Default to aid_station for backward compatibility
+        // Logistics flags
+        is_drop_bag: s.is_drop_bag || false,
+        is_crew_access: s.is_crew_access || false,
+        drop_bag_notes: s.drop_bag_notes || null,
+        crew_notes: s.crew_notes || null,
+        // Linked drop bag support
+        drop_bag_name: s.drop_bag_name || null,
+        pass_direction: s.pass_direction || null,
       }))
       .sort((a, b) => a.mile - b.mile);
 

@@ -170,7 +170,7 @@ async function processSubscription(subscription: Stripe.Subscription, userId: st
   const priceId = subscription.items.data[0]?.price.id;
 
   // Safely get period timestamps - handle both number (unix) and Date formats
-  const subAny = subscription as Record<string, unknown>;
+  const subAny = subscription as unknown as Record<string, unknown>;
   const periodStart = subAny.current_period_start;
   const periodEnd = subAny.current_period_end;
 
