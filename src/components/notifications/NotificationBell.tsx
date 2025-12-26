@@ -5,7 +5,6 @@ import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationDropdown } from "./NotificationDropdown";
 import { useNotifications } from "@/hooks/useNotifications";
-import { cn } from "@/lib/utils";
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
