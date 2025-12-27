@@ -5,6 +5,17 @@ const MILES_TO_KM = 1.60934;
 const KM_TO_MILES = 0.621371;
 const FEET_TO_METERS = 0.3048;
 const METERS_TO_FEET = 3.28084;
+const KG_TO_LBS = 2.20462;
+const LBS_TO_KG = 1 / KG_TO_LBS;
+
+// Weight conversions
+export function kgToLbs(kg: number): number {
+  return kg * KG_TO_LBS;
+}
+
+export function lbsToKg(lbs: number): number {
+  return lbs * LBS_TO_KG;
+}
 
 // Distance conversions
 export function milesToKm(miles: number): number {

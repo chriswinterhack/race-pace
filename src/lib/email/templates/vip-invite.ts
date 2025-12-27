@@ -21,7 +21,7 @@ export function getVipInviteEmail({
       ? `${premiumYears} year${premiumYears > 1 ? "s" : ""}`
       : `${premiumDays} days`;
 
-  const subject = "You're invited to RacePace";
+  const subject = "You're invited to FinalClimb";
 
   const html = `
 <!DOCTYPE html>
@@ -29,7 +29,7 @@ export function getVipInviteEmail({
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>You're Invited to RacePace</title>
+  <title>You're Invited to FinalClimb</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f0f4f8;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0f4f8; padding: 40px 20px;">
@@ -40,7 +40,7 @@ export function getVipInviteEmail({
           <tr>
             <td style="background-color: #102a43; padding: 32px 40px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                RacePace
+                FinalClimb
               </h1>
               <p style="margin: 8px 0 0; color: #38bdf8; font-size: 14px;">
                 Race Planning for Endurance Athletes
@@ -56,7 +56,7 @@ export function getVipInviteEmail({
               </h2>
 
               <p style="margin: 0 0 24px; color: #486581; font-size: 16px; line-height: 1.6;">
-                You've been personally invited to join RacePace - the race planning platform for endurance athletes.
+                You've been personally invited to join FinalClimb - the race planning platform for endurance athletes.
               </p>
 
               ${grantsPremium ? `
@@ -103,7 +103,7 @@ export function getVipInviteEmail({
           <tr>
             <td style="background-color: #f0f4f8; padding: 24px 40px; text-align: center;">
               <p style="margin: 0; color: #829ab1; font-size: 12px;">
-                RacePace - Plan your race, race your plan.
+                FinalClimb - Plan your race, race your plan.
               </p>
             </td>
           </tr>
@@ -116,9 +116,9 @@ export function getVipInviteEmail({
   `.trim();
 
   const text = `
-You're Invited to RacePace!
+You're Invited to FinalClimb!
 
-You've been personally invited to join RacePace - the race planning platform for endurance athletes.
+You've been personally invited to join FinalClimb - the race planning platform for endurance athletes.
 
 ${grantsPremium ? `
 SPECIAL OFFER: ${premiumText} of Premium Access - FREE
@@ -137,7 +137,7 @@ ${signupUrl}
 This invite expires in 30 days.
 
 ---
-RacePace - Plan your race, race your plan.
+FinalClimb - Plan your race, race your plan.
   `.trim();
 
   return { subject, html, text };

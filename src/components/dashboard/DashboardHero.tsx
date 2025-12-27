@@ -34,34 +34,21 @@ interface RacePlan {
   };
 }
 
-interface PreparationItem {
-  label: string;
-  complete: boolean;
-  icon: React.ElementType;
-}
-
 interface DashboardHeroProps {
   nextRace: RacePlan;
   units: "imperial" | "metric";
-  preparation: {
-    completed: number;
-    total: number;
-    items: PreparationItem[];
-  };
   onAddRaceClick: () => void;
 }
 
 export function DashboardHero({
   nextRace,
   units,
-  preparation,
   onAddRaceClick,
 }: DashboardHeroProps) {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   const race = nextRace.race_distance.race_edition.race;
   const distance = nextRace.race_distance;
-  const prepPercent = (preparation.completed / preparation.total) * 100;
 
   // Live countdown timer
   useEffect(() => {
@@ -187,7 +174,7 @@ export function DashboardHero({
             </div>
 
             {/* Countdown Timer */}
-            <div className="mt-6 flex items-end justify-between gap-4 flex-wrap">
+            <div className="mt-6">
               <div className="flex items-baseline gap-1">
                 {countdown.days > 0 && (
                   <CountdownUnit value={countdown.days} label="days" />
@@ -195,47 +182,6 @@ export function DashboardHero({
                 <CountdownUnit value={countdown.hours} label="hrs" />
                 <CountdownUnit value={countdown.minutes} label="min" />
                 <CountdownUnit value={countdown.seconds} label="sec" small />
-              </div>
-
-              {/* Preparation Progress Ring */}
-              <div className="flex items-center gap-4 bg-black/30 backdrop-blur-sm rounded-xl p-3 pr-5">
-                <div className="relative w-14 h-14">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                    <circle
-                      className="stroke-white/20"
-                      strokeWidth="3"
-                      fill="none"
-                      r="15.5"
-                      cx="18"
-                      cy="18"
-                    />
-                    <circle
-                      className="stroke-brand-sky-400 transition-all duration-500"
-                      strokeWidth="3"
-                      fill="none"
-                      r="15.5"
-                      cx="18"
-                      cy="18"
-                      strokeDasharray={`${prepPercent}, 100`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-sm font-bold text-white">
-                      {preparation.completed}/{preparation.total}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-white/60 uppercase tracking-wider">
-                    Prep Status
-                  </p>
-                  <p className="text-sm font-semibold text-white">
-                    {preparation.completed === preparation.total
-                      ? "Ready to Race!"
-                      : `${preparation.total - preparation.completed} items left`}
-                  </p>
-                </div>
               </div>
             </div>
           </div>

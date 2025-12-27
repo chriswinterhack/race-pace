@@ -20,7 +20,8 @@
       "Bash(npm ls:*)",
       "Bash(npx knip:*)",
       "Bash(node test-elevation.js:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(find:*)"
     ]
   }
 }

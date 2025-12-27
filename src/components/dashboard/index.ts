@@ -4,3 +4,4 @@ export { FeaturedRaceCard, type FeaturedRace } from "./FeaturedRaceCard";
 export { DashboardHero } from "./DashboardHero";
 export { EmptyStateHero } from "./EmptyStateHero";
 export { SparseHero } from "./SparseHero";
+export { GettingStartedCard } from "./GettingStartedCard";

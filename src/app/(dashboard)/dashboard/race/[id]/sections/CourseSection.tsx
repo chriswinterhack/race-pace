@@ -37,7 +37,7 @@ interface RaceDistance {
   elevation_high: number | null;
   elevation_low: number | null;
   gpx_file_url: string | null;
-  aid_stations: Array<{ name: string; mile: number; cutoff?: string; type?: "aid_station" | "checkpoint" }> | null;
+  aid_stations: Array<{ name: string; mile: number; cutoff_time?: string; type?: "aid_station" | "checkpoint" }> | null;
 }
 
 interface RacePlan {

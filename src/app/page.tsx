@@ -23,9 +23,10 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { formatDateRange, generateGradient, parseLocalDate } from "@/lib/utils";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
+import { OrganizationSchema, WebSiteSchema, SoftwareApplicationSchema } from "@/components/seo";
 
 export const metadata: Metadata = {
-  title: "RacePace - Race Day Execution Plans for Gravel, MTB & Ultra-Endurance",
+  title: "FinalClimb - Race Day Execution Plans for Gravel, MTB & Ultra-Endurance",
   description:
     "Build personalized race execution plans with power targets, pacing strategy, nutrition timing, Garmin integration, and crew logistics. Designed for gravel racing, mountain biking, and ultra-endurance cycling.",
   keywords: [
@@ -125,6 +126,11 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Structured Data */}
+      <OrganizationSchema />
+      <WebSiteSchema />
+      <SoftwareApplicationSchema />
+
       {/* Navigation */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-brand-navy-950/90 backdrop-blur-xl border-b border-white/5">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -132,13 +138,14 @@ export default async function HomePage() {
             <Link href="/" className="flex items-center gap-2.5 group">
               <Mountain className="h-7 w-7 text-brand-sky-400 transition-transform duration-300 group-hover:scale-110" />
               <span className="text-xl font-heading font-bold text-white tracking-tight">
-                Race<span className="text-brand-sky-400">Pace</span>
+                Final<span className="text-brand-sky-400">Climb</span>
               </span>
             </Link>
             <div className="hidden md:flex items-center gap-8">
               <a href="#features" className="text-sm text-white/70 hover:text-white transition-colors">Features</a>
               <a href="#races" className="text-sm text-white/70 hover:text-white transition-colors">Races</a>
               <a href="#how-it-works" className="text-sm text-white/70 hover:text-white transition-colors">How It Works</a>
+              <Link href="/about" className="text-sm text-white/70 hover:text-white transition-colors">Our Story</Link>
             </div>
             <Link
               href="/login"
@@ -726,6 +733,75 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* Founder Story */}
+        <section className="py-24 sm:py-32 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+              {/* Image */}
+              <div className="relative">
+                <div className="relative aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl shadow-brand-navy-900/20">
+                  <Image
+                    src="/images/founder-leadville.png"
+                    alt="Chris Winterhack racing at the Leadville 100 MTB"
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-brand-navy-900/80 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <p className="text-white font-heading font-semibold">Chris Winterhack</p>
+                    <p className="text-white/80 text-sm">Founder & CEO • Leadville 100 MTB, 2025</p>
+                  </div>
+                </div>
+                {/* Decorative */}
+                <div className="absolute -top-4 -right-4 w-24 h-24 bg-brand-sky-400/20 rounded-full blur-2xl" />
+                <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-brand-navy-400/10 rounded-full blur-2xl" />
+              </div>
+
+              {/* Content */}
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-sky-100 text-brand-sky-700 text-sm font-medium mb-6">
+                  <Mountain className="h-4 w-4" />
+                  Why FinalClimb
+                </div>
+
+                <h2 className="text-3xl sm:text-4xl font-heading font-bold text-brand-navy-900 mb-6">
+                  Built from the{" "}
+                  <span className="text-brand-sky-500">Leadville 100</span>
+                </h2>
+
+                <div className="space-y-4 text-brand-navy-600 leading-relaxed">
+                  <p>
+                    In 2025, I lined up at the Leadville 100 MTB with a year of training behind me.
+                    Amazing coach. World-class software. The fitness was there.
+                  </p>
+                  <p>
+                    Then my coach handed me my race plan. Power targets, checkpoint splits,
+                    nutrition schedule. It was exactly what I needed. But I had no way to follow it on the bike.
+                  </p>
+                  <p>
+                    I ended up creating Google Docs for nutrition, spreadsheets for logistics, and
+                    scouring Facebook groups for gear advice. Everything I needed existed, but it was
+                    spread across a dozen different places.
+                  </p>
+                  <p className="font-medium text-brand-navy-900">
+                    FinalClimb is the tool I wished I&apos;d had. Everything for race day execution, in one place.
+                  </p>
+                </div>
+
+                <Link
+                  href="/about"
+                  className="inline-flex items-center gap-2 mt-8 text-brand-sky-600 hover:text-brand-sky-700 font-semibold transition-colors"
+                >
+                  Read the full story
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Final CTA */}
         <section className="relative py-24 sm:py-32 bg-brand-navy-950 overflow-hidden">
           <div className="absolute inset-0">
@@ -734,7 +810,7 @@ export default async function HomePage() {
 
           <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-bold text-white">
-              Be First to Race with RacePace
+              Be First to Race with FinalClimb
             </h2>
             <p className="mt-6 text-xl text-white/60 max-w-2xl mx-auto">
               Join the waitlist for early access. We&apos;re launching soon with support
@@ -762,16 +838,17 @@ export default async function HomePage() {
             <Link href="/" className="flex items-center gap-2">
               <Mountain className="h-6 w-6 text-brand-sky-400" />
               <span className="text-lg font-heading font-bold text-white">
-                Race<span className="text-brand-sky-400">Pace</span>
+                Final<span className="text-brand-sky-400">Climb</span>
               </span>
             </Link>
             <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-white/50">
               <a href="#features" className="hover:text-white transition-colors">Features</a>
               <a href="#races" className="hover:text-white transition-colors">Races</a>
               <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
+              <Link href="/about" className="hover:text-white transition-colors">Our Story</Link>
               <Link href="/login" className="hover:text-white transition-colors">Early Access</Link>
             </nav>
-            <p className="text-sm text-white/30">© {new Date().getFullYear()} RacePace</p>
+            <p className="text-sm text-white/30">© {new Date().getFullYear()} FinalClimb</p>
           </div>
         </div>
       </footer>

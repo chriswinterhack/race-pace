@@ -10,7 +10,7 @@ if (!resendApiKey && process.env.NODE_ENV === "production") {
 export const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 // Default sender
-export const FROM_EMAIL = "RacePace <noreply@racepaceapp.com>";
+export const FROM_EMAIL = "FinalClimb <noreply@finalclimbapp.com>";
 
 // Send email with fallback for development
 export async function sendEmail({

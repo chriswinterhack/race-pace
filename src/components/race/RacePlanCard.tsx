@@ -18,7 +18,6 @@ interface RacePlanCardProps {
   goalTime: string | null;
   daysUntil: number | null;
   isPast?: boolean;
-  progressBadges?: { label: string; complete: boolean }[];
 }
 
 export function RacePlanCard({
@@ -33,7 +32,6 @@ export function RacePlanCard({
   goalTime,
   daysUntil,
   isPast = false,
-  progressBadges = [],
 }: RacePlanCardProps) {
   const { units } = useUnits();
   const gradient = generateGradient(raceName);
@@ -165,27 +163,9 @@ export function RacePlanCard({
               </div>
             </div>
 
-            {/* Progress Badges & Arrow */}
-            <div className="mt-4 flex items-center justify-between">
-              {progressBadges.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  {progressBadges.map((badge) => (
-                    <span
-                      key={badge.label}
-                      className={cn(
-                        "px-2 py-0.5 rounded text-xs font-medium",
-                        badge.complete
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-brand-navy-100 text-brand-navy-500"
-                      )}
-                    >
-                      {badge.label}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <ChevronRight className="h-5 w-5 text-brand-navy-400 group-hover:text-brand-sky-500 transition-colors flex-shrink-0 ml-auto" />
+            {/* Arrow */}
+            <div className="mt-4 flex items-center justify-end">
+              <ChevronRight className="h-5 w-5 text-brand-navy-400 group-hover:text-brand-sky-500 transition-colors" />
             </div>
           </div>
         </div>

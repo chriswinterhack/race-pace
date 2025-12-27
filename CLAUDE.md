@@ -1,5 +1,13 @@
 # FinalClimb
 
+> **CRITICAL - BRAND NAME & DOMAIN:**
+> - Business name: **FinalClimb**
+> - Domain: **finalclimbapp.com**
+> - The folder is named "racepace" for historical reasons only - IGNORE IT
+> - **NEVER use "RacePace" anywhere - that name was taken**
+> - **NEVER use "finalclimb.com" - we don't own that domain**
+> - Always use "FinalClimb" for the brand and "finalclimbapp.com" for URLs
+
 ## Project Overview
 
 FinalClimb is a race planning platform for cyclists (gravel, road, MTB, cyclocross). Athletes and coaches use it to build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies.

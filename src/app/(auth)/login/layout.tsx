@@ -1,0 +1,14 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Log In",
+  description: "Log in to your FinalClimb account to access your race plans, gear setups, and race day strategies.",
+};
+
+export default function LoginLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return children;
+}

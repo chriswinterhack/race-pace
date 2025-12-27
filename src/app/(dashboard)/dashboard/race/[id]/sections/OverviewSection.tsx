@@ -24,7 +24,6 @@ import {
   Gauge,
   ChevronRight,
   Zap,
-  Navigation,
   Truck,
 } from "lucide-react";
 import { Button, Input, RichTextDisplay } from "@/components/ui";
@@ -48,7 +47,7 @@ interface RaceDistance {
   elevation_low: number | null;
   gpx_file_url: string | null;
   surface_composition: Record<string, number> | null;
-  aid_stations: Array<{ name: string; mile: number; cutoff?: string; type?: "aid_station" | "checkpoint"; supplies?: string[] }> | null;
+  aid_stations: Array<{ name: string; mile: number; cutoff_time?: string; type?: "aid_station" | "checkpoint"; supplies?: string[] }> | null;
   time_limit_minutes: number | null;
   participant_limit: number | null;
   registration_url: string | null;
@@ -550,10 +549,10 @@ export function OverviewSection({ plan, onUpdate }: OverviewSectionProps) {
                                     : `Mile ${station.mile.toFixed(1)}`}
                                 </p>
                               </div>
-                              {station.cutoff && (
+                              {station.cutoff_time && (
                                 <div className="text-right">
                                   <p className="text-xs text-brand-navy-500">Cutoff</p>
-                                  <p className="text-sm font-mono font-semibold text-amber-600">{station.cutoff}</p>
+                                  <p className="text-sm font-mono font-semibold text-amber-600">{station.cutoff_time}</p>
                                 </div>
                               )}
                               <ChevronRight className="h-4 w-4 text-brand-navy-300 group-hover:text-brand-sky-500 transition-colors" />

@@ -7,6 +7,8 @@ export {
   formatDateLong,
 } from "./date";
 export {
+  kgToLbs,
+  lbsToKg,
   milesToKm,
   kmToMiles,
   feetToMeters,

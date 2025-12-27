@@ -22,44 +22,81 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const siteConfig = {
+  name: "FinalClimb",
+  url: process.env.NEXT_PUBLIC_APP_URL || "https://finalclimbapp.com",
+  description:
+    "Build personalized race execution plans with power targets, pacing strategy, nutrition timing, and Garmin integration. Designed for gravel racing, mountain biking, and ultra-endurance cycling.",
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: {
-    default: "FinalClimb - Race Planning for Cyclists",
+    default: "FinalClimb - Race Day Execution Plans for Gravel & MTB",
     template: "%s | FinalClimb",
   },
-  description:
-    "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies for gravel, road, MTB, and cyclocross racing.",
+  description: siteConfig.description,
   keywords: [
-    "gravel racing",
-    "cycling",
-    "race planning",
-    "pacing",
-    "nutrition",
-    "endurance",
-    "MTB",
-    "road cycling",
-    "cyclocross",
+    "gravel race planning",
+    "cycling race pacing",
+    "MTB race strategy",
+    "cycling power targets",
+    "race nutrition plan",
+    "Garmin data field",
+    "top tube sticker",
+    "cycling crew logistics",
+    "Unbound Gravel",
+    "Mid South",
+    "Leadville 100",
+    "SBT GRVL",
+    "endurance cycling",
   ],
   authors: [{ name: "FinalClimb" }],
   creator: "FinalClimb",
+  publisher: "FinalClimb",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "FinalClimb",
-    title: "FinalClimb - Race Planning for Cyclists",
-    description:
-      "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies for gravel, road, MTB, and cyclocross racing.",
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    title: "FinalClimb - Race Day Execution Plans for Gravel & MTB",
+    description: siteConfig.description,
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "FinalClimb - Race planning for gravel and mountain bike racing",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "FinalClimb - Race Planning for Cyclists",
-    description:
-      "Build personalized race execution plans with pacing, nutrition, gear management, and checkpoint strategies for gravel, road, MTB, and cyclocross racing.",
+    title: "FinalClimb - Race Day Execution Plans for Gravel & MTB",
+    description: siteConfig.description,
+    images: ["/og-image.png"],
+    creator: "@finalclimbapp",
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
+  alternates: {
+    canonical: siteConfig.url,
+  },
+  category: "sports",
 };
 
 export const viewport: Viewport = {

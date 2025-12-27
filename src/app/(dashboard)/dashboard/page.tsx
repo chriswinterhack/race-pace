@@ -9,7 +9,6 @@ import {
   Zap,
   Settings,
   ArrowRight,
-  Target,
 } from "lucide-react";
 import { Card, CardContent, Button } from "@/components/ui";
 import { parseLocalDate } from "@/lib/utils";
@@ -24,6 +23,7 @@ import {
   DashboardHero,
   EmptyStateHero,
   SparseHero,
+  GettingStartedCard,
   type FeaturedRace,
 } from "@/components/dashboard";
 
@@ -32,6 +32,7 @@ interface RacePlan {
   goal_time_minutes: number | null;
   status: string;
   created_at: string;
+  segments: { count: number }[];
   race_distance: {
     id: string;
     name: string | null;
@@ -83,6 +84,7 @@ export default function DashboardPage() {
           goal_time_minutes,
           status,
           created_at,
+          segments(count),
           race_distance:race_distances (
             id,
             name,
@@ -248,26 +250,6 @@ export default function DashboardPage() {
   const nextRace = upcomingRaces[0];
   const otherUpcomingRaces = upcomingRaces.slice(1);
 
-  // Calculate preparation progress
-  const getPreparationProgress = () => {
-    if (!nextRace) return { completed: 0, total: 4, items: [] };
-
-    const items = [
-      { label: "Goal Time", complete: !!nextRace.goal_time_minutes, icon: Target },
-      { label: "Power Zones", complete: !!athleteProfile?.ftp_watts, icon: Zap },
-      { label: "Weight Set", complete: !!athleteProfile?.weight_kg, icon: TrendingUp },
-      { label: "Race Added", complete: true, icon: Route },
-    ];
-
-    return {
-      completed: items.filter((i) => i.complete).length,
-      total: items.length,
-      items,
-    };
-  };
-
-  const prep = getPreparationProgress();
-
   // Get races the user hasn't added yet
   const userRaceIds = new Set(
     racePlans.map((p) => p.race_distance?.race_edition?.race?.id).filter(Boolean)
@@ -298,8 +280,16 @@ export default function DashboardPage() {
         {/* If no races, show empty state hero */}
         {racePlans.length === 0 && <EmptyStateHero onAddRaceClick={() => setShowAddRace(true)} />}
 
-        {/* Profile Setup CTA */}
-        <ProfileSetupCard athleteProfile={athleteProfile} />
+        {/* Getting Started Checklist */}
+        <GettingStartedCard
+          hasRace={racePlans.length > 0}
+          hasFtp={!!athleteProfile?.ftp_watts}
+          hasWeight={!!athleteProfile?.weight_kg}
+          hasGoalTime={!!nextRace?.goal_time_minutes}
+          hasSplits={!!nextRace?.segments?.[0]?.count}
+          raceId={nextRace?.id}
+          onAddRaceClick={() => setShowAddRace(true)}
+        />
 
         {/* Featured Races Section */}
         {discoverableRaces.length > 0 && (
@@ -337,7 +327,6 @@ export default function DashboardPage() {
         <DashboardHero
           nextRace={nextRace}
           units={units}
-          preparation={prep}
           onAddRaceClick={() => setShowAddRace(true)}
         />
       )}
@@ -354,10 +343,7 @@ export default function DashboardPage() {
 
       {/* Other Upcoming Races */}
       {otherUpcomingRaces.length > 0 && (
-        <UpcomingRacesSection
-          races={otherUpcomingRaces}
-          athleteProfile={athleteProfile}
-        />
+        <UpcomingRacesSection races={otherUpcomingRaces} />
       )}
 
       {/* Past Races */}
@@ -500,13 +486,7 @@ function FeaturedRacesSection({
   );
 }
 
-function UpcomingRacesSection({
-  races,
-  athleteProfile,
-}: {
-  races: RacePlan[];
-  athleteProfile: AthleteProfile | null;
-}) {
+function UpcomingRacesSection({ races }: { races: RacePlan[] }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -546,10 +526,6 @@ function UpcomingRacesSection({
               date={formattedDate}
               goalTime={plan.goal_time_minutes ? formatDuration(plan.goal_time_minutes) : null}
               daysUntil={daysUntil}
-              progressBadges={[
-                { label: "Pacing", complete: !!plan.goal_time_minutes },
-                { label: "Power", complete: !!athleteProfile?.ftp_watts },
-              ]}
             />
           );
         })}

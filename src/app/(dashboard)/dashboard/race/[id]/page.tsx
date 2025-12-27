@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -76,7 +76,7 @@ interface RacePlan {
     gpx_file_url: string | null;
     surface_composition: Record<string, number> | null;
     race_type: "road" | "gravel" | "xc_mtb" | "ultra_mtb" | null;
-    aid_stations: Array<{ name: string; mile: number; cutoff?: string }> | null;
+    aid_stations: Array<{ name: string; mile: number; cutoff_time?: string; type?: "aid_station" | "checkpoint"; supplies?: string[] }> | null;
     time_limit_minutes: number | null;
     participant_limit: number | null;
     registration_url: string | null;
@@ -146,14 +146,21 @@ const sections: Section[] = [
 
 export default function RaceDashboardPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
   const router = useRouter();
   const [plan, setPlan] = useState<RacePlan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<SectionId>("overview");
+
+  // Read initial section from URL query param
+  const sectionParam = searchParams.get("section") as SectionId | null;
+  const validSections: SectionId[] = ["overview", "course", "goal", "pacing", "power", "nutrition", "gear", "checklist", "logistics", "community", "export"];
+  const initialSection = sectionParam && validSections.includes(sectionParam) ? sectionParam : "overview";
+  const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [hasGear, setHasGear] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
@@ -162,6 +169,7 @@ export default function RaceDashboardPage() {
   useEffect(() => {
     fetchPlan();
     fetchSubscriptionStatus();
+    fetchGearStatus();
   }, [id]);
 
   // Update indicator position when active section changes
@@ -286,6 +294,31 @@ export default function RaceDashboardPage() {
       .single();
 
     setIsSubscribed(data?.subscription_status === "active");
+  }
+
+  async function fetchGearStatus() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Need the race_distance_id from the plan to check gear
+    const { data: planData } = await supabase
+      .from("race_plans")
+      .select("race_distance_id")
+      .eq("id", id)
+      .single();
+
+    if (!planData?.race_distance_id) return;
+
+    // Check if user has any gear selected for this race distance
+    const { data } = await supabase
+      .from("race_gear_selections")
+      .select("id, bike_id, front_tire_id, rear_tire_id, shoe_id, repair_kit_id")
+      .eq("race_distance_id", planData.race_distance_id)
+      .eq("user_id", user.id)
+      .single();
+
+    // Consider gear "set up" if they have at least a bike selected
+    setHasGear(!!data?.bike_id);
   }
 
   async function handleDelete() {
@@ -653,6 +686,38 @@ export default function RaceDashboardPage() {
           </div>
         );
       })()}
+
+      {/* Gear Setup Nudge - Show on Overview when basics are set up but no gear */}
+      {activeSection === "overview" && !hasGear && plan.goal_time_minutes && (
+        <div className="mt-6">
+          <button
+            onClick={() => setActiveSection("gear")}
+            className="w-full group relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-navy-800 to-brand-navy-900 p-5 text-left transition-all hover:shadow-lg"
+          >
+            {/* Subtle pattern */}
+            <div
+              className="absolute inset-0 opacity-5"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }}
+            />
+            <div className="relative flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-white/10">
+                <Bike className="h-6 w-6 text-brand-sky-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-white group-hover:text-brand-sky-200 transition-colors">
+                  Set up your race gear
+                </h3>
+                <p className="mt-0.5 text-sm text-white/60">
+                  Add your bike, tires, and shoes to see what other riders are running
+                </p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-white/40 group-hover:text-white/70 group-hover:translate-x-1 transition-all" />
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Section Content */}
       <div className="mt-6">

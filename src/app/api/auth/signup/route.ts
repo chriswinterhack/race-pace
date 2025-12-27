@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email, password, inviteCode } = body;
+    const { email, firstName, lastName, password, city, state, inviteCode } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -51,6 +51,24 @@ export async function POST(request: NextRequest) {
         { error: "This email is already registered. Try signing in." },
         { status: 400 }
       );
+    }
+
+    // Save user profile data if provided
+    if (data.user?.id && (firstName || lastName || city || state)) {
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          first_name: firstName || null,
+          last_name: lastName || null,
+          city: city || null,
+          state: state || null,
+        })
+        .eq("id", data.user.id);
+
+      if (updateError) {
+        console.error("Error saving user profile:", updateError);
+        // Don't fail signup if profile save fails
+      }
     }
 
     // Process invite code if provided

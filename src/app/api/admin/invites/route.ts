@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     }
 
     // Send the invite email
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://racepaceapp.com";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://finalclimbapp.com";
     const emailContent = getVipInviteEmail({
       inviteCode,
       grantsPremium: grantPremium,

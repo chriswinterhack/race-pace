@@ -55,7 +55,7 @@ export function EmptyStateHero({ onAddRaceClick }: EmptyStateHeroProps) {
               <Button
                 variant="outline"
                 size="lg"
-                className="gap-2 border-brand-navy-600 text-white hover:bg-brand-navy-800 px-8 h-14 text-lg"
+                className="gap-2 bg-transparent border-white/30 text-white hover:bg-white/10 px-8 h-14 text-lg"
               >
                 Browse All Races
                 <ArrowRight className="h-5 w-5" />
