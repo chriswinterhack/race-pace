@@ -12,7 +12,7 @@ class SyncCodeView extends WatchUi.View {
     function initialize() {
         View.initialize();
         syncCode = "";
-        statusMessage = "Enter sync code from\nfinalclimbapp.com";
+        statusMessage = "Enter sync code from\nthefinalclimb.com";
         isLoading = false;
     }
 

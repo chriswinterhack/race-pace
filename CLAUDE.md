@@ -2,11 +2,11 @@
 
 > **CRITICAL - BRAND NAME & DOMAIN:**
 > - Business name: **FinalClimb**
-> - Domain: **finalclimbapp.com**
+> - Domain: **thefinalclimb.com**
 > - The folder is named "racepace" for historical reasons only - IGNORE IT
 > - **NEVER use "RacePace" anywhere - that name was taken**
 > - **NEVER use "finalclimb.com" - we don't own that domain**
-> - Always use "FinalClimb" for the brand and "finalclimbapp.com" for URLs
+> - Always use "FinalClimb" for the brand and "thefinalclimb.com" for URLs
 
 ## Project Overview
 

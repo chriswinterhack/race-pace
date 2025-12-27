@@ -24,7 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 const siteConfig = {
   name: "FinalClimb",
-  url: process.env.NEXT_PUBLIC_APP_URL || "https://finalclimbapp.com",
+  url: process.env.NEXT_PUBLIC_APP_URL || "https://thefinalclimb.com",
   description:
     "Build personalized race execution plans with power targets, pacing strategy, nutrition timing, and Garmin integration. Designed for gravel racing, mountain biking, and ultra-endurance cycling.",
 };

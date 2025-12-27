@@ -18,7 +18,7 @@ class RacePlanSyncer {
         syncCode = code;
 
         // Build the API URL
-        var url = "https://finalclimbapp.com/api/garmin/sync/" + code;
+        var url = "https://thefinalclimb.com/api/garmin/sync/" + code;
 
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_GET,

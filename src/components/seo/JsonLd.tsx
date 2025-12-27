@@ -17,8 +17,8 @@ export function OrganizationSchema() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "FinalClimb",
-    url: "https://finalclimbapp.com",
-    logo: "https://finalclimbapp.com/logo.png",
+    url: "https://thefinalclimb.com",
+    logo: "https://thefinalclimb.com/logo.png",
     description:
       "Race planning platform for gravel cycling, mountain biking, and ultra-endurance events. Build personalized race execution plans with power targets, pacing, nutrition, and Garmin integration.",
     sameAs: [
@@ -28,7 +28,7 @@ export function OrganizationSchema() {
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "customer support",
-      email: "support@finalclimbapp.com",
+      email: "support@thefinalclimb.com",
     },
   };
 
@@ -40,14 +40,14 @@ export function WebSiteSchema() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "FinalClimb",
-    url: "https://finalclimbapp.com",
+    url: "https://thefinalclimb.com",
     description:
       "Build personalized race execution plans with power targets, pacing strategy, nutrition timing, and Garmin integration for gravel and MTB racing.",
     potentialAction: {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: "https://finalclimbapp.com/dashboard/races?q={search_term_string}",
+        urlTemplate: "https://thefinalclimb.com/dashboard/races?q={search_term_string}",
       },
       "query-input": "required name=search_term_string",
     },
@@ -166,7 +166,7 @@ export function EventSchema({
     organizer: {
       "@type": "Organization",
       name: "FinalClimb",
-      url: "https://finalclimbapp.com",
+      url: "https://thefinalclimb.com",
     },
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",

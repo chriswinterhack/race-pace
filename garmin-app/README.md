@@ -138,7 +138,7 @@ The app communicates with the FinalClimb API to fetch race plan data:
 ### Sync code not working
 - Codes expire after 30 days
 - Check that the code matches exactly (FC-XXXX-XXXX format)
-- Generate a new code from finalclimbapp.com
+- Generate a new code from thefinalclimb.com
 
 ## License
 
